@@ -1,11 +1,12 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 7:14 PM EDT
+**Last updated:** August 19, 2026 at 7:32 PM EDT
 
 ## Table of Contents
 
 - [How to Read This Tracker](#how-to-read-this-tracker)
 - [Right Now](#right-now)
+- [Delivery Phases](#delivery-phases)
 - [Groundwork](#groundwork)
 - [The Reading Loop](#the-reading-loop)
 - [The Bookshelf](#the-bookshelf)
@@ -29,6 +30,24 @@ TermLeaf now has a researched Rust architecture and a locked first-release
 feature contract, but no reader implementation yet. The next step is to
 initialize the Rust package, prove terminal restoration on native platforms,
 and build the plain-text reading loop before structured formats and images.
+
+## Delivery Phases
+
+**Overall progress:** 0 of 6 phases complete. Phase 0 is next.
+
+The detailed work and exit gates remain in the
+[project plan](project_plan.md#delivery-roadmap). This table is the operational
+phase tracker and must be updated whenever work starts, completes, or becomes
+blocked.
+
+| Phase | Status | Exit gate summary |
+| --- | --- | --- |
+| 0. Rust foundation | Not started | Native terminal restoration and locked CI pass. |
+| 1. Plain-text reading loop | Not started | TXT reading, navigation, resize, and core test journeys pass. |
+| 2. Structured books and images | Not started | Safe EPUB and Markdown reading plus image fallbacks pass. |
+| 3. Dependable reading | Not started | Persistence, search, recents, annotations, help, and native terminal checks pass. |
+| 4. Product refinement | Not started | Recovery, links, accessibility, performance, and reader guidance meet their gates. |
+| 5. Release | Not started | Native packages, clean installs, checksums, notices, and platform smoke tests pass. |
 
 ## Groundwork
 
@@ -86,6 +105,7 @@ and build the plain-text reading loop before structured formats and images.
 | Feature | Status | What remains |
 | --- | --- | --- |
 | Automated tests | Not started | Cover parsing, navigation, state, and terminal behavior. |
+| Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | Not started | Check style, tests, and builds on every proposed change. |
 | Dependency policy | Not started | Configure cargo-deny for advisories, licenses, sources, and bans. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |

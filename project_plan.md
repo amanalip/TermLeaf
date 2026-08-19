@@ -1,6 +1,6 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 19, 2026 at 7:14 PM EDT
+**Last updated:** August 19, 2026 at 7:28 PM EDT
 
 ## Table of Contents
 
@@ -867,6 +867,11 @@ the release process.
 Testing will follow the architecture from pure logic toward real terminals.
 Most behavior should be proven without spawning a terminal process.
 
+Every commit will record its exact checks, outcomes, environment, fixtures,
+skipped coverage, and cleanup status in `testreport.md`. A complete local Rust
+validation cycle ends with `cargo clean` so ignored build output does not
+accumulate in the working directory.
+
 ### Model and Unit Tests
 
 - Format detection and decoding.
@@ -1226,6 +1231,11 @@ This plan should change when evidence changes the route, not simply because a
 date passed. Update `implementation_tracker.md` as work moves or stalls. Update
 `commit_tracker.md` whenever a commit changes behavior or settles an important
 question. Refresh the timestamp on any document whose meaning changes.
+
+Update `testreport.md` for every commit, including documentation-only commits.
+Record checks that did not run as skipped or not applicable rather than implying
+coverage. Downloaded full books remain ignored local inputs unless provenance,
+licensing, size, and repository need justify committing a fixture.
 
 Crate versions, security advisories, and platform behavior will move. Review
 them when the Cargo manifest is created, before each release, and whenever a

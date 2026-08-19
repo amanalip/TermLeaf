@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 7:18 PM EDT
+**Last updated:** August 19, 2026 at 7:32 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,30 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Establish test evidence and a local book corpus
+
+**Completed:** August 19, 2026 at 7:32 PM EDT
+
+**Commit subject:** `docs: establish test reporting`
+
+Changes:
+
+- Add `testreport.md` as the required per-commit validation record.
+- Record exact source, size, and SHA-256 details for six ignored Gutenberg test
+  inputs.
+- Link test reporting from the README, project plan, and implementation tracker.
+- Add all six delivery phases and their exit-gate summaries to the operational
+  implementation tracker.
+- Require `cargo clean` after each complete local Rust validation cycle.
+
+Validation:
+
+- All three EPUB archives pass `unzip -t` without member errors.
+- All three text books are identified as UTF-8 text.
+- `git check-ignore -v` confirms that every downloaded book remains ignored.
+- Local Markdown links resolve, Markdown files contain no em dash characters,
+  and `git diff --check` passes.
 
 ### Lock the first-release reader experience
 

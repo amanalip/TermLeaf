@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 19, 2026 at 7:18 PM EDT
+**Last updated:** August 19, 2026 at 7:28 PM EDT
 
 ## Table of Contents
 
@@ -63,3 +63,5 @@ security limits, delivery gates, and primary references.
   next, and what is holding us up.
 - [Commit tracker](commit_tracker.md): what changed and the reasoning behind
   decisions that will matter later.
+- [Test report](testreport.md): the checks, fixtures, environment, and outcomes
+  recorded for every commit.
