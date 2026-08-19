@@ -1,8 +1,12 @@
 # TermLeaf
 
+<p align="center">
+  <img src="assets/termleaf-logo.svg" alt="TermLeaf logo" width="180">
+</p>
+
 Turn pages without leaving the terminal.
 
-**Last updated:** August 19, 2026 at 6:20 PM EDT
+**Last updated:** August 19, 2026 at 6:25 PM EDT
 
 ## Table of Contents
 

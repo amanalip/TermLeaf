@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">TermLeaf logo</title>
+  <desc id="description">A green leaf with a terminal prompt growing from an open book inside a dark terminal window.</desc>
+
+  <rect x="32" y="56" width="448" height="400" rx="48" fill="#101814"/>
+  <path d="M32 136h448" stroke="#314039" stroke-width="8"/>
+  <circle cx="88" cy="96" r="12" fill="#f2f0e4"/>
+  <circle cx="128" cy="96" r="12" fill="#a3e635"/>
+  <circle cx="168" cy="96" r="12" fill="#66804f"/>
+
+  <path d="M256 332c-65-30-91-116-20-174 10-8 20-15 20-15s10 7 20 15c71 58 45 144-20 174Z" fill="#a3e635"/>
+  <path d="m218 214 28 27-28 27M263 268h39" fill="none" stroke="#101814" stroke-linecap="round" stroke-linejoin="round" stroke-width="15"/>
+  <path d="M256 244v132" stroke="#66804f" stroke-linecap="round" stroke-width="10"/>
+
+  <path d="M256 376c-39-29-87-43-144-39v-23c59-4 107 10 144 42 37-32 85-46 144-42v23c-57-4-105 10-144 39Z" fill="#f2f0e4"/>
+  <path d="M256 356v54M112 337c59-4 107 10 144 39 37-29 85-43 144-39" fill="none" stroke="#101814" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+</svg>

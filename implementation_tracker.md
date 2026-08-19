@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 6:20 PM EDT
+**Last updated:** August 19, 2026 at 6:25 PM EDT
 
 ## Table of Contents
 
@@ -33,6 +33,7 @@ the first release must support, choosing a stack would be guesswork.
 | Feature | Status | What remains |
 | --- | --- | --- |
 | Repository setup | Complete | The ignore rules and working documents are in place. |
+| Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
 | Product requirements | Not started | Name the first readers, formats, and operating systems. |
 | Technical architecture | Blocked | Choose it after the first-release boundaries are clear. |
 | Command-line interface | Not started | Decide how readers open books and inspect options. |

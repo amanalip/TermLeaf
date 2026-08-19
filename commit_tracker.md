@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 6:22 PM EDT
+**Last updated:** August 19, 2026 at 6:27 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,24 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Give TermLeaf a recognizable mark
+
+**Completed:** August 19, 2026 at 6:27 PM EDT
+
+**Commit subject:** `feat: add TermLeaf logo`
+
+Changes:
+
+- Add a scalable logo that joins a terminal, leaf, and open book.
+- Display the logo at the top of the README.
+- Record the visual direction and completed logo work.
+
+Validation:
+
+- The SVG passed XML validation and rendered successfully at 512 pixels.
+- The README image path resolves to the new asset.
+- Markdown files contain no em dashes or whitespace errors.
 
 ### Give the project notes a distinct voice
 
@@ -112,3 +130,15 @@ Project notes should sound specific to TermLeaf, vary their rhythm, and tell a
 reader why the work matters. We will avoid canned summaries, inflated claims,
 and em dashes. Trackers can stay structured, but their wording should remain
 plain and concrete.
+
+### DD-005: Build the mark from the product idea
+
+**Date:** August 19, 2026 at 6:25 PM EDT
+
+**Status:** Accepted
+
+The logo combines the three parts of the name and purpose: a terminal window,
+a living leaf, and an open book. Flat shapes and a restrained charcoal, lime,
+and warm-white palette keep it readable at icon size and independent of the
+viewer's light or dark theme. SVG is the source format so the mark can scale
+without introducing generated binary files.
