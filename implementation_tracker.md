@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 6:25 PM EDT
+**Last updated:** August 19, 2026 at 6:50 PM EDT
 
 ## Table of Contents
 
@@ -24,9 +24,10 @@
 
 ## Right Now
 
-TermLeaf has a direction, a roadmap, and a clean repository, but no reader
-yet. Product requirements come next. Until we decide which books and terminals
-the first release must support, choosing a stack would be guesswork.
+TermLeaf now has a researched Rust architecture and a staged delivery plan, but
+no reader implementation yet. The next step is to initialize the Rust package,
+prove terminal restoration on native platforms, and build the plain-text
+reading loop before taking on EPUB parsing.
 
 ## Groundwork
 
@@ -34,10 +35,12 @@ the first release must support, choosing a stack would be guesswork.
 | --- | --- | --- |
 | Repository setup | Complete | The ignore rules and working documents are in place. |
 | Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
-| Product requirements | Not started | Name the first readers, formats, and operating systems. |
-| Technical architecture | Blocked | Choose it after the first-release boundaries are clear. |
-| Command-line interface | Not started | Decide how readers open books and inspect options. |
-| Configuration | Not started | Choose sensible defaults, file locations, and overrides. |
+| Product boundaries | In progress | Confirm the support matrix, license expression, and default navigation. |
+| Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
+| Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
+| Rust package | Not started | Create the manifest, lockfile, module skeleton, and minimum Rust version. |
+| Command-line interface | Not started | Start with a book path and focused reader options through Clap. |
+| Configuration | Not started | Implement defaults, TOML settings, and explicit CLI overrides. |
 
 ## The Reading Loop
 
@@ -48,7 +51,8 @@ the first release must support, choosing a stack would be guesswork.
 | Navigation | Not started | Move by line, page, chapter, start, and end. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions without losing your place. |
-| Document formats | Not started | Pick one format, handle it well, then consider another. |
+| Plain-text format | Not started | Build the first complete reader path with bounded decoding. |
+| EPUB format | Not started | Add bounded ZIP preflight, rbook semantics, and XHTML conversion. |
 
 ## The Bookshelf
 
@@ -74,6 +78,7 @@ the first release must support, choosing a stack would be guesswork.
 | --- | --- | --- |
 | Automated tests | Not started | Cover parsing, navigation, state, and terminal behavior. |
 | Continuous integration | Not started | Check style, tests, and builds on every proposed change. |
+| Dependency policy | Not started | Configure cargo-deny for advisories, licenses, sources, and bans. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |
@@ -82,7 +87,8 @@ the first release must support, choosing a stack would be guesswork.
 
 | Risk | What could go wrong | How we reduce it |
 | --- | --- | --- |
-| Format scope stays vague | The parser and navigation model drift before coding begins. | Choose the first format and collect real samples early. |
+| Hostile EPUB archives | A small input consumes unreasonable memory or processing time. | Enforce archive, entry, decompression, and parser limits before reading content. |
 | Terminals behave differently | Layout or controls work locally but fail for readers elsewhere. | Name supported terminals and exercise them in integration tests. |
 | Large books strain memory | Opening or moving through a book becomes noticeably slow. | Set performance budgets and test large files from the first reader slice. |
 | Saved state is damaged | Readers lose their place or cannot reopen a book. | Write state atomically and version its on-disk shape. |
+| Unicode layout drifts | Width, wrapping, search, and highlights disagree. | Keep logical positions separate from visual rows and test grapheme-safe mappings. |

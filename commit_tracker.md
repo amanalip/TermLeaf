@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 6:27 PM EDT
+**Last updated:** August 19, 2026 at 6:55 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,28 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Turn the Rust research into the build plan
+
+**Completed:** August 19, 2026 at 6:55 PM EDT
+
+**Commit subject:** `docs: define detailed Rust project plan`
+
+Changes:
+
+- Replace unresolved stack questions with the researched Rust architecture.
+- Detail document ingestion, EPUB limits, Unicode layout, persistence, tests,
+  native CI, release gates, and remaining risks.
+- Link the plan to primary specifications and crate documentation.
+- Bring the implementation tracker in line with the chosen direction.
+
+Validation:
+
+- Key Ratatui, rbook, ZIP, EPUB, cargo-deny, and cargo-dist references were
+  checked against their current primary documentation.
+- Every Markdown file retains a table of contents and readable timestamp.
+- Markdown files contain no em dashes or common filler buzzwords.
+- `git diff --check` completed without whitespace errors.
 
 ### Give TermLeaf a recognizable mark
 
@@ -142,3 +164,49 @@ a living leaf, and an open book. Flat shapes and a restrained charcoal, lime,
 and warm-white palette keep it readable at icon size and independent of the
 viewer's light or dark theme. SVG is the source format so the mark can scale
 without introducing generated binary files.
+
+### DD-006: Build the reader in Rust with Ratatui and Crossterm
+
+**Date:** August 19, 2026 at 6:50 PM EDT
+
+**Status:** Accepted
+
+Stable Rust, Ratatui, and Crossterm give TermLeaf a fast native executable, an
+application-owned state model, deterministic rendering tests, and a credible
+path across Linux, macOS, and Windows. The core will use a synchronous event
+loop and ordinary worker threads rather than carrying an async runtime before
+the product has asynchronous work.
+
+### DD-007: Own logical document positions and layout
+
+**Date:** August 19, 2026 at 6:50 PM EDT
+
+**Status:** Accepted
+
+TermLeaf will parse each format into its own semantic document model and map
+logical positions to visual terminal rows during layout. Ratatui widgets will
+display the result but will not define wrapping, navigation, search offsets, or
+saved positions. This keeps a reader at the same passage when the viewport
+changes.
+
+### DD-008: Put a bounded archive layer in front of EPUB parsing
+
+**Date:** August 19, 2026 at 6:50 PM EDT
+
+**Status:** Accepted
+
+`rbook` will handle EPUB 2 and 3 semantics after a direct `zip` preflight checks
+member paths, counts, sizes, compression ratios, overlap, encryption, and
+supported methods. TermLeaf will read resources from the archive without
+unpacking them and will keep active or remote content inert.
+
+### DD-009: Keep early infrastructure small and local
+
+**Date:** August 19, 2026 at 6:50 PM EDT
+
+**Status:** Accepted
+
+TOML settings, versioned JSON state, platform-native directories, and atomic
+same-directory writes cover the first release. A database, file watcher,
+configuration framework, persistent logger, and async runtime will wait for a
+measured need.
