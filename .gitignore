@@ -1,0 +1,47 @@
+# Operating system metadata
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs, runtime data, and temporary files
+*.log
+*.pid
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Test and coverage output
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
+htmlcov/
+
+# Common dependency and build output
+node_modules/
+.venv/
+venv/
+dist/
+build/
+target/
+__pycache__/
+*.py[cod]
+
+# Locally downloaded reading material and application state
+library/
+downloads/
+.termleaf/
