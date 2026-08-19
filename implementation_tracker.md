@@ -1,86 +1,87 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 5:48 PM EDT
+**Last updated:** August 19, 2026 at 6:20 PM EDT
 
 ## Table of Contents
 
-- [Status Key](#status-key)
-- [Current Status](#current-status)
-- [Foundation](#foundation)
-- [Core Reader](#core-reader)
-- [Library Management](#library-management)
-- [User Experience](#user-experience)
-- [Quality and Distribution](#quality-and-distribution)
-- [Known Risks](#known-risks)
+- [How to Read This Tracker](#how-to-read-this-tracker)
+- [Right Now](#right-now)
+- [Groundwork](#groundwork)
+- [The Reading Loop](#the-reading-loop)
+- [The Bookshelf](#the-bookshelf)
+- [Terminal Experience](#terminal-experience)
+- [Confidence and Releases](#confidence-and-releases)
+- [Risks Worth Watching](#risks-worth-watching)
 
-## Status Key
+## How to Read This Tracker
 
-| Status | Meaning |
+| Status | What it means |
 | --- | --- |
-| Not started | Work has not begun. |
-| In progress | Work is actively being implemented. |
-| Blocked | A dependency or decision prevents progress. |
-| Complete | Implementation and validation are finished. |
+| Not started | Nobody has picked this up yet. |
+| In progress | Work is under way. |
+| Blocked | A specific choice or dependency has to land first. |
+| Complete | The feature works, has been checked, and is documented. |
 
-## Current Status
+## Right Now
 
-TermLeaf is in project setup and requirements definition. No application stack
-or source implementation has been selected yet.
+TermLeaf has a direction, a roadmap, and a clean repository, but no reader
+yet. Product requirements come next. Until we decide which books and terminals
+the first release must support, choosing a stack would be guesswork.
 
-## Foundation
+## Groundwork
 
-| Feature | Status | Notes |
+| Feature | Status | What remains |
 | --- | --- | --- |
-| Repository hygiene | Complete | Initial `.gitignore` and documentation structure added. |
-| Product requirements | Not started | Define target readers, formats, and platforms. |
-| Technical architecture | Blocked | Depends on product requirements and stack selection. |
-| CLI command structure | Not started | Define command names, options, and exit behavior. |
-| Configuration model | Not started | Define defaults, config location, and overrides. |
+| Repository setup | Complete | The ignore rules and working documents are in place. |
+| Product requirements | Not started | Name the first readers, formats, and operating systems. |
+| Technical architecture | Blocked | Choose it after the first-release boundaries are clear. |
+| Command-line interface | Not started | Decide how readers open books and inspect options. |
+| Configuration | Not started | Choose sensible defaults, file locations, and overrides. |
 
-## Core Reader
+## The Reading Loop
 
-| Feature | Status | Notes |
+| Feature | Status | What remains |
 | --- | --- | --- |
-| Plain-text rendering | Not started | Establish baseline reading flow. |
-| Terminal-aware layout | Not started | Handle width, height, wrapping, and resize events. |
-| Navigation | Not started | Page, line, chapter, beginning, and end controls. |
-| Progress persistence | Not started | Restore the last location for each document. |
-| Search | Not started | Forward and backward in-document search. |
-| Format support | Not started | Select formats after requirements are confirmed. |
+| Plain-text rendering | Not started | Put readable text on screen without surprises. |
+| Responsive layout | Not started | Wrap cleanly and recover when the terminal is resized. |
+| Navigation | Not started | Move by line, page, chapter, start, and end. |
+| Saved position | Not started | Reopen each book at the last stable location. |
+| Search | Not started | Search in both directions without losing your place. |
+| Document formats | Not started | Pick one format, handle it well, then consider another. |
 
-## Library Management
+## The Bookshelf
 
-| Feature | Status | Notes |
+| Feature | Status | What remains |
 | --- | --- | --- |
-| Open local document | Not started | Validate paths and unsupported formats. |
-| Recent documents | Not started | Store and display recent reading activity. |
-| Library index | Not started | Optional catalog of local reading material. |
-| Metadata extraction | Not started | Title, author, and document structure where available. |
+| Open a local book | Not started | Explain bad paths, permissions, and unsupported files clearly. |
+| Recent books | Not started | Make yesterday's book easy to reopen. |
+| Library index | Not started | Add a local catalog only if it improves the reading flow. |
+| Book details | Not started | Show title, author, and structure when the file provides them. |
 
-## User Experience
+## Terminal Experience
 
-| Feature | Status | Notes |
+| Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | Not started | Provide discoverable and consistent bindings. |
-| Help view | Not started | Include commands and active key bindings. |
-| Themes | Not started | Respect terminal capabilities and accessibility. |
-| Error reporting | Not started | Use concise, actionable terminal messages. |
+| Keyboard controls | Not started | Keep common actions quick and the full set discoverable. |
+| Help screen | Not started | Show commands and active key bindings without leaving the reader. |
+| Themes | Not started | Stay legible across terminal palettes and accessibility needs. |
+| Error messages | Not started | Say what failed, why it matters, and what the reader can try. |
 
-## Quality and Distribution
+## Confidence and Releases
 
-| Feature | Status | Notes |
+| Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | Not started | Unit, integration, and terminal behavior coverage. |
-| Continuous integration | Not started | Run formatting, linting, tests, and build checks. |
-| Packaging | Not started | Choose channels after platform targets are defined. |
-| Release process | Not started | Versioning, changelog, artifacts, and checksums. |
-| User documentation | In progress | Initial repository documents are available. |
+| Automated tests | Not started | Cover parsing, navigation, state, and terminal behavior. |
+| Continuous integration | Not started | Check style, tests, and builds on every proposed change. |
+| Packaging | Not started | Choose channels that fit the supported platforms. |
+| Release routine | Not started | Make versioning and artifact creation repeatable. |
+| Reader documentation | In progress | Keep instructions useful as the application takes shape. |
 
-## Known Risks
+## Risks Worth Watching
 
-| Risk | Impact | Mitigation |
+| Risk | What could go wrong | How we reduce it |
 | --- | --- | --- |
-| Undefined input formats | Architecture cannot be finalized. | Prioritize requirements and representative fixtures. |
-| Terminal compatibility | Rendering may vary across environments. | Define supported terminals and add integration tests. |
-| Large documents | Parsing or navigation may consume excess memory. | Establish performance targets and test incrementally. |
-| Local state corruption | Reading progress could be lost. | Use atomic writes and versioned state formats. |
+| Format scope stays vague | The parser and navigation model drift before coding begins. | Choose the first format and collect real samples early. |
+| Terminals behave differently | Layout or controls work locally but fail for readers elsewhere. | Name supported terminals and exercise them in integration tests. |
+| Large books strain memory | Opening or moving through a book becomes noticeably slow. | Set performance budgets and test large files from the first reader slice. |
+| Saved state is damaged | Readers lose their place or cannot reopen a book. | Write state atomically and version its on-disk shape. |

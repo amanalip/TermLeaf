@@ -1,149 +1,129 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 19, 2026 at 5:48 PM EDT
+**Last updated:** August 19, 2026 at 6:20 PM EDT
 
 ## Table of Contents
 
-- [Vision](#vision)
-- [Goals](#goals)
-- [Non-Goals](#non-goals)
-- [Guiding Principles](#guiding-principles)
-- [Delivery Plan](#delivery-plan)
-- [Definition of Done](#definition-of-done)
-- [Open Decisions](#open-decisions)
-- [Maintenance](#maintenance)
+- [The Idea](#the-idea)
+- [What Success Looks Like](#what-success-looks-like)
+- [What Can Wait](#what-can-wait)
+- [Rules for the Build](#rules-for-the-build)
+- [Roadmap](#roadmap)
+- [When a Feature Is Finished](#when-a-feature-is-finished)
+- [Questions to Settle](#questions-to-settle)
+- [Keeping the Plan Honest](#keeping-the-plan-honest)
 
-## Vision
+## The Idea
 
-TermLeaf enables comfortable, distraction-free reading without leaving the
-terminal. It should open documents quickly, render them clearly, preserve
-reading progress, and remain predictable across supported terminal sizes.
+Reading in a terminal should feel intentional, not like opening a text file and
+making do. TermLeaf aims for the quiet parts of a good e-reader: crisp pages,
+quick movement, a reliable bookmark, and controls that soon become muscle
+memory. It should start fast, work offline, and leave the reader's library on
+their own machine.
 
-## Goals
+## What Success Looks Like
 
-- Provide a fast terminal-first reading workflow.
-- Make navigation and controls easy to discover and remember.
-- Preserve reading position safely between sessions.
-- Handle supported document formats with clear failure messages.
-- Keep installation and configuration straightforward.
-- Maintain dependable behavior through automated tests and release checks.
+- A book opens quickly into a view that is comfortable for more than a few
+  minutes of reading.
+- Moving around feels immediate, whether the reader advances one line or jumps
+  across chapters.
+- Closing the program is safe. The next session starts at the same passage.
+- A narrow window, a resized terminal, or an awkward file produces sensible
+  behavior instead of a broken screen.
+- Installation is short enough to explain clearly and dependable enough to
+  trust.
 
-## Non-Goals
+## What Can Wait
 
-- Editing or authoring documents in the initial release.
-- Digital rights management circumvention.
-- Cloud accounts or cross-device synchronization in the initial release.
-- Full parity with graphical e-reader typography.
+The first release does not need to edit books, sync reading progress through a
+cloud account, or reproduce every typographic detail of a graphical e-reader.
+It will not circumvent digital rights management. These boundaries leave room
+to make the basic act of reading genuinely good.
 
-## Guiding Principles
+## Rules for the Build
 
-- Prefer a small, reliable core over broad format support.
-- Keep local reading data private and usable offline.
-- Treat keyboard accessibility and terminal compatibility as core behavior.
-- Choose dependencies deliberately and keep startup overhead low.
-- Record material design decisions in `commit_tracker.md`.
-- Track feature status and blockers in `implementation_tracker.md`.
+- Do one format well before collecting half-finished parsers.
+- Keep books, history, and reading positions local by default.
+- Treat keyboard access and terminal compatibility as part of the reader, not
+  polish for later.
+- Be cautious with dependencies and protective of startup time.
+- Record choices with lasting consequences in `commit_tracker.md`.
+- Keep the honest state of each feature in `implementation_tracker.md`.
 
-## Delivery Plan
+## Roadmap
 
-### Phase 1: Requirements and Architecture
+### 1. Draw the Boundaries
 
-Deliverables:
+First, decide who the initial release is for and where it must run. Choose the
+first document format, gather a handful of representative books, sketch the
+commands and keys, and set concrete speed and memory expectations. Only then
+should the project choose its language and terminal UI library.
 
-- Define supported operating systems and terminal environments.
-- Identify the first document format and representative test fixtures.
-- Specify key workflows, commands, keyboard controls, and accessibility needs.
-- Set measurable startup, navigation, and memory targets.
-- Select the implementation stack and document the architecture.
+We can move on when a tiny application builds locally and the open questions
+needed for the first reading loop have answers.
 
-Exit criteria:
+### 2. Make Reading Possible
 
-- Open decisions required for the first vertical slice are resolved.
-- A minimal application can be built and tested locally.
+Build the shortest complete journey: open one supported book, lay it out at
+the current terminal width, move forward and backward, jump to either end, and
+show enough progress to keep the reader oriented. Bad paths and malformed
+books should produce useful messages rather than stack traces or blank screens.
 
-### Phase 2: Reading Vertical Slice
+This milestone is ready when someone can sit down with a representative book,
+read for a while, and navigate without fighting the interface. Tests should
+cover that same journey.
 
-Deliverables:
+### 3. Make Reading Dependable
 
-- Open one supported local document format.
-- Render readable, terminal-width-aware content.
-- Navigate forward, backward, to the beginning, and to the end.
-- Display basic location or progress information.
-- Handle invalid paths, unreadable files, and unsupported content.
+Add the details that turn a demo into a daily tool. Save positions safely,
+restore them on the next launch, respond to terminal resizing, search inside a
+book, and keep help close at hand. Define where configuration and local state
+live. Put large books through the same path before performance problems harden
+into the design.
 
-Exit criteria:
+This stage is complete when interrupted writes do not destroy progress and the
+reader behaves consistently in every terminal we claim to support.
 
-- A user can complete a reading session against representative fixtures.
-- Core behavior has automated tests.
+### 4. Build the Bookshelf
 
-### Phase 3: Persistent Reader
+Once the reading loop is solid, make returning easier. Add recent books, expose
+useful metadata, and consider a local library index. Refine the status line,
+colors, and error messages with real use rather than decoration for its own
+sake. Finish the guides a new reader and a new contributor will actually need.
 
-Deliverables:
+We are finished here when the common paths have been tried by people other
+than the author and the agreed accessibility and performance targets hold up.
 
-- Save and restore reading position safely.
-- React correctly to terminal resize events.
-- Add in-document search and help views.
-- Define configuration precedence and storage locations.
-- Validate performance with large documents.
+### 5. Ship It
 
-Exit criteria:
+Automate the checks that protect a release, produce packages for supported
+platforms, and write down the versioning and changelog routine. Build artifacts
+should be reproducible, checksummed, and tested from a clean machine.
 
-- State survives normal exits and interrupted writes without corruption.
-- Supported terminal environments pass integration checks.
+The release is ready when a new user can install TermLeaf, open a book, and
+start reading by following the published instructions exactly.
 
-### Phase 4: Library and Polish
+## When a Feature Is Finished
 
-Deliverables:
+A feature earns **Complete** in the tracker when its behavior is clear, its
+important edges are tested, and all project checks pass. Reader-facing changes
+must be reflected in the docs. Choices that could puzzle a future contributor
+belong in the decision log attached to the same commit.
 
-- Add recent-document history and optional library indexing.
-- Present available metadata where the source format supports it.
-- Refine themes, status information, and error messages.
-- Complete user and contributor documentation.
+## Questions to Settle
 
-Exit criteria:
-
-- Primary workflows are documented and usability-tested.
-- Accessibility and performance targets are met.
-
-### Phase 5: Release
-
-Deliverables:
-
-- Automate formatting, linting, tests, and release builds.
-- Package the application for supported platforms.
-- Establish versioning, changelog, artifact, and checksum procedures.
-- Run installation and upgrade smoke tests.
-
-Exit criteria:
-
-- Release artifacts are reproducible and pass all quality gates.
-- Installation and first-use instructions are verified from a clean system.
-
-## Definition of Done
-
-A feature is complete when:
-
-- Its expected behavior and edge cases are documented.
-- The implementation follows established project conventions.
-- Automated tests cover its critical behavior.
-- Formatting, linting, tests, and builds pass.
-- User-facing documentation and trackers reflect the change.
-- Relevant design decisions are recorded with the associated commit.
-
-## Open Decisions
-
-| Decision | Why It Matters | Target Phase |
+| Question | Why answer it early? | When |
 | --- | --- | --- |
-| Implementation language and terminal UI library | Determines architecture, packaging, and test strategy. | Phase 1 |
-| Initial document format | Defines parsing and navigation requirements. | Phase 1 |
-| Supported operating systems and terminals | Sets compatibility and release scope. | Phase 1 |
-| State and configuration locations | Affects portability, privacy, and upgrades. | Phase 1 |
-| Navigation and key-binding model | Shapes the core reading experience. | Phase 1 |
-| Packaging channels | Determines release automation requirements. | Phase 5 |
+| Which language and terminal UI library fit TermLeaf? | This shapes the architecture, packaging, and test approach. | Stage 1 |
+| Which document format comes first? | Parsing, structure, and navigation all depend on it. | Stage 1 |
+| Which systems and terminals do we promise to support? | A promise needs repeatable compatibility checks. | Stage 1 |
+| Where should settings and reading positions live? | The answer affects privacy, portability, and upgrades. | Stage 1 |
+| Which navigation style should feel native? | Key choices define the rhythm of everyday reading. | Stage 1 |
+| How will people install TermLeaf? | Release automation should serve real distribution channels. | Stage 5 |
 
-## Maintenance
+## Keeping the Plan Honest
 
-- Update this plan when scope, sequencing, or acceptance criteria change.
-- Update `implementation_tracker.md` as feature status changes.
-- Update `commit_tracker.md` with every commit and material design decision.
-- Refresh each document's **Last updated** timestamp when its content changes.
+This plan should change when evidence changes the route, not simply because a
+date passed. Update `implementation_tracker.md` as work moves or stalls. Update
+`commit_tracker.md` whenever a commit changes behavior or settles an important
+question. Refresh the timestamp on any document whose meaning changes.

@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 5:52 PM EDT
+**Last updated:** August 19, 2026 at 6:22 PM EDT
 
 ## Table of Contents
 
@@ -12,24 +12,44 @@
 
 ## Purpose
 
-This file records the user-visible changes and design decisions associated
-with each commit. It should be updated in the same change set as the work it
-describes.
+Git can show which lines moved. This tracker explains why they moved. It keeps
+each meaningful change beside the decisions a future contributor would
+otherwise have to reconstruct.
 
 ## Update Process
 
-1. Add planned changes under **Pending Commit** while work is in progress.
-2. Record decisions that affect architecture, behavior, or maintenance in the
-   **Design Decision Log**.
-3. Before committing, verify that the pending entry matches the staged diff.
-4. Before committing, move the entry to **Commit History** with the intended
-   commit subject and final timestamp, then verify both against Git history.
+1. Describe active work under **Pending Commit**.
+2. Add choices with lasting consequences to the **Design Decision Log**.
+3. Compare the entry with the staged diff before committing.
+4. Move the entry to **Commit History**, add the intended subject and time,
+   then check both against Git history after the commit lands.
 
 ## Pending Commit
 
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Give the project notes a distinct voice
+
+**Completed:** August 19, 2026 at 6:22 PM EDT
+
+**Commit subject:** `docs: sharpen project writing`
+
+Changes:
+
+- Rewrite the README around the experience TermLeaf wants to create.
+- Turn the project plan from a generic checklist into a practical story of how
+  the reader will take shape.
+- Make implementation notes direct, specific, and easy to scan.
+- Keep every Markdown file free of em dashes.
+
+Validation:
+
+- All four Markdown files retain a table of contents and readable timestamp.
+- Local document links and table-of-contents anchors were checked.
+- No em dashes or common filler buzzwords remain in the Markdown files.
+- `git diff --check` completed without whitespace errors.
 
 ### Repository planning foundation
 
@@ -61,8 +81,8 @@ Validation:
 **Status:** Accepted
 
 The repository does not yet declare a language, framework, or package manager.
-The initial plan therefore describes product capabilities and delivery gates
-without prematurely selecting an implementation stack.
+The plan stays focused on the reading experience until the first-release scope
+gives us a sound reason to choose an implementation stack.
 
 ### DD-002: Track documentation beside source code
 
@@ -70,8 +90,8 @@ without prematurely selecting an implementation stack.
 
 **Status:** Accepted
 
-Planning, implementation status, and commit context live at the repository
-root so they are versioned, reviewable, and updated with related code changes.
+Planning, implementation status, and commit context sit at the repository root.
+That keeps them visible, reviewable, and close to the code they describe.
 
 ### DD-003: Do not ignore dependency lockfiles
 
@@ -79,5 +99,16 @@ root so they are versioned, reviewable, and updated with related code changes.
 
 **Status:** Accepted
 
-Lockfiles are intentionally absent from `.gitignore`. Once a package manager
-is selected, its lockfile should be committed to support reproducible builds.
+Lockfiles are intentionally absent from `.gitignore`. Once the project chooses
+a package manager, its lockfile will help make builds repeatable.
+
+### DD-004: Write like a person building TermLeaf
+
+**Date:** August 19, 2026 at 6:20 PM EDT
+
+**Status:** Accepted
+
+Project notes should sound specific to TermLeaf, vary their rhythm, and tell a
+reader why the work matters. We will avoid canned summaries, inflated claims,
+and em dashes. Trackers can stay structured, but their wording should remain
+plain and concrete.
