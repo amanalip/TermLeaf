@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 6:55 PM EDT
+**Last updated:** August 19, 2026 at 7:18 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,29 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Lock the first-release reader experience
+
+**Completed:** August 19, 2026 at 7:18 PM EDT
+
+**Commit subject:** `docs: lock first-release feature set`
+
+Changes:
+
+- Record the agreed formats, reading modes, navigation, search, recents,
+  annotations, themes, status details, links, and platform intent.
+- Define a capability-driven image path with bounded raster and SVG decoding.
+- Add acceptance boundaries that distinguish first-release features from later
+  library, export, animation, and search work.
+- Align the README and implementation tracker with the locked product contract.
+
+Validation:
+
+- Current image rendering, raster decoding, SVG, and Markdown parser references
+  were checked against their primary documentation.
+- Every Markdown file retains a table of contents and readable timestamp.
+- Markdown files contain no em dashes or common filler buzzwords.
+- `git diff --check` completed without whitespace errors.
 
 ### Turn the Rust research into the build plan
 
@@ -210,3 +233,49 @@ TOML settings, versioned JSON state, platform-native directories, and atomic
 same-directory writes cover the first release. A database, file watcher,
 configuration framework, persistent logger, and async runtime will wait for a
 measured need.
+
+### DD-010: Lock a rich but local first-release reader
+
+**Date:** August 19, 2026 at 7:14 PM EDT
+
+**Status:** Accepted
+
+The first release will read local TXT, Markdown, and reflowable EPUB books in
+paged or continuous mode. It includes hybrid keys, smart-case search, recent
+books, saved positions, bookmarks, highlights, notes, detailed status, built-in
+themes, confirmed external links, and native Linux, macOS, and Windows targets.
+It will not scan libraries, synchronize data, or modify source books.
+
+### DD-011: Treat images as a capability chain
+
+**Date:** August 19, 2026 at 7:14 PM EDT
+
+**Status:** Accepted
+
+TermLeaf will normalize bounded raster and static SVG input, then render through
+a positively detected Kitty, Sixel, or iTerm2 path. Unsupported terminals fall
+back to true-color half-block cells and finally a useful caption. The reader
+will attempt safely enabled formats but will not promise arbitrary media or emit
+several graphics protocols blindly.
+
+### DD-012: Store annotations beside reader state
+
+**Date:** August 19, 2026 at 7:14 PM EDT
+
+**Status:** Accepted
+
+Bookmarks, colored highlights, and plain-text notes belong to versioned local
+TermLeaf state and point to logical document ranges. They never rewrite TXT,
+Markdown, or EPUB sources. Export, sharing, and synchronization remain outside
+the first release.
+
+### DD-013: Make Paper a responsive built-in theme
+
+**Date:** August 19, 2026 at 7:14 PM EDT
+
+**Status:** Accepted
+
+Paper uses a warm ivory page, charcoal text, muted olive accents, restrained
+sepia highlights, and a subtle centered boundary. It gives up margins or the
+page boundary before content becomes cramped and has 256-color and monochrome
+fallbacks. It will not fake texture or reduce contrast for decoration.

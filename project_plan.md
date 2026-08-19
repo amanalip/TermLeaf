@@ -1,11 +1,12 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 19, 2026 at 6:50 PM EDT
+**Last updated:** August 19, 2026 at 7:14 PM EDT
 
 ## Table of Contents
 
 - [The Idea](#the-idea)
 - [Product Boundaries](#product-boundaries)
+- [Locked First-Release Features](#locked-first-release-features)
 - [What Success Looks Like](#what-success-looks-like)
 - [Formats and Platforms](#formats-and-platforms)
 - [Technical Direction](#technical-direction)
@@ -49,17 +50,20 @@ graphical document viewer.
 
 Included in the first release:
 
-- Local plain-text and reflowable EPUB books.
-- A full-screen terminal reading view.
-- Keyboard navigation with discoverable help.
-- Search within the open book.
-- Safe, local reading-position persistence.
-- Useful handling for invalid paths, malformed books, and unsupported content.
-- Native builds for each platform that passes the release test matrix.
+- Local plain-text, Markdown, and reflowable EPUB books.
+- Paged and continuous full-screen reading modes.
+- Semantic text, best-effort inline images, and confirmed external links.
+- Hybrid conventional and Vim-style keyboard navigation.
+- Smart-case search within the open book.
+- Safe reading-position persistence, bookmarks, highlights, and notes.
+- A recent-books screen without automatic library scanning.
+- Built-in dark, light, high-contrast, monochrome, and Paper themes.
+- Detailed reading status and discoverable help.
+- Native Linux, macOS, and Windows builds after their release tests pass.
 
 Explicitly outside the first release:
 
-- Book editing or annotation authoring.
+- Book editing or source-document authoring.
 - Cloud accounts and cross-device synchronization.
 - Digital rights management circumvention.
 - Fixed-layout EPUB presentation.
@@ -72,6 +76,278 @@ PDF remains separate because it is a fixed-layout graphics format. Text may be
 stored in drawing order, fonts may lack usable Unicode maps, and scanned pages
 need optical character recognition. Adding a PDF parser would not turn those
 documents into reliable reflowable books.
+
+TermLeaf may store highlights and notes about a passage, but it will not modify
+the source book or present itself as a document editor.
+
+## Locked First-Release Features
+
+The choices in this section form the first-release product contract. They may
+change only through an explicit scope decision recorded in `commit_tracker.md`.
+
+### Feature Summary
+
+| Area | Locked behavior |
+| --- | --- |
+| Inputs | Local TXT, Markdown, reflowable EPUB 2, and reflowable EPUB 3 |
+| Reading flow | Paged by default, with continuous scrolling available at any time |
+| EPUB text | Headings, emphasis, strong text, lists, quotes, code, links, separators, and useful table content |
+| Images | Attempt every safely enabled decoder, prefer native terminal graphics, then cell rendering, then a caption |
+| Navigation | Arrow and paging keys plus familiar Vim-style bindings |
+| Search | Forward and backward literal smart-case search with visible matches |
+| Position | Automatically save and restore a logical location for every book |
+| Bookmarks | Create, name, rename, list, jump to, and delete bookmarks |
+| Annotations | Create, color, edit, list, jump to, and delete highlights and notes |
+| Home screen | Recent books with reopen, remove-from-recents, clear, and open-path actions |
+| Library | No directory scanning or permanent metadata index in the first release |
+| Themes | Dark, light, high contrast, monochrome, and Paper |
+| Status | Title, chapter, logical location, dynamic page, percentage, clock, reading mode, and temporary messages |
+| Links | Show the destination and require confirmation before opening a system browser |
+| Help | Searchable or scannable command and key reference inside the application |
+| Platforms | Linux, macOS, and Windows after native tests and packaging pass |
+
+### Opening and Returning to Books
+
+TermLeaf accepts a local path on the command line. Starting without a path opens
+the recent-books screen. Opening a supported book places the reader at its most
+recent valid logical position, or at the beginning when no saved position
+exists.
+
+The recent-books screen will:
+
+- Keep a bounded, most-recently-used list.
+- Show title and author when trustworthy metadata is available.
+- Fall back to a recognizable file name and path when metadata is absent.
+- Reopen a selected book.
+- Let the reader choose another local path.
+- Remove one stale or unwanted entry without deleting the source file.
+- Clear the list after confirmation.
+- Mark moved, missing, or inaccessible files without repeatedly failing.
+
+It will not crawl folders, watch the filesystem, download metadata, or build a
+hidden catalog. A full library index remains a possible post-release feature.
+
+### Reading Modes
+
+Paged mode is the default. One page is the current content viewport after
+reserving space for the status line and any visible frame. Page movement uses a
+logical anchor, so changing width or theme does not turn the old visual page
+number into a bookmark.
+
+Continuous mode scrolls through the same layout model by visual rows. Switching
+between modes keeps the first meaningful visible passage anchored. Both modes
+support line, page, chapter, table-of-contents, search-result, bookmark, and
+annotation jumps.
+
+### Semantic Content
+
+TXT preserves paragraphs and deliberate blank lines after safe decoding.
+Markdown and EPUB map into the same document model and retain reading-relevant
+structure:
+
+- Headings and section boundaries.
+- Paragraphs and explicit line breaks.
+- Emphasis, strong text, and inline code.
+- Ordered, unordered, and nested lists.
+- Quotations and fenced code blocks.
+- Links with visible destination handling.
+- Horizontal separators.
+- Tables reduced to a readable terminal layout or linearized when too narrow.
+- Image alt text and captions.
+
+CSS will inform only the small set of semantics TermLeaf deliberately supports.
+It will not reproduce browser layout, custom fonts, animation, absolute
+positioning, scripts, or fixed-page geometry.
+
+Markdown support will use `pulldown-cmark` and its source offsets rather than
+converting Markdown to HTML first. Raw HTML follows the same inert, bounded HTML
+path as EPUB content.
+
+### Image Rendering
+
+Images are best effort because terminal capabilities vary sharply. The reader
+must never emit several graphics protocols blindly and hope one works. It will
+use positive capability evidence or an explicit user override.
+
+The ordered display path is:
+
+1. Honor an explicit protocol or fallback override.
+2. Use Kitty graphics after a positive capability query.
+3. Use Sixel after positive capability reporting and compatibility checks.
+4. Use the iTerm2 inline-image protocol in a known compatible terminal.
+5. Use a true-color Unicode half-block rendering inside ordinary cells.
+6. Show alt text, a caption, dimensions, and a short failure reason.
+
+`ratatui-image` will integrate images with Ratatui's redraw model. `image` will
+decode bounded raster input. `usvg` and `resvg` will rasterize static SVG and
+SVGZ without scripts, animation, network access, or host filesystem access.
+The `ratatui-image` default features will be disabled so Chafa does not add an
+unplanned native runtime and license obligation.
+
+The first release will attempt these bounded formats:
+
+- PNG and a static APNG preview.
+- JPEG.
+- GIF first frame.
+- WebP.
+- BMP.
+- ICO.
+- TIFF.
+- PNM.
+- TGA.
+- QOI.
+- DDS.
+- OpenEXR.
+- Radiance HDR.
+- Farbfeld.
+- Static SVG and SVGZ.
+- Additional formats only when the chosen decoder handles them safely on every
+  supported platform and their dependency and license costs have been reviewed.
+
+HEIF, HEIC, JPEG XL, PDF, video, audio, arbitrary attachments, and animated
+playback are not promised. AVIF requires a separate native decoding decision
+and is not automatically included merely because an encoder feature exists.
+
+Initial image limits:
+
+| Resource | Initial limit |
+| --- | ---: |
+| Compressed raster input | 32 MiB |
+| SVG or SVGZ XML input | 8 MiB |
+| Width or height | 16,384 pixels |
+| Total decoded pixels | 64 million |
+| Decoder allocation budget | 256 MiB |
+| Animated preview | First frame only |
+
+Decode, SVG rasterization, resizing, and protocol encoding happen away from the
+UI thread. The work queue is bounded, and stale page-image requests can be
+discarded. SVG resource resolution accepts only bounded data or canonical EPUB
+archive entries. It rejects network URLs, absolute paths, escaping parent paths,
+device paths, and host filesystem reads.
+
+### Navigation and Keys
+
+Default controls will support both conventional terminal expectations and a
+small Vim-style set. The exact conflict-free map will be tested in Stage 1, but
+the feature contract includes:
+
+| Action | Conventional family | Vim-style family |
+| --- | --- | --- |
+| Previous or next line | Up and Down | `k` and `j` |
+| Previous or next page | Page Up and Page Down | Ctrl-B and Ctrl-F |
+| Start or end | Home and End | `gg` and `G` |
+| Previous or next section | Documented modified arrows | `[` and `]` family |
+| Search | Documented command key | `/`, `n`, and `N` |
+| Table of contents | Documented command key | A mnemonic single key |
+| Bookmark or annotation | Documented command key | Mnemonic single keys |
+| Help | F1 | `?` |
+| Exit or back | Escape and documented quit key | `q` where unambiguous |
+
+No essential action will require mouse input, AltGr, key-release events, or a
+modern terminal keyboard extension. Final bindings must avoid collisions with
+text entry in search and note-editing modes.
+
+### Search
+
+In-book search is literal and smart-case:
+
+- A lowercase query matches without case sensitivity.
+- A query containing uppercase characters preserves case sensitivity.
+- Search moves forward or backward from the current logical position.
+- All visible matches are highlighted without moving the saved reading anchor.
+- Next and previous result actions wrap only after a clear indication.
+- Search history remains local and has a clear action.
+- Matches map from normalized search text back to original logical ranges.
+
+Regular expressions, fuzzy body search, and a persistent cross-book index are
+outside the first release.
+
+### Bookmarks, Highlights, and Notes
+
+All annotations live in TermLeaf's versioned local state. Source TXT, Markdown,
+and EPUB files remain untouched.
+
+Bookmarks support a reader-supplied name and one logical location. Highlights
+cover a logical range and use a small accessible color set. Notes attach
+editable plain text to a logical range or point.
+
+The annotation view will:
+
+- List bookmarks, highlights, and notes for the current book.
+- Show a short passage preview and chapter context.
+- Jump to an item without losing the previous position unexpectedly.
+- Rename bookmarks.
+- Change an allowed highlight color.
+- Create and edit note text.
+- Delete one item after confirmation.
+- Recover gracefully when an edited source book invalidates an old range.
+
+Annotation export, synchronization, sharing, Markdown injection, and EPUB
+modification are outside the first release.
+
+### Themes and the Paper View
+
+The first release includes built-in dark, light, high-contrast, monochrome, and
+Paper themes. Readers can select a theme in the current session and persist the
+choice through TOML configuration. Arbitrary custom palettes are deferred.
+
+The Paper theme will make the content area feel like a page without pretending
+the terminal is a graphical typesetter:
+
+- A warm ivory page field.
+- Dark charcoal text.
+- Muted olive accents that connect to the TermLeaf logo.
+- Restrained sepia selection and search highlights.
+- A subtle centered page boundary when the terminal is wide enough.
+- Comfortable horizontal margins that shrink before content becomes unusable.
+- A full-canvas fallback when a distinct page would leave too little room.
+- Nearest-color fallbacks for 256-color terminals.
+- A contrast-preserving monochrome fallback.
+
+The Paper theme will not change the terminal font, fake paper texture with noisy
+characters, or sacrifice contrast for decoration.
+
+### Status and Progress
+
+The detailed status line shows:
+
+- Book title.
+- Current chapter or section.
+- Logical location.
+- Dynamic page within the current layout where meaningful.
+- Overall reading percentage.
+- Paged or continuous mode.
+- Current clock time.
+- Temporary confirmations, warnings, search counts, and pending-save state.
+
+Detailed does not mean crowded. Fields collapse in a documented priority order
+on narrow terminals, and temporary messages replace lower-priority metrics long
+enough to be read. Dynamic page numbers are never persisted as bookmarks.
+
+### External Links
+
+Activating an external link opens a confirmation view that shows the complete
+destination. Only an explicit confirmation launches the system browser. The
+reader can cancel and leave the URL visible for ordinary terminal selection.
+
+TermLeaf will validate the scheme, treat suspicious or unsupported schemes as
+non-openable text, and never follow a link while parsing a book. Internal EPUB
+links navigate inside the document without a browser prompt.
+
+### Help and Discoverability
+
+The in-application help view will explain keys by current mode, show available
+commands, describe image and accessibility fallbacks, and link each status
+indicator to plain language. It must be usable without leaving the book and
+must return to the exact logical passage that opened it.
+
+### Platform Promise
+
+The first release intends to provide Linux, macOS, and Windows artifacts. Each
+platform earns the promise only after native builds, core tests, PTY journeys,
+terminal restoration checks, and clean installation tests pass. A protocol such
+as Sixel may be unavailable on a supported platform without making text reading
+unsupported; the image fallback chain is part of the platform contract.
 
 ## What Success Looks Like
 
@@ -111,7 +387,7 @@ the machine, operating system, terminal, book size, and build profile.
 | --- | --- | --- |
 | Plain text | First vertical slice | It exposes layout, navigation, and state problems without archive or markup complexity. |
 | EPUB 2 and EPUB 3 | First structured format | EPUB provides chapters, metadata, navigation, and reflowable content that match TermLeaf's purpose. |
-| Markdown | Later candidate | Its structure maps cleanly to the document model, but it is not needed to prove the reader. |
+| Markdown | First release | Its structure maps directly into the shared document model through a source-aware parser. |
 | PDF | Not planned for the first release | Reliable reading order, reflow, fonts, images, and OCR form a separate subsystem. |
 
 Plain-text decoding will accept valid UTF-8 and UTF-8 with a byte-order mark.
@@ -160,6 +436,10 @@ manifest should use compatible version requirements, while the committed
 | EPUB semantics | `rbook 0.7.x` | Typed EPUB 2 and 3 metadata, manifest, spine, navigation, landmarks, and lazy resources. |
 | Archive inspection | `zip 8.6.x` | Exposes member sizes, paths, compression methods, and overlap checks needed before EPUB parsing. |
 | XHTML parsing | `scraper 0.27.x` | Tolerant HTML5 parsing through `html5ever` for imperfect real-world chapters. |
+| Markdown parsing | `pulldown-cmark 0.13.x` | A mature event stream with source offsets and no required HTML round trip. |
+| Terminal images | `ratatui-image 11.x` | Ratatui-aware Kitty, Sixel, iTerm2, and half-block rendering paths. |
+| Raster decoding | `image 0.25.x` | Bounded decoding into one normalized bitmap representation. |
+| Static SVG | `usvg` and `resvg 0.48.x` | Script-free SVG parsing and portable rasterization under a restricted resolver. |
 | Text decoding | `encoding_rs 0.8.x` | Reliable UTF-8 and BOM-identified UTF-16 decoding. |
 | Graphemes | `unicode-segmentation 1.13.x` | Prevents clipping and navigation through the middle of a user-perceived character. |
 | Cell width | `unicode-width 0.2.x` | Estimates terminal columns for Unicode strings and common emoji sequences. |
@@ -187,6 +467,7 @@ manifest should use compatible version requirements, while the committed
 | `regex` | User-facing regular-expression search is a real requirement. |
 | `nucleo-matcher` | A fuzzy chapter or library picker exists. |
 | `tantivy` | Multi-book indexed search becomes part of the product. |
+| Chafa | A packaged native Unicode renderer proves worth its runtime and LGPL compliance cost. |
 
 No configuration framework, database, file watcher, or async runtime belongs
 in the first dependency graph. Handwritten code is smaller and clearer for the
@@ -728,8 +1009,10 @@ Work:
 - Decode supported plain-text files into the document model.
 - Implement grapheme-aware, cell-width-aware layout.
 - Render the reading viewport and status line.
-- Navigate by line, page, start, and end.
+- Implement paged and continuous modes.
+- Navigate by line, page, start, and end with hybrid default keys.
 - Keep a stable logical anchor through resize.
+- Add the built-in themes, including the responsive Paper view.
 - Report missing files, invalid encoding, and unusable terminal sizes.
 
 Exit gate:
@@ -739,15 +1022,18 @@ Exit gate:
 - Model, property, render, and basic PTY tests cover the journey.
 - Provisional interaction and memory budgets are measured.
 
-### Stage 2: Add Safe EPUB Reading
+### Stage 2: Add Structured Books and Images
 
 Work:
 
 - Implement bounded ZIP preflight and archive policy errors.
 - Integrate `rbook` for package, spine, metadata, and navigation semantics.
 - Convert chapter XHTML into the shared document model.
+- Parse Markdown directly into the shared document model.
 - Add chapter and table-of-contents navigation.
 - Detect encrypted and fixed-layout books.
+- Decode bounded raster and SVG resources away from the UI thread.
+- Implement protocol detection, half-block fallback, and caption fallback.
 - Build a licensed corpus of EPUB 2, EPUB 3, malformed, large, and hostile
   fixtures.
 - Fuzz archive, XML, XHTML, and conversion boundaries.
@@ -758,6 +1044,7 @@ Exit gate:
 - Unsafe archives fail within defined resource limits.
 - Malformed but recoverable XHTML remains readable.
 - Unsupported encryption and fixed layout receive specific messages.
+- Image failures never block surrounding text or damage terminal output.
 
 ### Stage 3: Make Reading Dependable
 
@@ -765,7 +1052,8 @@ Work:
 
 - Define versioned configuration and state schemas.
 - Save and restore logical reading positions atomically.
-- Add recent books and literal in-book search.
+- Add recent books and smart-case in-book search.
+- Add bookmarks, highlights, notes, and their management view.
 - Add help and complete keyboard coverage.
 - Introduce monochrome and high-contrast presentation.
 - Expand native terminal and accessibility testing.
@@ -778,14 +1066,14 @@ Exit gate:
 - Search results map correctly to wrapped output.
 - Claimed terminals pass native integration tests.
 
-### Stage 4: Build the Bookshelf
+### Stage 4: Refine the Reading Desk
 
 Work:
 
 - Refine recent-book history and metadata presentation.
-- Decide whether a library index improves real workflows.
-- Add SQLite only if measured query needs justify it.
-- Consider Markdown after the document model has proven reusable.
+- Refine annotation recovery when source books move or change.
+- Verify external-link confirmation and browser launching on each platform.
+- Keep automatic library indexing outside the first release.
 - Test the common paths with readers other than the author.
 - Finish user, troubleshooting, and contributor guides.
 
@@ -834,8 +1122,9 @@ A feature earns **Complete** in the tracker when:
 | --- | --- | --- |
 | Is the license `GPL-3.0-only` or `GPL-3.0-or-later`? | The manifest and distributed notices need an exact SPDX expression. | Stage 0 |
 | Which OS versions and terminals are promised? | Release claims need native evidence and maintenance boundaries. | Stage 0 |
-| Which keys should define the default reading rhythm? | Defaults shape daily use and future configuration. | Stage 1 |
+| What exact hybrid key map avoids text-entry conflicts? | Defaults shape daily use and future configuration. | Stage 1 |
 | How should a document identity survive moves or edits? | Saved positions need stability without collecting unnecessary private data. | Stage 1 |
+| Which optional image decoders pass the security and platform review? | Broad format attempts must not add fragile native dependencies or unsafe allocation. | Stage 2 |
 | Which recoverable EPUB errors become warnings? | Permissive parsing helps readers but must not hide unsafe input. | Stage 2 |
 | What level of right-to-left support can be promised? | Bidi layout, terminal shaping, search, and highlights must agree. | Stage 3 |
 | Does a local library index improve actual use? | A database should solve demonstrated retrieval problems. | Stage 4 |
@@ -887,6 +1176,14 @@ this plan.
 - [scraper documentation](https://docs.rs/scraper/latest/scraper/)
 - [html5ever documentation](https://docs.rs/html5ever/latest/html5ever/)
 - [encoding_rs documentation](https://docs.rs/encoding_rs/latest/encoding_rs/)
+- [pulldown-cmark documentation](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/)
+- [ratatui-image documentation](https://docs.rs/ratatui-image/latest/ratatui_image/)
+- [image format support](https://docs.rs/image/latest/image/codecs/index.html#supported-formats)
+- [image decoder limits](https://docs.rs/image/latest/image/struct.Limits.html)
+- [resvg documentation](https://docs.rs/resvg/latest/resvg/)
+- [usvg options](https://docs.rs/usvg/latest/usvg/struct.Options.html)
+- [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
+- [iTerm2 image protocol](https://iterm2.com/documentation-images.html)
 
 ### Unicode and Search
 
