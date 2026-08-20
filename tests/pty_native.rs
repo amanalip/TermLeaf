@@ -38,6 +38,18 @@ impl PtyCase {
             Err(poisoned) => poisoned.into_inner(),
         };
         let root = tempfile::tempdir().context("create isolated PTY root")?;
+        for directory in [
+            "appdata",
+            "local-appdata",
+            "temp",
+            "config",
+            "data",
+            "state",
+            "cache",
+        ] {
+            std::fs::create_dir_all(root.path().join(directory))
+                .context("create isolated PTY directory")?;
+        }
         let pair = native_pty_system()
             .openpty(PtySize {
                 rows: 24,
@@ -48,6 +60,20 @@ impl PtyCase {
             .context("open native PTY")?;
         let mut command = CommandBuilder::new(TERMLEAF);
         command.env_clear();
+        #[cfg(windows)]
+        for key in [
+            "ComSpec",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "SystemDrive",
+            "SystemRoot",
+            "WINDIR",
+        ] {
+            if let Some(value) = std::env::var_os(key) {
+                command.env(key, value);
+            }
+        }
         command.env("TERM", "xterm-256color");
         command.env("LANG", "C.UTF-8");
         command.env("LC_ALL", "C.UTF-8");
@@ -123,7 +149,10 @@ impl PtyCase {
             }
         }
         self.kill_and_reap()?;
-        bail!("timed out waiting for {expected:?}")
+        bail!(
+            "timed out waiting for {expected:?}; output={:?}",
+            String::from_utf8_lossy(&self.output)
+        )
     }
 
     fn send(&mut self, input: &[u8]) -> Result<()> {
@@ -146,7 +175,10 @@ impl PtyCase {
             }
             if Instant::now() >= self.deadline {
                 self.kill_and_reap()?;
-                bail!("PTY child exceeded the case timeout")
+                bail!(
+                    "PTY child exceeded the case timeout; output={:?}",
+                    String::from_utf8_lossy(&self.output)
+                )
             }
         };
 

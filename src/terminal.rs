@@ -204,6 +204,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
 mod tests {
     use std::{cell::RefCell, rc::Rc};
 
+    #[cfg(unix)]
     use anyhow::bail;
 
     use super::*;

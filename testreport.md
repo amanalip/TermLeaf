@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:02 AM EDT
+**Last updated:** August 20, 2026 at 1:26 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,37 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Fix Windows CI regressions
+
+**Commit subject:** `fix: restore Windows CI compatibility`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:26 AM EDT
+
+Scope:
+
+- Reproduce the Windows warnings-as-errors failure by inspecting its target-
+  conditional compilation path.
+- Gate the Unix-only `bail` import with the same `cfg(unix)` condition as all
+  of its call sites.
+- Preserve `SystemRoot`, `SystemDrive`, `WINDIR`, `ComSpec`, `PATH`, `PATHEXT`,
+  and `OS` in the otherwise isolated Windows ConPTY child environment.
+- Create redirected temp/state directories before spawn and retain child output
+  in timeout diagnostics.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| `cargo fmt --check` | Passed after formatting the ConPTY environment allowlist |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed locally; the exact Windows target awaits CI rerun |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `cargo deny check` | Passed: advisories, bans, licenses, and sources |
+| Unix-only import audit | Passed: the `bail` import and call sites use matching conditions |
+| `cargo clean` | Passed: removed 2,000 files and 433.3 MiB |
 
 ### Complete Phase 0 implementation
 

@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:02 AM EDT
+**Last updated:** August 20, 2026 at 1:26 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,28 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Fix Windows CI regressions
+
+**Completed:** August 20, 2026 at 1:26 AM EDT
+
+**Commit subject:** `fix: restore Windows CI compatibility`
+
+Changes:
+
+- Compile the `anyhow::bail` test import only on Unix, matching every call site.
+- Restore warnings-as-errors compatibility for the Windows all-target Clippy job.
+- Preserve the minimal Windows system environment required by `CreateProcessW`
+  and ConPTY while keeping user data paths isolated.
+- Create redirected test directories before launch and include captured output
+  in PTY timeout diagnostics.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, 28 Rust tests, doctests, cargo-deny,
+  and diff checks passed locally.
+- `cargo clean` removed all generated build output.
+- Exact Windows validation is delegated to the CI rerun triggered by this commit.
 
 ### Complete Phase 0 implementation
 
