@@ -10,10 +10,7 @@ last_evidence = ["testreport.md#start-the-rust-foundation"]
 
 [cases.CLI-004]
 status = "Implemented"
-location = [
-    "src/ui.rs::base_shell_renders_deterministically",
-    "tests/pty_linux.rs::cli_004_launch_without_path_opens_recent_books",
-]
+location = ["tests/pty_native.rs::cli_004_launch_without_path_opens_recent_books"]
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
 
 [cases.CLI-005]
@@ -21,11 +18,16 @@ status = "Implemented"
 location = ["tests/cli.rs::cli_005_missing_path_fails_without_terminal_sequences"]
 last_evidence = ["testreport.md#start-the-rust-foundation"]
 
+[cases.CLI-006]
+status = "Implemented"
+location = ["tests/cli.rs::cli_006_unreadable_path_fails_before_terminal_initialization"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
 [cases.TERM-001]
 status = "Implemented"
 location = [
     "src/terminal.rs::term_001_normal_exit_restores_changed_modes_in_reverse_order",
-    "tests/pty_linux.rs::term_001_q_restores_terminal_modes",
+    "tests/pty_native.rs::term_001_q_restores_terminal_modes",
 ]
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
 
@@ -38,10 +40,12 @@ location = [
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
 
 [cases.TERM-003]
+status = "Implemented"
 location = [
     "src/app/action.rs::term_003_ctrl_c_requests_a_clean_exit",
-    "tests/pty_linux.rs::term_003_ctrl_c_key_restores_terminal_modes",
+    "tests/pty_native.rs::term_003_ctrl_c_key_restores_terminal_modes",
 ]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
 [cases.TERM-004]
 status = "Implemented"
@@ -56,36 +60,172 @@ last_evidence = ["testreport.md#continue-the-rust-foundation"]
 status = "Implemented"
 location = [
     "src/terminal.rs::term_005_each_setup_failure_rolls_back_completed_steps",
-    "src/terminal.rs::cleanup_attempts_every_step_after_one_restore_failure",
+    "src/terminal.rs::app_004_cleanup_attempts_every_step_after_one_restore_failure",
 ]
 last_evidence = ["testreport.md#start-the-rust-foundation"]
 
 [cases.TERM-008]
 status = "Implemented"
-location = ["tests/pty_linux.rs::term_008_vt100_models_balanced_lifecycle_output"]
+location = ["tests/pty_native.rs::term_008_vt100_models_balanced_lifecycle_output"]
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
 
+[cases.TERM-011]
+status = "Implemented"
+location = [
+    "src/interrupt.rs::term_011_interrupt_flag_is_process_safe",
+    "tests/pty_native.rs::term_011_external_sigint_restores_terminal_modes",
+]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.TERM-012]
+status = "Implemented"
+location = ["tests/pty_native.rs::term_012_supported_launch_baseline_is_restored"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
 [cases.CLI-010]
-location = ["tests/pty_linux.rs::cli_010_pre_terminal_error_emits_no_control_sequences"]
+status = "Implemented"
+location = [
+    "tests/pty_native.rs::cli_010_pre_terminal_error_emits_no_control_sequences",
+    "src/terminal.rs::term_002_handled_active_error_restores_before_diagnostic",
+]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
 [cases.KEY-004]
 location = ["src/app/action.rs::key_004_ignores_key_release_events"]
 
 [cases.ERR-002]
 status = "Implemented"
-location = ["src/process.rs::err_002_handled_error_is_reported_outside_the_operation"]
+location = [
+    "src/process.rs::err_002_handled_error_is_reported_outside_the_operation",
+    "src/terminal.rs::term_002_handled_active_error_restores_before_diagnostic",
+]
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
 
-[cases.HELP-002]
-location = ["src/app/state.rs::help_returns_to_its_invoking_view_and_focus"]
+[cases.APP-001]
+status = "Implemented"
+location = ["src/app/state.rs::app_001_each_view_owns_exactly_one_focus_kind"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
-[cases.HELP-003]
-location = ["src/app/action.rs::help_and_input_use_the_same_binding_registry"]
+[cases.APP-002]
+status = "Implemented"
+location = [
+    "src/app/state.rs::app_002_help_returns_to_its_invoking_view_and_focus",
+    "src/app/state.rs::app_002_quit_stops_the_state_loop",
+    "src/app/action.rs::app_002_help_and_input_use_the_same_binding_registry",
+]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
-[cases.PROP-010]
-location = ["src/app/state.rs::quit_stops_the_state_loop"]
+[cases.APP-003]
+status = "Implemented"
+location = ["src/ui.rs::app_003_base_shell_renders_deterministically"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.APP-004]
+status = "Implemented"
+location = ["src/terminal.rs::app_004_cleanup_attempts_every_step_after_one_restore_failure"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
 [cases.QG-014]
 status = "Implemented"
 location = ["tools/case_registry.py::check"]
 last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.QG-001]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo fmt --check"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-002]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo clippy"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-003]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo test --locked"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-004]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo test --doc --locked"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-005]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo deny check"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-006]
+status = "Implemented"
+location = [".github/workflows/ci.yml::cargo +1.88.0"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-007]
+status = "Implemented"
+location = [".github/workflows/ci.yml::all-targets"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-008]
+status = "Implemented"
+location = ["Cargo.toml::unsafe_code"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-009]
+status = "Implemented"
+location = ["src/lib.rs"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-010]
+status = "Implemented"
+location = ["testreport.md"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-011]
+status = "Implemented"
+location = ["src/terminal.rs"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-012]
+status = "Implemented"
+location = ["Cargo.toml"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.QG-013]
+status = "Implemented"
+location = ["src/app/state.rs"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-001]
+status = "Implemented"
+location = ["Cargo.lock"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-002]
+status = "Implemented"
+location = ["deny.toml"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-003]
+status = "Implemented"
+location = ["Cargo.lock"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-004]
+status = "Implemented"
+location = [".github/workflows/ci.yml"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-006]
+status = "Implemented"
+location = ["Cargo.toml", "LICENSE", "README.md"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-007]
+status = "Implemented"
+location = ["Cargo.lock"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]
+
+[cases.SUP-008]
+status = "Implemented"
+location = ["Cargo.toml"]
+last_evidence = ["testreport.md#complete-phase-0-implementation"]

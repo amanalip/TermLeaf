@@ -7,15 +7,17 @@ use std::{
 
 use anyhow::Result;
 
-use crate::{app::App, cli::Cli, terminal};
+use crate::{app::App, cli::Cli, interrupt, terminal};
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 
 /// Builds and runs the application behind its process-level panic boundary.
 #[must_use]
 pub fn run(cli: Cli) -> ExitCode {
+    interrupt::clear();
     run_and_report(
         || {
+            interrupt::install()?;
             let app = App::new(cli.book)?;
             terminal::run(app)
         },

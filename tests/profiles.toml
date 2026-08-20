@@ -5,7 +5,7 @@ schema_version = 1
 id = "pr-core"
 status = "Active"
 includes = []
-case_ids = ["QG-001", "QG-002", "QG-003", "QG-004", "QG-005", "QG-006", "QG-007", "QG-008", "QG-009", "QG-010", "QG-011", "QG-012", "QG-013", "QG-014", "CLI-001", "CLI-002", "CLI-003", "CLI-005", "CLI-006", "CLI-007", "CLI-008", "TERM-005", "TERM-007", "TXT-001", "TXT-002", "TXT-003", "TXT-004", "TXT-005", "TXT-006", "TXT-007", "TXT-010", "MODEL-001", "MODEL-002", "MODEL-003", "MODEL-004", "MD-001", "MD-002", "MD-005", "MD-006", "MD-009", "MD-010", "EPUB-001", "EPUB-002", "EPUB-003", "EPUB-004", "EPUB-005", "EPUB-007", "EPUB-008", "EPUB-011", "IMG-002", "IMG-008", "IMG-010", "LAY-001", "LAY-002", "LAY-003", "LAY-004", "LAY-005", "LAY-006", "LAY-011", "LAY-014", "LAY-015", "NAV-001", "NAV-002", "NAV-003", "NAV-004", "NAV-005", "NAV-007", "NAV-008", "NAV-010", "NAV-012", "NAV-013", "NAV-014", "SEARCH-001", "SEARCH-002", "SEARCH-003", "SEARCH-005", "SEARCH-007", "SEARCH-009", "SEARCH-011", "SEARCH-012", "SEARCH-014", "CFG-001", "CFG-002", "CFG-003", "CFG-004", "STATE-001", "STATE-002", "STATE-005", "STATE-006", "STATE-007", "STATE-016", "RECENT-001", "RECENT-002", "RECENT-004", "RECENT-005", "ANN-001", "ANN-002", "ANN-004", "ANN-006", "ANN-007", "ANN-008", "ANN-013", "ANN-014", "THEME-002", "THEME-010", "STATUS-003", "HELP-003", "ERR-001", "LINK-005", "PRIV-005", "CON-002", "CON-003", "A11Y-004", "A11Y-005", "A11Y-008", "PERF-001", "PERF-002", "PERF-003", "PERF-004", "PERF-005", "PERF-006", "SUP-001", "SUP-006"]
+case_ids = ["QG-001", "QG-002", "QG-003", "QG-004", "QG-005", "QG-006", "QG-007", "QG-008", "QG-009", "QG-010", "QG-011", "QG-012", "QG-013", "QG-014", "CLI-001", "CLI-002", "CLI-003", "CLI-005", "CLI-006", "CLI-007", "CLI-008", "APP-001", "APP-002", "APP-004", "TERM-005", "TERM-007", "TXT-001", "TXT-002", "TXT-003", "TXT-004", "TXT-005", "TXT-006", "TXT-007", "TXT-010", "MODEL-001", "MODEL-002", "MODEL-003", "MODEL-004", "MD-001", "MD-002", "MD-005", "MD-006", "MD-009", "MD-010", "EPUB-001", "EPUB-002", "EPUB-003", "EPUB-004", "EPUB-005", "EPUB-007", "EPUB-008", "EPUB-011", "IMG-002", "IMG-008", "IMG-010", "LAY-001", "LAY-002", "LAY-003", "LAY-004", "LAY-005", "LAY-006", "LAY-011", "LAY-014", "LAY-015", "NAV-001", "NAV-002", "NAV-003", "NAV-004", "NAV-005", "NAV-007", "NAV-008", "NAV-010", "NAV-012", "NAV-013", "NAV-014", "SEARCH-001", "SEARCH-002", "SEARCH-003", "SEARCH-005", "SEARCH-007", "SEARCH-009", "SEARCH-011", "SEARCH-012", "SEARCH-014", "CFG-001", "CFG-002", "CFG-003", "CFG-004", "STATE-001", "STATE-002", "STATE-005", "STATE-006", "STATE-007", "STATE-016", "RECENT-001", "RECENT-002", "RECENT-004", "RECENT-005", "ANN-001", "ANN-002", "ANN-004", "ANN-006", "ANN-007", "ANN-008", "ANN-013", "ANN-014", "THEME-002", "THEME-010", "STATUS-003", "HELP-003", "ERR-001", "LINK-005", "PRIV-005", "CON-002", "CON-003", "A11Y-004", "A11Y-005", "A11Y-008", "PERF-001", "PERF-002", "PERF-003", "PERF-004", "PERF-005", "PERF-006", "SUP-001", "SUP-006"]
 runner = "native-host"
 timeout_seconds = 600
 retry_policy = "none"
@@ -28,7 +28,7 @@ argv = ["cargo", "deny", "check"]
 id = "pr-render"
 status = "Planned"
 includes = ["pr-core"]
-case_ids = ["TERM-008", "MD-003", "MD-007", "MD-011", "EPUB-012", "EPUB-013", "IMG-011", "IMG-012", "IMG-014", "LAY-007", "LAY-009", "LAY-010", "LAY-012", "NAV-006", "NAV-009", "NAV-011", "SEARCH-004", "SEARCH-006", "SEARCH-008", "SEARCH-013", "RECENT-003", "RECENT-006", "ANN-003", "ANN-005", "ANN-011", "ANN-012", "THEME-001", "THEME-003", "THEME-004", "THEME-005", "THEME-006", "THEME-007", "THEME-008", "THEME-009", "RENDER-001", "RENDER-002", "RENDER-003", "RENDER-004", "STATUS-001", "STATUS-002", "STATUS-004", "STATUS-005", "STATUS-006", "STATUS-007", "HELP-001", "HELP-002", "HELP-004", "HELP-005", "UI-001", "UI-002", "UI-003", "UI-004", "UI-005", "UI-006", "UI-009", "UI-010", "UI-011", "LINK-002", "LINK-008", "A11Y-002", "A11Y-003"]
+case_ids = ["APP-003", "TERM-008", "MD-003", "MD-007", "MD-011", "EPUB-012", "EPUB-013", "IMG-011", "IMG-012", "IMG-014", "LAY-007", "LAY-009", "LAY-010", "LAY-012", "NAV-006", "NAV-009", "NAV-011", "SEARCH-004", "SEARCH-006", "SEARCH-008", "SEARCH-013", "RECENT-003", "RECENT-006", "ANN-003", "ANN-005", "ANN-011", "ANN-012", "THEME-001", "THEME-003", "THEME-004", "THEME-005", "THEME-006", "THEME-007", "THEME-008", "THEME-009", "RENDER-001", "RENDER-002", "RENDER-003", "RENDER-004", "STATUS-001", "STATUS-002", "STATUS-004", "STATUS-005", "STATUS-006", "STATUS-007", "HELP-001", "HELP-002", "HELP-004", "HELP-005", "UI-001", "UI-002", "UI-003", "UI-004", "UI-005", "UI-006", "UI-009", "UI-010", "UI-011", "LINK-002", "LINK-008", "A11Y-002", "A11Y-003"]
 runner = "native-host"
 timeout_seconds = 600
 retry_policy = "none"
@@ -48,7 +48,7 @@ retry_policy = "none"
 parallelism = "1"
 retained_artifacts = ["command-log", "failure-output"]
 [[profile.command]]
-argv = ["cargo", "test", "--locked", "--test", "pty_linux", "--", "--test-threads=1"]
+argv = ["cargo", "test", "--locked", "--test", "pty_native", "--", "--test-threads=1"]
 
 [[profile]]
 id = "security"

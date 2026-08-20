@@ -12,7 +12,7 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::{
     app::{App, action_for},
-    ui,
+    interrupt, ui,
 };
 
 trait TerminalControl {
@@ -185,6 +185,10 @@ where
 
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
     while app.is_running() {
+        if interrupt::requested() {
+            app.update(crate::app::Action::Quit);
+            continue;
+        }
         terminal.draw(|frame| ui::render(frame, app))?;
         if event::poll(Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
@@ -218,7 +222,7 @@ mod tests {
             let mut state = self.0.borrow_mut();
             state.calls.push(name);
             if state.fail_at == Some(name) {
-                return Err(io::Error::other("injected terminal failure"));
+                return Err(io::Error::other(name));
             }
             Ok(())
         }
@@ -341,12 +345,14 @@ mod tests {
     }
 
     #[test]
-    fn cleanup_attempts_every_step_after_one_restore_failure() -> io::Result<()> {
+    fn app_004_cleanup_attempts_every_step_after_one_restore_failure() -> io::Result<()> {
         let (control, state) = mock(None);
         let mut session = TerminalSession::start(control)?;
         state.borrow_mut().fail_at = Some("show_cursor");
 
-        assert!(session.restore().is_err());
+        let error = session
+            .restore()
+            .expect_err("show cursor restoration fails");
 
         let calls = &state.borrow().calls;
         assert!(calls.ends_with(&[
@@ -355,6 +361,7 @@ mod tests {
             "leave_screen",
             "disable_raw",
         ]));
+        assert_eq!(error.to_string(), "show_cursor");
         Ok(())
     }
 
@@ -362,20 +369,37 @@ mod tests {
     struct FaultPtyGuard {
         master: Option<Box<dyn portable_pty::MasterPty + Send>>,
         child: Box<dyn portable_pty::Child + Send + Sync>,
-        reader: Option<std::thread::JoinHandle<io::Result<Vec<u8>>>>,
+        reader: Option<std::thread::JoinHandle<()>>,
+        output: Option<std::sync::mpsc::Receiver<io::Result<Vec<u8>>>>,
     }
 
     #[cfg(unix)]
     impl Drop for FaultPtyGuard {
         fn drop(&mut self) {
             if !matches!(self.child.try_wait(), Ok(Some(_))) {
-                let _kill_result = self.child.kill();
-                let _wait_result = self.child.wait();
+                if self.child.kill().is_err() {
+                    std::process::abort();
+                }
+                let deadline = std::time::Instant::now() + Duration::from_secs(2);
+                let mut reaped = false;
+                while std::time::Instant::now() < deadline {
+                    if matches!(self.child.try_wait(), Ok(Some(_))) {
+                        reaped = true;
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                if !reaped {
+                    std::process::abort();
+                }
             }
             drop(self.master.take());
-            if let Some(reader) = self.reader.take() {
-                let _join_result = reader.join();
+            if let Some(output) = self.output.take()
+                && output.recv_timeout(Duration::from_secs(2)).is_err()
+            {
+                std::process::abort();
             }
+            drop(self.reader.take());
         }
     }
 
@@ -403,18 +427,21 @@ mod tests {
         let child = pair.slave.spawn_command(command)?;
         drop(pair.slave);
         let mut source = pair.master.try_clone_reader()?;
-        let reader = std::thread::spawn(move || -> io::Result<Vec<u8>> {
+        let (output_sender, output) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
             let mut output = Vec::new();
-            match source.read_to_end(&mut output) {
+            let result = match source.read_to_end(&mut output) {
                 Ok(_) => Ok(output),
                 Err(error) if error.raw_os_error() == Some(5) => Ok(output),
                 Err(error) => Err(error),
-            }
+            };
+            let _send_result = output_sender.send(result);
         });
         let mut guard = FaultPtyGuard {
             master: Some(pair.master),
             child,
             reader: Some(reader),
+            output: Some(output),
         };
 
         let deadline = Instant::now() + Duration::from_secs(10);
@@ -438,11 +465,12 @@ mod tests {
         assert_eq!(final_termios, initial_termios);
         drop(guard.master.take());
         let output = guard
-            .reader
+            .output
             .take()
-            .context("fault PTY reader is present")?
-            .join()
-            .map_err(|_| anyhow::anyhow!("controlled terminal fault reader panicked"))??;
+            .context("controlled terminal fault output receiver is present")?
+            .recv_timeout(Duration::from_secs(2))
+            .context("controlled terminal fault reader did not stop")??;
+        drop(guard.reader.take());
         let mut parser = vt100::Parser::new(24, 80, 0);
         parser.process(&output);
         Ok((parser.screen().clone(), output))

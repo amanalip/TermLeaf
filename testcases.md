@@ -1,6 +1,6 @@
 # TermLeaf Test Cases
 
-**Last updated:** August 20, 2026 at 12:44 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -370,12 +370,17 @@ affected exact oracle, and the case registry together.
 | `DEC-TEST-010` | `NAV-007`, native `KEY` cases | Final conflict-free action-to-key map and multikey-prefix policy |
 | `DEC-TEST-011` | `STATUS-002`, `STATUS-004`, `STATUS-005` | Exact field collapse order, location/percentage/page formulas, rounding, clock format, and message lifetime |
 | `DEC-TEST-012` | config/state/input limits | Numeric limits for TXT, Markdown, config, state, queries, notes, URLs, recents, annotations, and total persisted state |
-| `DEC-TEST-013` | signals and native release rows | Supported POSIX and Windows termination events |
 | `DEC-TEST-014` | image override cases | Exact incompatible explicit-override error or fallback behavior |
 | `DEC-TEST-015` | `EPUB-003` | Exact EPUB manifest fallback selection and failure rule |
 | `DEC-TEST-016` | `SEC-007` | Whether an over-limit XHTML chapter rejects the book or becomes a bounded skipped chapter |
 | `DEC-TEST-017` | `ANN-006`, temporary-view returns | Exact return-stack behavior after jumping away from a prior passage |
 | `DEC-TEST-018` | `CON-001`, `CON-008` | Numeric queue/worker/in-flight limits and backpressure/rejection policy |
+
+`DEC-TEST-013` was resolved by `DD-018`: Phase 0 supports raw-mode Ctrl-C on all
+targets and catchable external `SIGINT` on POSIX. Windows console Ctrl-C,
+Ctrl-Break, close, logoff, and shutdown events, POSIX termination/hangup, and
+uncatchable events are not claimed until a safe native harness and checkpoint
+semantics require them.
 
 ## Boundary Method
 
@@ -469,6 +474,10 @@ commands, required environments, and every excluded mapped ID with its reason.
 | `CLI-008` | P1 | Supply config plus explicit CLI overrides. | Only explicitly supplied CLI values override config; defaults remain lowest precedence. | Unit / `pr-core` |
 | `CLI-009` | P1 | Pipe input or output instead of a TTY. | Remains Blocked until `DEC-TEST-002`; final behavior emits no unapproved full-screen control sequences. | PTY / `native-pty` |
 | `CLI-010` | P0 | Force failure before and after terminal initialization. | Pre-init failure emits no cleanup sequences; post-init failure restores every changed mode. | PTY / `native-pty` |
+| `APP-001` | P0 | Enumerate every first-release view identity. | Each view derives exactly one exclusive focus owner; text-entry, list, reader, confirmation, error, and suspended focus cannot coexist. | Unit / `pr-core` |
+| `APP-002` | P0 | Exercise foundation quit, help, and return actions. | The state loop stops cleanly, help uses the shared binding registry, and return restores the invoking view and focus. | Unit / `pr-core` |
+| `APP-003` | P1 | Render the foundation recent-books shell twice at `40x10`. | Required title, empty state, and action band occupy deterministic cells with no stale output. | Render / `pr-render` |
+| `APP-004` | P0 | Inject one restoration failure after complete setup. | Every remaining cleanup operation is attempted once and the first cleanup error remains primary. | Unit / `pr-core` |
 
 ## Terminal Lifecycle Cases
 
@@ -484,8 +493,8 @@ commands, required environments, and every excluded mapped ID with its reason.
 | `TERM-008` | P1 | Run ANSI output through `vt100`. | Final cells, cursor, clears, and alternate-screen exit match direct assertions. | Integration / `pr-render` |
 | `TERM-009` | P1 | Terminate while a worker is active. | Worker shutdown is bounded; no child or thread remains and terminal cleanup completes. | PTY / `native-pty` |
 | `TERM-010` | P1 | Repeat launch/quit through SSH and tmux. | Controls and restoration remain correct or a documented capability fallback activates. | Manual / `release` |
-| `TERM-011` | P0 | For every supported signal in `DEC-TEST-013`, deliver it during startup, reading, text entry, dirty save, and active worker shutdown. | Catchable events follow the documented checkpoint policy, exit within timeout, and restore captured terminal state; uncatchable events are explicitly excluded. | PTY / `native-pty` |
-| `TERM-012` | P0 | Start from each observable terminal mode enabled and disabled where supported. | Canonical/echo flags, cursor, screen, mouse, paste, and keyboard modes return to captured initial values rather than assumed defaults. | PTY / `native-pty` |
+| `TERM-011` | P0 | Deliver raw-mode Ctrl-C on every target and external `SIGINT` on POSIX during the foundation shell. | Supported paths dispatch the quit action, exit within timeout, and restore terminal state; other process events are explicitly excluded. | PTY / `native-pty` |
+| `TERM-012` | P0 | Start from the supported shell baseline and capture native kernel terminal attributes where available. | Canonical/echo and related kernel flags return to captured values; owned ANSI modes return to primary screen, visible cursor, and disabled paste/mouse/keyboard-enhancement baseline. | PTY / `native-pty` |
 | `TERM-013` | P1 | Run open, navigate, resize, search, help, error, Ctrl-C, and quit through finalized SSH/tmux rows. | Exact `ENV-*` tuple passes Unicode, color downgrade, image fallback, disconnect, detach, and restoration assertions. | Manual / `release` |
 
 ## Native Keyboard Cases

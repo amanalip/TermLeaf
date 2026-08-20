@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn help_and_input_use_the_same_binding_registry() {
+    fn app_002_help_and_input_use_the_same_binding_registry() {
         let event = KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE);
 
         assert_eq!(action_for(event), Some(Action::ShowHelp));

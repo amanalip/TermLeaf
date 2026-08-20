@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 20, 2026 at 12:44 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -27,14 +27,15 @@
 
 ## Right Now
 
-Phase 0 is under way. The 332-case registry, exact profile and cumulative gate
-memberships, isolated CLI harness, and Linux PTY lifecycle journeys now exist.
-The remaining gate work is hosted Rust 1.88 evidence, native macOS and Windows
-evidence, final signal policy, and restoration from non-default initial modes.
+Phase 0 implementation is complete. The 336-case registry has no incomplete
+foundation case, the view/focus and action loop is explicit, unreadable paths
+fail before terminal setup, supported interrupts exit cleanly, and the native
+PTY target covers the documented shell baseline. Phase 1 is the next development
+phase. Hosted MSRV and platform jobs remain formal environment evidence.
 
 ## Delivery Phases
 
-**Overall progress:** 0 of 6 phases complete. Phase 0 is in progress.
+**Implementation progress:** 1 of 6 phases complete. Phase 1 is next.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -47,7 +48,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
-| 0. Rust foundation | In progress | UI shell, terminal guard, action/view state, locked CI, registry, profiles, harness, and exact foundation gate pass. |
+| 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Not started | Responsive TXT reader, modes, keys, status, all themes, help skeleton, errors, and anchor-preserving render/PTY evidence pass. |
 | 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
@@ -75,15 +76,15 @@ already inside the six phases; it does not add another phase.
 | Repository setup | Complete | The ignore rules and working documents are in place. |
 | Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
 | First-release features | Complete | The reader behavior, formats, images, annotations, themes, and platform intent are locked. |
-| Remaining product details | In progress | Set the exact key map, final signal policy, OS support versions, and tested terminals. |
+| Remaining product details | In progress | Set the Phase 1 key map, OS support versions, and tested release terminals. |
 | Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
 | Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
 | UI mockup specification | Complete | Implement responsive screens, focus states, overlays, accessibility, and phase ownership from `ui_mockups.md`. |
 | Rust package | Complete | The manifest, committed lockfile, GPL expression, lint policy, and Rust 1.88 minimum are in place. |
-| Application view/focus model | In progress | Foundation recent-books, reader placeholder, help, focus, and return behavior exist; later phase views remain. |
-| Shared action registry | In progress | Foundation quit, help, and back input and help text share one registry; Stage 1 must settle the reading key map. |
-| Command-line interface | In progress | Clap accepts an optional local book path and handles help, version, and missing paths before terminal setup. |
+| Application view/focus model | Complete | Every first-release view identity derives one exclusive focus owner; later phases add view-specific data and behavior. |
+| Shared action registry | Complete | Foundation quit, interrupt, help, and back behavior share one registry; Phase 1 extends it with reader actions. |
+| Command-line interface | Complete | Clap accepts an optional local book path and handles help, version, missing, non-file, and unreadable paths before terminal setup. |
 | Configuration | Not started | Implement defaults, TOML settings, and explicit CLI overrides. |
 
 ## The Reading Loop
@@ -133,10 +134,10 @@ already inside the six phases; it does not add another phase.
 | --- | --- | --- |
 | Automated tests | In progress | Foundation unit, render, isolated CLI, and Linux PTY tests run; native platform and later feature suites remain. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
-| Machine-readable case registry | Complete | All 332 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
-| Executable profile manifests | In progress | Exact core, render, PTY, security, scheduled, weekly, and release manifests exist; later targets remain Planned. |
+| Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
+| Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |
 | Frozen cumulative phase gates | Complete | Phase 0 through Phase 5 membership is frozen as exact cumulative IDs and required native environment rows. |
-| Hermetic test harness | In progress | CLI and PTY cases isolate user paths, environment, dimensions, terminal model, and deadlines; broader network/fault isolation remains. |
+| Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
 | Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally; hosted and cross-platform evidence remains. |

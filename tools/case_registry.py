@@ -37,6 +37,7 @@ PROFILE_IDS = (
 
 PHASE_BY_PREFIX = {
     "QG": 0,
+    "APP": 0,
     "CLI": 0,
     "TERM": 0,
     "KEY": 1,
@@ -81,10 +82,7 @@ PHASE_EXCEPTIONS = {
     "TERM-010": 5,
     "TERM-013": 5,
     "HELP-001": 1,
-    "HELP-003": 0,
     "ERR-002": 0,
-    "UI-011": 0,
-    "UI-012": 0,
     "SUP-001": 0,
     "SUP-002": 0,
     "SUP-003": 0,
@@ -92,7 +90,6 @@ PHASE_EXCEPTIONS = {
     "SUP-006": 0,
     "SUP-007": 0,
     "SUP-008": 0,
-    "PROP-010": 0,
 }
 
 PROFILE_EXCEPTIONS = {
@@ -282,7 +279,7 @@ def profile_commands(profile: str) -> list[list[str]]:
             ["cargo", "deny", "check"],
         ],
         "pr-render": [["cargo", "test", "--locked", "--test", "render"]],
-        "native-pty": [["cargo", "test", "--locked", "--test", "pty_linux", "--", "--test-threads=1"]],
+        "native-pty": [["cargo", "test", "--locked", "--test", "pty_native", "--", "--test-threads=1"]],
         "security": [["cargo", "test", "--locked", "--test", "security"]],
         "scheduled": [["cargo", "test", "--locked", "--all-targets", "--all-features"]],
         "weekly": [["cargo", "test", "--locked", "--all-targets", "--all-features"]],
@@ -352,8 +349,8 @@ def expected_outputs() -> dict[Path, str]:
     source = CATALOG.read_text(encoding="utf-8")
     cases = parse_catalog(source)
     ids = [case.id for case in cases]
-    if len(ids) != 332:
-        raise ValueError(f"expected 332 catalog cases, found {len(ids)}")
+    if len(ids) != 336:
+        raise ValueError(f"expected 336 catalog cases, found {len(ids)}")
     if len(ids) != len(set(ids)):
         raise ValueError("duplicate case IDs in testcases.md")
     source_hash = hashlib.sha256(source.encode()).hexdigest()
@@ -493,6 +490,18 @@ def validate_registry() -> None:
                 f"phase-gate-{phase}: unknown environments {sorted(unknown_environments)}"
             )
         previous_ids = gate_ids
+
+    cases_by_id = {case["id"]: case for case in cases}
+    incomplete_foundation = sorted(
+        case_id
+        for case_id in gate_map["phase-gate-0"]["case_ids"]
+        if cases_by_id[case_id]["status"] not in {"Implemented", "Passing"}
+    )
+    if incomplete_foundation:
+        raise ValueError(
+            "phase-gate-0 has cases without implementation evidence: "
+            + ", ".join(incomplete_foundation)
+        )
 
 
 def generate() -> None:

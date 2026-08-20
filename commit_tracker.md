@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 12:44 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,35 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Complete Phase 0 implementation
+
+**Completed:** August 20, 2026 at 1:02 AM EDT
+
+**Commit subject:** `feat: complete Phase 0 implementation`
+
+Changes:
+
+- Define every first-release view identity and its exclusive focus owner without
+  implementing later-phase screen behavior early.
+- Open and retain one read-only source handle, and reject unreadable files before
+  terminal initialization.
+- Support raw-mode Ctrl-C on every target and catchable external `SIGINT` on
+  POSIX through the shared quit action.
+- Generalize the PTY target for Unix and Windows/ConPTY and verify the documented
+  shell launch baseline.
+- Replace broad later-feature test mappings with four exact foundation cases and
+  require every Phase 0 case to carry implementation evidence.
+- Mark Phase 0 implementation complete while keeping hosted platform evidence
+  separate from development progress.
+
+Validation:
+
+- Registry freshness, formatting, Clippy with warnings denied, 28 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- PTY child, reader, and timeout cleanup is bounded and fails the test process
+  rather than hanging or detaching work.
+- `cargo clean` removed all generated build output.
 
 ### Continue the Rust foundation
 
@@ -472,3 +501,16 @@ TermLeaf uses the exact SPDX expression `GPL-3.0-only`. The Cargo package,
 README notice, and repository license therefore grant GPL version 3 without the
 optional "or any later version" election. This resolves the licensing choice
 before Rust source distribution begins.
+
+### DD-018: Bound Phase 0 terminal interruption and launch state
+
+**Date:** August 20, 2026 at 12:44 AM EDT
+
+**Status:** Accepted
+
+Phase 0 supports raw-mode Ctrl-C on every target plus catchable external
+`SIGINT` on POSIX. Windows console control events and other POSIX signals wait
+for a safe native harness and persistence checkpoint policy. Kernel terminal
+attributes return to their captured values. Write-only ANSI modes return to the
+documented ordinary-shell baseline because no portable query can recover
+arbitrary preexisting state on every promised terminal.

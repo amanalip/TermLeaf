@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 12:44 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,60 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Complete Phase 0 implementation
+
+**Commit subject:** `feat: complete Phase 0 implementation`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:02 AM EDT
+
+Scope:
+
+- Complete first-release view/focus identities and foundation action-state
+  invariants without implementing later screen behavior early.
+- Retain one read-only source handle and reject unreadable input before terminal
+  initialization.
+- Resolve `DEC-TEST-013` with a bounded interrupt family and document the
+  supported shell launch baseline for write-only ANSI modes.
+- Generalize the native PTY target for Unix and Windows/ConPTY, including raw
+  Ctrl-C, external `SIGINT`, and captured native terminal attributes.
+- Add exact `APP-001` through `APP-004` cases and remove broad later-phase cases
+  from the Phase 0 gate.
+
+Selection:
+
+- Changed areas: application state, CLI/startup, terminal lifecycle, process
+  interrupts, native PTY tests, dependencies, test governance, and documentation.
+- Selected case IDs: all exact `phase-gate-0` IDs in
+  `tests/phase_gates.toml`, including `APP-001` through `APP-004`, `CLI-006`,
+  `TERM-011`, and `TERM-012`.
+- Profiles run: registry freshness, `pr-core`, local native PTY, and dependency
+  policy.
+- Fixtures: synthetic temporary files and case-owned PTYs only; no book corpus
+  fixture was opened.
+- Environment: Linux 7.1.8-1-cachyos x86-64, Rust 1.97.1, Python 3.14.7,
+  cargo-deny 0.20.2, and `TERM=xterm-256color` inside `80x24` PTYs.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Passed: 336 unique IDs and no Phase 0 case lacks implementation evidence |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `/tmp/opencode/cargo-deny/bin/cargo-deny check` | Passed after interrupt and Unix signal test dependency additions |
+| `git diff --check` | Passed |
+| `cargo clean` | Passed: removed 2,595 files and 485.7 MiB |
+
+Unavailable environment evidence:
+
+- Rust 1.88, Ubuntu 24.04, macOS 15, and Windows Server 2025/ConPTY jobs cannot
+  run in this local environment. Their fixed CI definitions remain the formal
+  evidence path and do not leave a Phase 0 implementation case incomplete.
 
 ### Continue the Rust foundation
 

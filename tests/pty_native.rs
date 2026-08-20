@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use std::{
     io::{Read, Write},
     path::Path,
@@ -24,11 +22,12 @@ struct PtyCase {
     child: Box<dyn Child + Send + Sync>,
     writer: Option<Box<dyn Write + Send>>,
     chunks: Receiver<Vec<u8>>,
-    reader: Option<JoinHandle<Result<()>>>,
+    reader: Option<JoinHandle<()>>,
+    reader_done: Option<Receiver<Result<()>>>,
     parser: vt100::Parser,
     output: Vec<u8>,
     deadline: Instant,
-    initial_termios: String,
+    initial_terminal_state: TerminalState,
     finished: bool,
 }
 
@@ -53,6 +52,11 @@ impl PtyCase {
         command.env("LANG", "C.UTF-8");
         command.env("LC_ALL", "C.UTF-8");
         command.env("HOME", root.path());
+        command.env("USERPROFILE", root.path());
+        command.env("APPDATA", root.path().join("appdata"));
+        command.env("LOCALAPPDATA", root.path().join("local-appdata"));
+        command.env("TEMP", root.path().join("temp"));
+        command.env("TMP", root.path().join("temp"));
         command.env("XDG_CONFIG_HOME", root.path().join("config"));
         command.env("XDG_DATA_HOME", root.path().join("data"));
         command.env("XDG_STATE_HOME", root.path().join("state"));
@@ -61,7 +65,7 @@ impl PtyCase {
             command.arg(argument);
         }
 
-        let initial_termios = format!("{:?}", pair.master.get_termios());
+        let initial_terminal_state = terminal_state(pair.master.as_ref());
         let child = pair
             .slave
             .spawn_command(command)
@@ -70,20 +74,22 @@ impl PtyCase {
         let mut source = pair.master.try_clone_reader().context("clone PTY reader")?;
         let writer = pair.master.take_writer().context("take PTY writer")?;
         let (sender, chunks) = mpsc::channel();
-        let reader = std::thread::spawn(move || -> Result<()> {
+        let (done_sender, reader_done) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
             let mut buffer = [0_u8; 4096];
-            loop {
+            let result = loop {
                 match source.read(&mut buffer) {
-                    Ok(0) => return Ok(()),
+                    Ok(0) => break Ok(()),
                     Ok(count) => {
                         if sender.send(buffer[..count].to_vec()).is_err() {
-                            return Ok(());
+                            break Ok(());
                         }
                     }
-                    Err(error) if error.raw_os_error() == Some(5) => return Ok(()),
-                    Err(error) => return Err(error).context("read PTY output"),
+                    Err(error) if is_pty_eof(&error) => break Ok(()),
+                    Err(error) => break Err(error).context("read PTY output"),
                 }
-            }
+            };
+            let _send_result = done_sender.send(result);
         });
 
         Ok(Self {
@@ -94,10 +100,11 @@ impl PtyCase {
             writer: Some(writer),
             chunks,
             reader: Some(reader),
+            reader_done: Some(reader_done),
             parser: vt100::Parser::new(24, 80, 0),
             output: Vec::new(),
             deadline: Instant::now() + CASE_TIMEOUT,
-            initial_termios,
+            initial_terminal_state,
             finished: false,
         })
     }
@@ -125,9 +132,10 @@ impl PtyCase {
         writer.flush().context("flush PTY input")
     }
 
-    fn raw_mode_changed_termios(&self) -> Result<bool> {
+    #[cfg(unix)]
+    fn raw_mode_changed_terminal_state(&self) -> Result<bool> {
         let master = self.master.as_ref().context("PTY master is present")?;
-        Ok(format!("{:?}", master.get_termios()) != self.initial_termios)
+        Ok(terminal_state(master.as_ref()) != self.initial_terminal_state)
     }
 
     fn finish(mut self) -> Result<(portable_pty::ExitStatus, vt100::Screen, Vec<u8>)> {
@@ -142,24 +150,19 @@ impl PtyCase {
             }
         };
 
-        let final_termios = format!(
-            "{:?}",
+        let final_terminal_state = terminal_state(
             self.master
                 .as_ref()
                 .context("PTY master is present")?
-                .get_termios()
+                .as_ref(),
         );
-        if final_termios != self.initial_termios {
+        if final_terminal_state != self.initial_terminal_state {
             bail!("terminal attributes were not restored after child exit")
         }
 
         drop(self.writer.take());
         drop(self.master.take());
-        self.reader
-            .take()
-            .context("PTY reader thread is present")?
-            .join()
-            .map_err(|_| anyhow::anyhow!("PTY reader thread panicked"))??;
+        self.finish_reader()?;
         while let Ok(chunk) = self.chunks.try_recv() {
             self.process(&chunk);
         }
@@ -180,10 +183,56 @@ impl PtyCase {
     }
 
     fn kill_and_reap(&mut self) -> Result<()> {
-        self.child.kill().context("kill timed-out PTY child")?;
-        self.child.wait().context("reap timed-out PTY child")?;
+        if self.child.kill().is_err() {
+            std::process::abort();
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            if self
+                .child
+                .try_wait()
+                .context("reap timed-out PTY child")?
+                .is_some()
+            {
+                return Ok(());
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        std::process::abort();
+    }
+
+    fn finish_reader(&mut self) -> Result<()> {
+        let result = self
+            .reader_done
+            .take()
+            .context("PTY reader completion receiver is present")?
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap_or_else(|_| std::process::abort());
+        result?;
+        drop(self.reader.take());
         Ok(())
     }
+}
+
+#[cfg(unix)]
+type TerminalState = String;
+
+#[cfg(not(unix))]
+type TerminalState = ();
+
+#[cfg(unix)]
+fn terminal_state(master: &dyn MasterPty) -> TerminalState {
+    format!("{:?}", master.get_termios())
+}
+
+#[cfg(not(unix))]
+fn terminal_state(_master: &dyn MasterPty) -> TerminalState {}
+
+fn is_pty_eof(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::UnexpectedEof
+    ) || cfg!(unix) && error.raw_os_error() == Some(5)
 }
 
 impl Drop for PtyCase {
@@ -192,14 +241,30 @@ impl Drop for PtyCase {
             return;
         }
         if !matches!(self.child.try_wait(), Ok(Some(_))) {
-            let _kill_result = self.child.kill();
-            let _wait_result = self.child.wait();
+            if self.child.kill().is_err() {
+                std::process::abort();
+            }
+            let deadline = Instant::now() + Duration::from_secs(2);
+            let mut reaped = false;
+            while Instant::now() < deadline {
+                if matches!(self.child.try_wait(), Ok(Some(_))) {
+                    reaped = true;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            if !reaped {
+                std::process::abort();
+            }
         }
         drop(self.writer.take());
         drop(self.master.take());
-        if let Some(reader) = self.reader.take() {
-            let _join_result = reader.join();
+        if let Some(reader_done) = self.reader_done.take()
+            && reader_done.recv_timeout(Duration::from_secs(2)).is_err()
+        {
+            std::process::abort();
         }
+        drop(self.reader.take());
     }
 }
 
@@ -231,7 +296,8 @@ fn term_001_q_restores_terminal_modes() -> Result<()> {
     assert!(case.parser.screen().alternate_screen());
     assert!(case.parser.screen().hide_cursor());
     assert!(case.parser.screen().bracketed_paste());
-    assert!(case.raw_mode_changed_termios()?);
+    #[cfg(unix)]
+    assert!(case.raw_mode_changed_terminal_state()?);
     case.send(b"q")?;
     let (status, screen, output) = case.finish()?;
 
@@ -253,6 +319,27 @@ fn term_003_ctrl_c_key_restores_terminal_modes() -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn term_011_external_sigint_restores_terminal_modes() -> Result<()> {
+    use nix::{
+        sys::signal::{Signal, kill},
+        unistd::Pid,
+    };
+
+    let mut case = PtyCase::spawn(&[])?;
+    case.wait_for_text("No recent books yet.")?;
+    let process_id = case.child.process_id().context("PTY child process ID")?;
+    let process_id = i32::try_from(process_id).context("PTY process ID fits i32")?;
+
+    kill(Pid::from_raw(process_id), Signal::SIGINT).context("send SIGINT")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
 #[test]
 fn term_008_vt100_models_balanced_lifecycle_output() -> Result<()> {
     let mut case = PtyCase::spawn(&[])?;
@@ -264,6 +351,19 @@ fn term_008_vt100_models_balanced_lifecycle_output() -> Result<()> {
     assert!(status.success());
     assert!(output.windows(8).any(|bytes| bytes == b"\x1b[?1049h"));
     assert!(output.windows(8).any(|bytes| bytes == b"\x1b[?1049l"));
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
+#[test]
+fn term_012_supported_launch_baseline_is_restored() -> Result<()> {
+    let mut case = PtyCase::spawn(&[])?;
+    case.wait_for_text("Recent books")?;
+    case.send(b"q")?;
+
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
     assert_restored(&screen, &output);
     Ok(())
 }

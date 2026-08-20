@@ -19,14 +19,46 @@ pub fn render(frame: &mut Frame<'_>, app: &App) {
 
     match app.view() {
         View::RecentBooks => render_recent_books(frame, body),
-        View::Reader { path } => render_reader(frame, body, path),
+        View::Reader { book } => render_reader(frame, body, book.path()),
         View::Help { .. } => render_help(frame, body),
+        view => render_future_view(frame, body, view),
     }
 
     frame.render_widget(
         Paragraph::new(" F1/? Help  q Quit")
             .style(Style::default().add_modifier(Modifier::REVERSED)),
         status,
+    );
+}
+
+fn render_future_view(frame: &mut Frame<'_>, area: ratatui::layout::Rect, view: &View) {
+    let name = match view {
+        View::OpenPath => "Open path",
+        View::LinkFocus => "Link focus",
+        View::TextSelection => "Text selection",
+        View::SearchEntry => "Search",
+        View::SearchHistory => "Search history",
+        View::SearchResults => "Search results",
+        View::TableOfContents => "Table of contents",
+        View::AnnotationList => "Annotations",
+        View::BookmarkDialog => "Bookmark",
+        View::HighlightDialog => "Highlight",
+        View::NoteEditor => "Note editor",
+        View::ThemeSelection => "Themes",
+        View::LinkConfirmation => "Open link",
+        View::RecoverableError => "Error",
+        View::TooSmall => "Terminal too small",
+        View::RecentBooks | View::Reader { .. } | View::Help { .. } => return,
+    };
+    frame.render_widget(
+        Paragraph::new("This view is implemented in its assigned delivery phase.")
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .title(format!(" {name} "))
+                    .borders(Borders::ALL),
+            ),
+        area,
     );
 }
 
@@ -89,18 +121,25 @@ mod tests {
     use anyhow::Result;
     use ratatui::{Terminal, backend::TestBackend};
 
+    use crate::app::Action;
+
     use super::*;
 
     #[test]
-    fn base_shell_renders_deterministically() -> Result<()> {
+    fn app_003_base_shell_renders_deterministically() -> Result<()> {
         let backend = TestBackend::new(40, 10);
         let mut terminal = Terminal::new(backend)?;
-        let app = App::new(None)?;
+        let mut app = App::new(None)?;
 
         terminal.draw(|frame| render(frame, &app))?;
 
-        let buffer = terminal.backend().buffer();
-        let rendered = buffer
+        let first_render = terminal.backend().buffer().clone();
+        app.update(Action::ShowHelp);
+        terminal.draw(|frame| render(frame, &app))?;
+        app.update(Action::Back);
+        terminal.draw(|frame| render(frame, &app))?;
+        assert_eq!(&first_render, terminal.backend().buffer());
+        let rendered = first_render
             .content
             .iter()
             .map(ratatui::buffer::Cell::symbol)
@@ -108,6 +147,9 @@ mod tests {
         assert!(rendered.contains("Recent books"));
         assert!(rendered.contains("No recent books yet."));
         assert!(rendered.contains("F1/? Help  q Quit"));
+        assert_eq!(first_render[(16, 1)].symbol(), "T");
+        assert_eq!(first_render[(10, 3)].symbol(), "N");
+        assert_eq!(first_render[(1, 9)].symbol(), "F");
         Ok(())
     }
 }

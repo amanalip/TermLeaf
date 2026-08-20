@@ -2,6 +2,7 @@
 
 pub mod app;
 pub mod cli;
+pub mod interrupt;
 pub mod process;
 pub mod terminal;
 pub mod ui;

@@ -1,6 +1,6 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 20, 2026 at 12:15 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -816,6 +816,20 @@ keyboard enhancements must be restored after:
 - Ctrl-C or another supported termination signal.
 - A panic where cleanup remains possible.
 - A failed startup after terminal initialization begins.
+
+The supported launch baseline is an ordinary shell on its primary screen with
+a visible cursor and bracketed paste, mouse capture, and keyboard enhancements
+disabled. Native kernel terminal attributes such as canonical input and echo
+must return to their captured launch values. ANSI screen, cursor, paste, mouse,
+and keyboard modes do not have a portable query on every target terminal, so
+TermLeaf restores only the modes it changes to this documented shell baseline;
+launching inside an unknown preconfigured ANSI mode is not a Phase 0 claim.
+
+The first supported interruption family is raw-mode Ctrl-C input on every
+target and catchable external `SIGINT` on POSIX. Windows console Ctrl-C,
+Ctrl-Break, close, logoff, and shutdown events, POSIX termination/hangup, and
+uncatchable events remain unsupported until a safe native harness and
+persistence checkpoint policy exist.
 
 Terminal cleanup is correctness, not polish. Integration tests must prove that
 TermLeaf does not leave the user's shell damaged.

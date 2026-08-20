@@ -1,21 +1,76 @@
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context, Result, bail};
 
 use super::Action;
 
+#[derive(Clone, Debug)]
+pub struct OpenBook {
+    path: PathBuf,
+    _file: Arc<File>,
+}
+
+impl OpenBook {
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl PartialEq for OpenBook {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl Eq for OpenBook {}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum View {
     RecentBooks,
-    Reader { path: PathBuf },
+    OpenPath,
+    Reader { book: OpenBook },
+    LinkFocus,
+    TextSelection,
+    SearchEntry,
+    SearchHistory,
+    SearchResults,
+    TableOfContents,
+    AnnotationList,
+    BookmarkDialog,
+    HighlightDialog,
+    NoteEditor,
+    ThemeSelection,
+    LinkConfirmation,
     Help { return_to: Box<View> },
+    RecoverableError,
+    TooSmall,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Focus {
     RecentBooks,
+    PathField,
     ReadingAnchor,
+    Link,
+    SelectionEndpoint,
+    SearchField,
+    SearchHistoryItem,
+    SearchResult,
+    TableOfContentsItem,
+    AnnotationItem,
+    BookmarkNameField,
+    HighlightColor,
+    NoteField,
+    ThemeOption,
+    ConfirmationAction,
     Help,
+    RecoveryAction,
+    SuspendedView,
 }
 
 #[derive(Debug)]
@@ -46,7 +101,29 @@ impl App {
                         path.display()
                     );
                 }
-                View::Reader { path }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+
+                    if metadata.permissions().mode() & 0o444 == 0 {
+                        bail!(
+                            "could not open book '{}'; the file is not readable",
+                            path.display()
+                        );
+                    }
+                }
+                let file = File::open(&path).with_context(|| {
+                    format!(
+                        "could not open book '{}'; check that the file is readable",
+                        path.display()
+                    )
+                })?;
+                View::Reader {
+                    book: OpenBook {
+                        path,
+                        _file: Arc::new(file),
+                    },
+                }
             }
             None => View::RecentBooks,
         };
@@ -66,8 +143,23 @@ impl App {
     pub const fn focus(&self) -> Focus {
         match self.view {
             View::RecentBooks => Focus::RecentBooks,
+            View::OpenPath => Focus::PathField,
             View::Reader { .. } => Focus::ReadingAnchor,
+            View::LinkFocus => Focus::Link,
+            View::TextSelection => Focus::SelectionEndpoint,
+            View::SearchEntry => Focus::SearchField,
+            View::SearchHistory => Focus::SearchHistoryItem,
+            View::SearchResults => Focus::SearchResult,
+            View::TableOfContents => Focus::TableOfContentsItem,
+            View::AnnotationList => Focus::AnnotationItem,
+            View::BookmarkDialog => Focus::BookmarkNameField,
+            View::HighlightDialog => Focus::HighlightColor,
+            View::NoteEditor => Focus::NoteField,
+            View::ThemeSelection => Focus::ThemeOption,
+            View::LinkConfirmation => Focus::ConfirmationAction,
             View::Help { .. } => Focus::Help,
+            View::RecoverableError => Focus::RecoveryAction,
+            View::TooSmall => Focus::SuspendedView,
         }
     }
 
@@ -101,7 +193,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn help_returns_to_its_invoking_view_and_focus() -> Result<()> {
+    fn app_002_help_returns_to_its_invoking_view_and_focus() -> Result<()> {
         let mut app = App::new(None)?;
 
         app.update(Action::ShowHelp);
@@ -114,12 +206,66 @@ mod tests {
     }
 
     #[test]
-    fn quit_stops_the_state_loop() -> Result<()> {
+    fn app_002_quit_stops_the_state_loop() -> Result<()> {
         let mut app = App::new(None)?;
 
         app.update(Action::Quit);
 
         assert!(!app.is_running());
         Ok(())
+    }
+
+    #[test]
+    fn app_001_each_view_owns_exactly_one_focus_kind() {
+        let views = [
+            View::RecentBooks,
+            View::OpenPath,
+            View::LinkFocus,
+            View::TextSelection,
+            View::SearchEntry,
+            View::SearchHistory,
+            View::SearchResults,
+            View::TableOfContents,
+            View::AnnotationList,
+            View::BookmarkDialog,
+            View::HighlightDialog,
+            View::NoteEditor,
+            View::ThemeSelection,
+            View::LinkConfirmation,
+            View::RecoverableError,
+            View::TooSmall,
+        ];
+        let expected = [
+            Focus::RecentBooks,
+            Focus::PathField,
+            Focus::Link,
+            Focus::SelectionEndpoint,
+            Focus::SearchField,
+            Focus::SearchHistoryItem,
+            Focus::SearchResult,
+            Focus::TableOfContentsItem,
+            Focus::AnnotationItem,
+            Focus::BookmarkNameField,
+            Focus::HighlightColor,
+            Focus::NoteField,
+            Focus::ThemeOption,
+            Focus::ConfirmationAction,
+            Focus::RecoveryAction,
+            Focus::SuspendedView,
+        ];
+
+        for (view, expected_focus) in views.into_iter().zip(expected) {
+            let app = App {
+                view,
+                running: true,
+            };
+            assert_eq!(app.focus(), expected_focus);
+        }
+
+        let file = tempfile::NamedTempFile::new().expect("create reader focus fixture");
+        let mut reader = App::new(Some(file.path().to_path_buf())).expect("open reader fixture");
+        assert_eq!(reader.focus(), Focus::ReadingAnchor);
+        reader.update(Action::ShowHelp);
+        assert_eq!(reader.focus(), Focus::Help);
     }
 }

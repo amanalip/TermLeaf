@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 20, 2026 at 12:44 AM EDT
+**Last updated:** August 20, 2026 at 1:02 AM EDT
 
 ## Table of Contents
 
@@ -45,12 +45,12 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 
 ## Where Things Stand
 
-Phase 0 development is in progress. The repository now has a locked Rust
-package, an application state and action loop, a deterministic Ratatui shell,
-and a terminal guard with tested setup rollback and restoration. The complete
-case registry and frozen gate memberships now validate, and Linux PTY journeys
-cover normal, error, panic, and Ctrl-C cleanup. Required macOS, Windows, MSRV,
-signal-policy, and arbitrary-initial-terminal-state evidence still remains.
+Phase 0 implementation is complete. TermLeaf has a locked Rust package, the
+complete view/focus identity model, deterministic shell, shared actions,
+interrupt handling, terminal restoration, exact case/profile/gate manifests,
+and native PTY journeys for normal, error, panic, Ctrl-C, and external-interrupt
+paths. Phase 1, the plain-text reading loop, is next. Hosted platform jobs still
+record formal environment evidence and do not represent unfinished Phase 0 code.
 
 ## Technical Direction
 
