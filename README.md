@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 20, 2026 at 12:15 AM EDT
+**Last updated:** August 20, 2026 at 12:44 AM EDT
 
 ## Table of Contents
 
@@ -47,9 +47,10 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 
 Phase 0 development is in progress. The repository now has a locked Rust
 package, an application state and action loop, a deterministic Ratatui shell,
-and a terminal guard with tested setup rollback and restoration. Native PTY,
-signal, registry, profile-manifest, and full platform evidence still remain
-before the foundation phase can be called complete.
+and a terminal guard with tested setup rollback and restoration. The complete
+case registry and frozen gate memberships now validate, and Linux PTY journeys
+cover normal, error, panic, and Ctrl-C cleanup. Required macOS, Windows, MSRV,
+signal-policy, and arbitrary-initial-terminal-state evidence still remains.
 
 ## Technical Direction
 
@@ -64,6 +65,7 @@ security limits, delivery gates, and primary references.
 The package requires Rust 1.88 or newer. Run the core local checks with:
 
 ```text
+python3 tools/case_registry.py check
 cargo fmt --check
 cargo clippy --all-targets --all-features --locked -- -D warnings
 cargo test --locked

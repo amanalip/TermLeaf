@@ -162,12 +162,19 @@ fn record_error(first_error: &mut Option<io::Error>, result: io::Result<()>) {
 /// Returns an error when terminal setup, rendering, event input, or restoration
 /// fails. Any modes changed before a failure are still offered for restoration.
 pub fn run(mut app: App) -> Result<()> {
+    run_with_loop(&mut app, run_loop)
+}
+
+fn run_with_loop<F>(app: &mut App, loop_operation: F) -> Result<()>
+where
+    F: FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>, &mut App) -> Result<()>,
+{
     let mut session =
         TerminalSession::start(CrosstermControl).context("could not initialize the terminal")?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).context("could not create the terminal renderer")?;
 
-    let run_result = run_loop(&mut terminal, &mut app);
+    let run_result = loop_operation(&mut terminal, app);
     drop(terminal);
     let restore_result = session
         .restore()
@@ -192,6 +199,8 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};
+
+    use anyhow::bail;
 
     use super::*;
 
@@ -346,6 +355,164 @@ mod tests {
             "leave_screen",
             "disable_raw",
         ]));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    struct FaultPtyGuard {
+        master: Option<Box<dyn portable_pty::MasterPty + Send>>,
+        child: Box<dyn portable_pty::Child + Send + Sync>,
+        reader: Option<std::thread::JoinHandle<io::Result<Vec<u8>>>>,
+    }
+
+    #[cfg(unix)]
+    impl Drop for FaultPtyGuard {
+        fn drop(&mut self) {
+            if !matches!(self.child.try_wait(), Ok(Some(_))) {
+                let _kill_result = self.child.kill();
+                let _wait_result = self.child.wait();
+            }
+            drop(self.master.take());
+            if let Some(reader) = self.reader.take() {
+                let _join_result = reader.join();
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    fn run_fault_in_pty(mode: &str) -> Result<(vt100::Screen, Vec<u8>)> {
+        use std::{io::Read, time::Instant};
+
+        use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+
+        let pair = native_pty_system().openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })?;
+        let initial_termios = format!("{:?}", pair.master.get_termios());
+        let mut command = CommandBuilder::new(std::env::current_exe()?);
+        command.env("TERM", "xterm-256color");
+        command.env("TERMLEAF_TEST_TERMINAL_FAULT", mode);
+        command.args([
+            "--exact",
+            "terminal::tests::terminal_fault_child",
+            "--nocapture",
+        ]);
+        let child = pair.slave.spawn_command(command)?;
+        drop(pair.slave);
+        let mut source = pair.master.try_clone_reader()?;
+        let reader = std::thread::spawn(move || -> io::Result<Vec<u8>> {
+            let mut output = Vec::new();
+            match source.read_to_end(&mut output) {
+                Ok(_) => Ok(output),
+                Err(error) if error.raw_os_error() == Some(5) => Ok(output),
+                Err(error) => Err(error),
+            }
+        });
+        let mut guard = FaultPtyGuard {
+            master: Some(pair.master),
+            child,
+            reader: Some(reader),
+        };
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if guard.child.try_wait()?.is_some() {
+                break;
+            }
+            if Instant::now() >= deadline {
+                bail!("controlled terminal fault child exceeded its timeout");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let final_termios = format!(
+            "{:?}",
+            guard
+                .master
+                .as_ref()
+                .context("fault PTY master is present")?
+                .get_termios()
+        );
+        assert_eq!(final_termios, initial_termios);
+        drop(guard.master.take());
+        let output = guard
+            .reader
+            .take()
+            .context("fault PTY reader is present")?
+            .join()
+            .map_err(|_| anyhow::anyhow!("controlled terminal fault reader panicked"))??;
+        let mut parser = vt100::Parser::new(24, 80, 0);
+        parser.process(&output);
+        Ok((parser.screen().clone(), output))
+    }
+
+    #[cfg(unix)]
+    fn position(output: &[u8], needle: &[u8]) -> Option<usize> {
+        output
+            .windows(needle.len())
+            .position(|window| window == needle)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn term_002_handled_active_error_restores_before_diagnostic() -> Result<()> {
+        let (screen, output) = run_fault_in_pty("error")?;
+        let leave = position(&output, b"\x1b[?1049l").context("leave alternate screen sequence")?;
+        let diagnostic = position(&output, b"TermLeaf could not continue")
+            .context("handled error diagnostic")?;
+
+        assert!(diagnostic > leave);
+        assert!(!screen.alternate_screen());
+        assert!(!screen.hide_cursor());
+        assert!(!screen.bracketed_paste());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn term_004_controlled_active_panic_restores_before_diagnostic() -> Result<()> {
+        let (screen, output) = run_fault_in_pty("panic")?;
+        let leave = position(&output, b"\x1b[?1049l").context("leave alternate screen sequence")?;
+        let diagnostic = position(&output, b"TermLeaf stopped because of an internal error")
+            .context("panic diagnostic")?;
+
+        assert!(diagnostic > leave);
+        assert!(!screen.alternate_screen());
+        assert!(!screen.hide_cursor());
+        assert!(!screen.bracketed_paste());
+        assert!(!String::from_utf8_lossy(&output).contains("controlled active panic"));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn terminal_fault_child() -> Result<()> {
+        use std::process::ExitCode;
+
+        let Ok(mode) = std::env::var("TERMLEAF_TEST_TERMINAL_FAULT") else {
+            return Ok(());
+        };
+        let mut app = App::new(None)?;
+        let status = crate::process::run_and_report(
+            || {
+                run_with_loop(&mut app, |terminal, app| {
+                    terminal.draw(|frame| ui::render(frame, app))?;
+                    assert!(mode != "panic", "controlled active panic");
+                    bail!("controlled active error")
+                })
+            },
+            &mut io::stderr(),
+        );
+        assert_eq!(
+            status,
+            if mode == "panic" {
+                ExitCode::from(101)
+            } else {
+                ExitCode::FAILURE
+            }
+        );
         Ok(())
     }
 }

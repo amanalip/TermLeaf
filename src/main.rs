@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
-use clap::Parser;
-use termleaf::{app::App, cli::Cli, terminal};
+use std::process::ExitCode;
 
-fn main() -> Result<()> {
+use clap::Parser;
+use termleaf::{cli::Cli, process};
+
+fn main() -> ExitCode {
     let cli = Cli::parse();
-    let app = App::new(cli.book)?;
-    terminal::run(app)
+    process::run(cli)
 }

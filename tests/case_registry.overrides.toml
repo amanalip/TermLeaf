@@ -1,0 +1,91 @@
+[cases.CLI-001]
+status = "Implemented"
+location = ["tests/cli.rs::cli_001_help_exits_before_terminal_initialization"]
+last_evidence = ["testreport.md#start-the-rust-foundation"]
+
+[cases.CLI-002]
+status = "Implemented"
+location = ["tests/cli.rs::cli_002_version_matches_package_version"]
+last_evidence = ["testreport.md#start-the-rust-foundation"]
+
+[cases.CLI-004]
+status = "Implemented"
+location = [
+    "src/ui.rs::base_shell_renders_deterministically",
+    "tests/pty_linux.rs::cli_004_launch_without_path_opens_recent_books",
+]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.CLI-005]
+status = "Implemented"
+location = ["tests/cli.rs::cli_005_missing_path_fails_without_terminal_sequences"]
+last_evidence = ["testreport.md#start-the-rust-foundation"]
+
+[cases.TERM-001]
+status = "Implemented"
+location = [
+    "src/terminal.rs::term_001_normal_exit_restores_changed_modes_in_reverse_order",
+    "tests/pty_linux.rs::term_001_q_restores_terminal_modes",
+]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.TERM-002]
+status = "Implemented"
+location = [
+    "src/terminal.rs::term_002_handled_active_error_restores_before_diagnostic",
+    "src/terminal.rs::terminal_fault_child",
+]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.TERM-003]
+location = [
+    "src/app/action.rs::term_003_ctrl_c_requests_a_clean_exit",
+    "tests/pty_linux.rs::term_003_ctrl_c_key_restores_terminal_modes",
+]
+
+[cases.TERM-004]
+status = "Implemented"
+location = [
+    "src/terminal.rs::term_004_unwinding_drops_the_guard_and_restores_modes",
+    "src/terminal.rs::term_004_controlled_active_panic_restores_before_diagnostic",
+    "src/process.rs::term_004_panic_hook_is_silent_until_the_operation_unwinds",
+]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.TERM-005]
+status = "Implemented"
+location = [
+    "src/terminal.rs::term_005_each_setup_failure_rolls_back_completed_steps",
+    "src/terminal.rs::cleanup_attempts_every_step_after_one_restore_failure",
+]
+last_evidence = ["testreport.md#start-the-rust-foundation"]
+
+[cases.TERM-008]
+status = "Implemented"
+location = ["tests/pty_linux.rs::term_008_vt100_models_balanced_lifecycle_output"]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.CLI-010]
+location = ["tests/pty_linux.rs::cli_010_pre_terminal_error_emits_no_control_sequences"]
+
+[cases.KEY-004]
+location = ["src/app/action.rs::key_004_ignores_key_release_events"]
+
+[cases.ERR-002]
+status = "Implemented"
+location = ["src/process.rs::err_002_handled_error_is_reported_outside_the_operation"]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]
+
+[cases.HELP-002]
+location = ["src/app/state.rs::help_returns_to_its_invoking_view_and_focus"]
+
+[cases.HELP-003]
+location = ["src/app/action.rs::help_and_input_use_the_same_binding_registry"]
+
+[cases.PROP-010]
+location = ["src/app/state.rs::quit_stops_the_state_loop"]
+
+[cases.QG-014]
+status = "Implemented"
+location = ["tools/case_registry.py::check"]
+last_evidence = ["testreport.md#continue-the-rust-foundation"]

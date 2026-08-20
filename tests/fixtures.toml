@@ -1,0 +1,161 @@
+schema_version = 1
+
+[[fixture]]
+id = "FX-TXT-UTF8"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/txt/utf8.txt"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-TXT-UTF16LE"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/txt/utf16le.txt"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-TXT-UTF16BE"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/txt/utf16be.txt"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-TXT-BAD"
+status = "Planned"
+storage = "generated"
+path = ""
+source = "TermLeaf deterministic generator"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = "future text fixture builder"
+
+[[fixture]]
+id = "FX-MD-SEMANTIC"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/markdown/semantic.md"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-MD-CODE"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/markdown/code.md"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-EPUB2"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/epub/minimal-epub2.epub"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-EPUB3"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/epub/minimal-epub3.epub"
+source = "TermLeaf-authored synthetic fixture"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-EPUB-MALFORMED"
+status = "Planned"
+storage = "generated"
+path = ""
+source = "TermLeaf deterministic generator"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = "future EPUB fixture builder"
+
+[[fixture]]
+id = "FX-EPUB-HOSTILE"
+status = "Planned"
+storage = "generated"
+path = ""
+source = "TermLeaf deterministic generator"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = "future hostile EPUB fixture builder"
+
+[[fixture]]
+id = "FX-IMG-RASTER"
+status = "Planned"
+storage = "committed"
+path = "tests/fixtures/images"
+source = "TermLeaf-authored or licensed per-format fixtures"
+license = "unreviewed"
+sha256 = ""
+generator = ""
+
+[[fixture]]
+id = "FX-IMG-SVG"
+status = "Planned"
+storage = "generated"
+path = ""
+source = "TermLeaf deterministic generator"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = "future SVG fixture builder"
+
+[[fixture]]
+id = "FX-STATE"
+status = "Planned"
+storage = "generated"
+path = ""
+source = "TermLeaf deterministic generator"
+license = "GPL-3.0-only"
+sha256 = ""
+generator = "future state fixture builder"
+
+[[fixture]]
+id = "FX-GUT-11"
+status = "Local"
+storage = "ignored"
+path = "downloads/gutenberg/alice-11.epub"
+source = "https://www.gutenberg.org/ebooks/11"
+license = "Public domain in the USA"
+sha256 = "6b79f2d23b804172816e81c463dbcea689593bbde63ef200d52b6c0da7ef629c"
+generator = ""
+
+[[fixture]]
+id = "FX-GUT-84"
+status = "Local"
+storage = "ignored"
+path = "downloads/gutenberg/frankenstein-84.epub"
+source = "https://www.gutenberg.org/ebooks/84"
+license = "Public domain in the USA"
+sha256 = "2719565ac885c335df88f220b03a9c45b95dc4225193a8dc649f6493550c4332"
+generator = ""
+
+[[fixture]]
+id = "FX-GUT-1342"
+status = "Local"
+storage = "ignored"
+path = "downloads/gutenberg/pride-and-prejudice-1342.epub"
+source = "https://www.gutenberg.org/ebooks/1342"
+license = "Public domain in the USA"
+sha256 = "462be7852d84412c6695851395144a97e9762d45bd3c41b9f356dc7ac047b8a9"
+generator = ""

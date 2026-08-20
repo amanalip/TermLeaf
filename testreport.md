@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 12:15 AM EDT
+**Last updated:** August 20, 2026 at 12:44 AM EDT
 
 ## Table of Contents
 
@@ -77,6 +77,80 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+No additional changes are pending inclusion in a commit.
+
+## Commit Reports
+
+### Continue the Rust foundation
+
+**Commit subject:** `test: add Phase 0 manifests and PTY harness`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 12:44 AM EDT
+
+**Environment:** Linux 7.1.8-1-cachyos x86-64; rustc/cargo 1.97.1;
+Python 3.14.7; cargo-deny 0.20.2; `TERM=xterm-256color` in PTY cases
+
+Scope:
+
+- Materialize and validate all 332 catalog IDs, exact profile assignments,
+  fixture/environment references, test locations, and cumulative gate members.
+- Isolate CLI and PTY processes with case-owned paths, minimal environments,
+  fixed `80x24` PTYs, VT100 parsing, kernel terminal-state comparisons, and
+  10-second deadlines with kill/reap cleanup.
+- Exercise normal exit, raw-mode Ctrl-C, pre-terminal failure, active handled
+  error, and recoverable panic restoration through native Linux PTYs.
+- Delay handled-error and panic diagnostics until terminal cleanup completes.
+
+Selection:
+
+- Changed paths: Cargo dependencies/lockfile, process and terminal boundaries,
+  CLI/PTY tests, generated test manifests and validator, CI, test catalog,
+  README, implementation/commit trackers, and test report.
+- Classified areas: CLI/startup, terminal lifecycle, tests/fixtures, CI,
+  dependency graph, documentation, and test governance.
+- Selected case IDs: `QG-001` through `QG-005`, `QG-007` through `QG-014`,
+  `CLI-001`, `CLI-002`, `CLI-004`, `CLI-005`, `CLI-010`, `TERM-001` through
+  `TERM-005`, `TERM-008`, `KEY-004`, `HELP-002`, `HELP-003`, `ERR-002`,
+  `PROP-010`, `SUP-001` through `SUP-004`, and `SUP-006` through `SUP-008`.
+- Profiles run: registry freshness, `pr-core`, Linux `native-pty`, and dependency
+  policy. Planned render, security-target, scheduled, weekly, and release target
+  commands did not run because their feature implementations do not exist yet.
+- Fixtures: no book fixture was opened. `tests/fixtures.toml` records planned
+  assets and the existing ignored Gutenberg provenance/hashes.
+- Environment: local `ENV-LINUX-PTY` equivalent on CachyOS rather than the
+  required Ubuntu 24.04 CI row; no macOS or Windows environment was claimed.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Passed: 332 unique IDs, no unknown/orphan locations, profiles and six cumulative gates agree |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed |
+| `cargo test --locked` | Passed: 15 library tests, 3 CLI tests, and 5 Linux PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `/tmp/opencode/cargo-deny/bin/cargo-deny check` | Passed: advisories, bans, licenses, and sources after dev-dependency additions |
+| `git diff --check` | Passed |
+| `cargo clean` | Passed: removed 1,886 files and 409.9 MiB |
+
+Blocked or unavailable Phase 0 evidence:
+
+- `TERM-011` remains Blocked, owned by Phase 0. `DEC-TEST-013` has not selected
+  supported process signals. Raw-mode Ctrl-C key input is compensating evidence;
+  removal requires a resolved signal/checkpoint policy and native PTY matrix.
+  Review date: September 20, 2026.
+- `TERM-012` remains Blocked, owned by Phase 0. Linux tests prove restoration
+  from the ordinary baseline, but Crossterm cannot query every preexisting ANSI
+  cursor/screen/paste mode. Removal requires an exact capture or documented
+  ownership policy and tests for each observable initial state. Review date:
+  September 20, 2026.
+- Rust 1.88, Ubuntu 24.04, macOS 15, and Windows Server 2025 hosted jobs did not
+  run locally. The fixed CI rows and Unix PTY jobs are definitions, not evidence.
+- Windows ConPTY lifecycle, externally delivered signals, SSH/tmux, and named
+  GUI terminal rows did not run and support is not claimed.
+
 ### Start the Rust foundation
 
 **Commit subject:** `feat: start Rust foundation`
@@ -137,8 +211,6 @@ Skipped or incomplete evidence:
   manifests, fixture manifests, and full hermetic harness remain Phase 0 work.
 - Hosted CI was defined but did not run locally. `SUP-004` has static workflow
   evidence only; release trigger and artifact controls remain later work.
-
-## Commit Reports
 
 ### Define quality, testing, and UI implementation standards
 

@@ -1,6 +1,6 @@
 # TermLeaf Test Cases
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:44 AM EDT
 
 ## Table of Contents
 
@@ -56,10 +56,12 @@ fixtures and environments it needs, and the evidence required to pass.
 
 The catalog is intentionally implementation-aware but not implementation-bound.
 Stable IDs survive test file moves and allow a commit, defect, benchmark, phase
-gate, or release report to identify exactly what ran. The catalog begins in
-**Planned** state because the Rust package does not exist yet. A case becomes
-**Passing** only after an automated test or recorded manual procedure exists and
-passes in its required environment.
+gate, or release report to identify exactly what ran. The complete catalog is
+materialized in `tests/case_registry.toml`. Cases remain **Planned** until
+reviewed evidence changes their status; package existence or a partial test
+alone does not make a case Passing. A case becomes **Passing** only after an
+automated test or recorded manual procedure exists and passes in its required
+environment.
 
 ## Sources of Truth
 
@@ -127,10 +129,11 @@ owner, reason, compensating evidence, and removal condition in `testreport.md`.
 
 ## Case Registry and Governance
 
-This document is the authoritative requirement registry until the Rust package
-exists. All listed cases are Planned and owned by the delivery phase named in
-the Phase Gates section unless a row says otherwise. During Phase 0, the project
-must add a machine-readable `tests/case_registry.toml` with these fields:
+This document is the authoritative behavioral catalog. The generated
+`tests/case_registry.toml` is its machine-readable index, and
+`tests/case_registry.overrides.toml` records reviewed status, implementation,
+and evidence data that cannot be derived from prose. The Phase Gates section
+owns each case unless a row says otherwise. The registry contains these fields:
 
 | Field | Rule |
 | --- | --- |
@@ -330,13 +333,16 @@ Informational, or Deferred before the corresponding platform can be claimed.
 
 | Environment ID | Candidate tuple | Initial gate state |
 | --- | --- | --- |
-| `ENV-LINUX-GNOME` | Supported Linux version and architecture; GNOME Terminal `TBD`; direct session | Blocked on Stage 0 support decision |
-| `ENV-LINUX-KONSOLE` | Supported Linux version and architecture; Konsole `TBD`; direct session | Blocked on Stage 0 support decision |
-| `ENV-LINUX-MODERN` | Supported Linux; Kitty or WezTerm `TBD`; direct, SSH, and tmux rows | Blocked on terminal/version decision |
-| `ENV-MAC-TERM` | Supported macOS and architecture; system Terminal `TBD` | Blocked on Stage 0 support decision |
-| `ENV-MAC-ITERM` | Supported macOS; iTerm2 `TBD`; image-capability row | Blocked on image protocol decision |
-| `ENV-WIN-WT` | Supported Windows and architecture; Windows Terminal `TBD` | Blocked on Stage 0 support decision |
-| `ENV-SIXEL` | Named native OS, terminal, and Sixel version `TBD` | Blocked until a tested implementation is selected |
+| `ENV-LINUX-PTY` | Ubuntu 24.04 x86-64; kernel PTY; `TERM=xterm-256color` | Required for Phase 0 lifecycle evidence |
+| `ENV-MAC-PTY` | macOS 15 arm64; native PTY; `TERM=xterm-256color` | Required for Phase 0 lifecycle evidence |
+| `ENV-WIN-PTY` | Windows Server 2025 x86-64; ConPTY | Required for Phase 0 lifecycle evidence |
+| `ENV-LINUX-GNOME` | Supported Linux and GNOME Terminal version unselected; direct session | Deferred; no compatibility claim |
+| `ENV-LINUX-KONSOLE` | Supported Linux and Konsole version unselected; direct session | Deferred; no compatibility claim |
+| `ENV-LINUX-MODERN` | Supported Linux and Kitty or WezTerm version unselected; direct, SSH, and tmux rows | Deferred to terminal/version decision |
+| `ENV-MAC-TERM` | Supported macOS and system Terminal version unselected | Deferred; no compatibility claim |
+| `ENV-MAC-ITERM` | Supported macOS and iTerm2 version unselected; image-capability row | Deferred to image protocol decision |
+| `ENV-WIN-WT` | Supported Windows and Windows Terminal version unselected | Deferred; no compatibility claim |
+| `ENV-SIXEL` | Native OS, terminal, and Sixel implementation unselected | Deferred until an implementation is selected |
 
 Every finalized row records artifact type, terminal version, session nesting,
 `TERM`, locale, font for Unicode manual checks, color/image capability, required
@@ -940,12 +946,12 @@ explicit target reason rather than inheriting arbitrary libFuzzer defaults.
 A phase cannot be Complete with a failing required case. A blocked P1 case needs
 an explicit scope or support decision; a blocked P0 case prevents completion.
 
-During Phase 0, each row becomes a frozen `phase-gate-N` manifest of exact IDs,
-Required `ENV-*` rows, manual procedure IDs, benchmark definitions, and fuzz
-durations. Every gate includes all earlier gate manifests and permanent
-regressions. The evidence record names approver, revision, date, blocked cases,
-and CI/manual artifacts. “Applicable,” “base,” “depth,” or “accepted scope” may
-not remain in a frozen manifest.
+`tests/phase_gates.toml` freezes each `phase-gate-N` membership as exact IDs and
+Required `ENV-*` rows. Every gate includes all earlier gate membership and
+permanent regressions. Passing evidence separately names revision, date,
+blocked cases, and CI/manual artifacts; frozen membership does not imply a gate
+passed. “Applicable,” “base,” “depth,” or “accepted scope” may not appear in a
+frozen manifest.
 
 ## Defect and Regression Process
 

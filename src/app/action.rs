@@ -76,7 +76,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn term_007_ignores_key_release_events() {
+    fn key_004_ignores_key_release_events() {
         let event = KeyEvent::new_with_kind(
             KeyCode::Char('q'),
             KeyModifiers::NONE,

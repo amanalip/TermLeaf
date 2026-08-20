@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 20, 2026 at 12:15 AM EDT
+**Last updated:** August 20, 2026 at 12:44 AM EDT
 
 ## Table of Contents
 
@@ -27,10 +27,10 @@
 
 ## Right Now
 
-Phase 0 is under way. The locked Rust package, state/action loop, base Ratatui
-shell, and testable terminal guard now exist. The next foundation work is the
-machine-readable case registry and profile manifests, followed by native PTY,
-signal, panic-diagnostic, and platform restoration evidence.
+Phase 0 is under way. The 332-case registry, exact profile and cumulative gate
+memberships, isolated CLI harness, and Linux PTY lifecycle journeys now exist.
+The remaining gate work is hosted Rust 1.88 evidence, native macOS and Windows
+evidence, final signal policy, and restoration from non-default initial modes.
 
 ## Delivery Phases
 
@@ -75,7 +75,7 @@ already inside the six phases; it does not add another phase.
 | Repository setup | Complete | The ignore rules and working documents are in place. |
 | Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
 | First-release features | Complete | The reader behavior, formats, images, annotations, themes, and platform intent are locked. |
-| Remaining product details | In progress | Set the license expression, exact key map, OS versions, and tested terminals. |
+| Remaining product details | In progress | Set the exact key map, final signal policy, OS support versions, and tested terminals. |
 | Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
 | Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
@@ -131,14 +131,14 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation unit, render, and CLI process tests run; PTY and later feature suites remain. |
+| Automated tests | In progress | Foundation unit, render, isolated CLI, and Linux PTY tests run; native platform and later feature suites remain. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
-| Machine-readable case registry | Not started | Materialize IDs, status, ownership, implementation links, environments, fixtures, and evidence in Phase 0. |
-| Executable profile manifests | Not started | Implement `pr-core`, render, PTY, security, scheduled, phase, and release profiles in Phase 0. |
-| Frozen cumulative phase gates | Not started | Expand broad planning families into exact IDs and environments beginning with `phase-gate-0`. |
-| Hermetic test harness | Not started | Isolate paths, environment, time, network, workers, terminal state, fixtures, and fault injection. |
+| Machine-readable case registry | Complete | All 332 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
+| Executable profile manifests | In progress | Exact core, render, PTY, security, scheduled, weekly, and release manifests exist; later targets remain Planned. |
+| Frozen cumulative phase gates | Complete | Phase 0 through Phase 5 membership is frozen as exact cumulative IDs and required native environment rows. |
+| Hermetic test harness | In progress | CLI and PTY cases isolate user paths, environment, dimensions, terminal model, and deadlines; broader network/fault isolation remains. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
-| Continuous integration | In progress | Locked Linux, macOS, and Windows core jobs plus a Linux dependency-policy job are defined but need hosted evidence. |
+| Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
 | Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally; hosted and cross-platform evidence remains. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |

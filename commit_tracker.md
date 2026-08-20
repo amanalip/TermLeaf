@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 12:15 AM EDT
+**Last updated:** August 20, 2026 at 12:44 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,34 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Continue the Rust foundation
+
+**Completed:** August 20, 2026 at 12:44 AM EDT
+
+**Commit subject:** `test: add Phase 0 manifests and PTY harness`
+
+Changes:
+
+- Generate and validate all 332 case records, exact execution profiles, and
+  cumulative Phase 0 through Phase 5 gate memberships.
+- Register Phase 0 environments and the complete planned fixture inventory.
+- Isolate CLI and PTY process tests behind case-owned paths, minimal environment,
+  fixed dimensions, deterministic terminal parsing, and hard deadlines.
+- Prove Linux normal exit, Ctrl-C input, pre-terminal failure, active handled
+  error, and recoverable panic restoration through real PTYs.
+- Suppress panic diagnostics until terminal unwinding completes, and define
+  fixed native CI runners plus Unix PTY jobs.
+- Keep Phase 0 open for required hosted, macOS, Windows, MSRV, signal-policy,
+  and arbitrary-initial-mode evidence.
+
+Validation:
+
+- Registry freshness, formatting, Clippy with warnings denied, 23 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- PTY tests compared kernel terminal attributes and modeled ANSI modes before
+  and after normal, error, panic, and Ctrl-C paths.
+- `cargo clean` removed all generated build output.
 
 ### Start the Rust foundation
 

@@ -16,6 +16,11 @@ clap = { version = "4.5", features = ["derive"] }
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 
+[dev-dependencies]
+portable-pty = { version = "0.9", default-features = false }
+tempfile = "3.23"
+vt100 = "0.16"
+
 [lints.rust]
 unsafe_code = "forbid"
 

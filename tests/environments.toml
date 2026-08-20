@@ -1,0 +1,81 @@
+schema_version = 1
+
+[[environment]]
+id = "ENV-LINUX-PTY"
+status = "Required"
+operating_system = "Ubuntu 24.04 x86-64"
+terminal = "kernel PTY with TERM=xterm-256color"
+runner = "ubuntu-24.04"
+purpose = "Phase 0 process and terminal lifecycle evidence"
+
+[[environment]]
+id = "ENV-MAC-PTY"
+status = "Required"
+operating_system = "macOS 15 arm64"
+terminal = "native PTY with TERM=xterm-256color"
+runner = "macos-15"
+purpose = "Phase 0 build, process, and terminal lifecycle evidence"
+
+[[environment]]
+id = "ENV-WIN-PTY"
+status = "Required"
+operating_system = "Windows Server 2025 x86-64"
+terminal = "ConPTY through Windows Terminal-compatible console APIs"
+runner = "windows-2025"
+purpose = "Phase 0 build, process, and terminal lifecycle evidence"
+
+[[environment]]
+id = "ENV-LINUX-GNOME"
+status = "Deferred"
+operating_system = "unselected supported Linux release"
+terminal = "GNOME Terminal version unselected"
+runner = "manual"
+purpose = "Release compatibility; no Phase 0 support claim"
+
+[[environment]]
+id = "ENV-LINUX-KONSOLE"
+status = "Deferred"
+operating_system = "unselected supported Linux release"
+terminal = "Konsole version unselected"
+runner = "manual"
+purpose = "Release compatibility; no Phase 0 support claim"
+
+[[environment]]
+id = "ENV-LINUX-MODERN"
+status = "Deferred"
+operating_system = "unselected supported Linux release"
+terminal = "Kitty or WezTerm version unselected"
+runner = "manual"
+purpose = "Modern protocol, SSH, and tmux compatibility"
+
+[[environment]]
+id = "ENV-MAC-TERM"
+status = "Deferred"
+operating_system = "unselected supported macOS release"
+terminal = "system Terminal version unselected"
+runner = "manual"
+purpose = "Release compatibility; no Phase 0 support claim"
+
+[[environment]]
+id = "ENV-MAC-ITERM"
+status = "Deferred"
+operating_system = "unselected supported macOS release"
+terminal = "iTerm2 version unselected"
+runner = "manual"
+purpose = "Image protocol compatibility"
+
+[[environment]]
+id = "ENV-WIN-WT"
+status = "Deferred"
+operating_system = "unselected supported Windows release"
+terminal = "Windows Terminal version unselected"
+runner = "manual"
+purpose = "Release compatibility; no Phase 0 support claim"
+
+[[environment]]
+id = "ENV-SIXEL"
+status = "Deferred"
+operating_system = "unselected"
+terminal = "Sixel implementation version unselected"
+runner = "manual"
+purpose = "Image protocol compatibility"

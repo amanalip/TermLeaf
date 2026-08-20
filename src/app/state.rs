@@ -101,7 +101,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prop_010_help_returns_to_its_invoking_view_and_focus() -> Result<()> {
+    fn help_returns_to_its_invoking_view_and_focus() -> Result<()> {
         let mut app = App::new(None)?;
 
         app.update(Action::ShowHelp);
