@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:45 AM EDT
+**Last updated:** August 20, 2026 at 1:49 AM EDT
 
 ## Table of Contents
 
@@ -30,6 +30,26 @@ No changes are pending inclusion in a commit.
 
 ## Commit History
 
+### Distinguish ConPTY host controls
+
+**Completed:** August 20, 2026 at 1:49 AM EDT
+
+**Commit subject:** `test: distinguish ConPTY host controls`
+
+Changes:
+
+- Keep the strict no-control assertion for Unix pre-terminal failures.
+- On Windows, reject TermLeaf's terminal setup sequences while allowing the
+  unavoidable ConPTY process envelope.
+- Retain the alternate-screen state assertion on every platform.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- `cargo clean` removed all generated build output.
+- Exact Windows behavior is verified by the CI run triggered by this commit.
+
 ### Filter echoed ConPTY negotiation
 
 **Completed:** August 20, 2026 at 1:45 AM EDT
@@ -49,7 +69,7 @@ Validation:
 - Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
   doctests, cargo-deny, and diff checks passed locally.
 - `cargo clean` removed all generated build output.
-- Exact Windows behavior is verified by the CI run triggered by this commit.
+- The triggered CI run supplied exact Windows follow-up evidence.
 
 ### Stabilize Windows CLI assertions
 

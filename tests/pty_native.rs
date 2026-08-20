@@ -437,7 +437,17 @@ fn cli_010_pre_terminal_error_emits_no_control_sequences() -> Result<()> {
     let (status, screen, output) = case.finish()?;
 
     assert!(!status.success());
+    #[cfg(unix)]
     assert!(!output.contains(&0x1b), "output={output:?}");
+    #[cfg(windows)]
+    for sequence in [b"\x1b[?1049h".as_slice(), b"\x1b[?25l", b"\x1b[?2004h"] {
+        assert!(
+            !output
+                .windows(sequence.len())
+                .any(|bytes| bytes == sequence),
+            "application setup sequence {sequence:?} appeared in output={output:?}"
+        );
+    }
     assert!(!screen.alternate_screen());
     let diagnostic = String::from_utf8_lossy(&output);
     assert!(diagnostic.contains("definitely-missing-phase-zero-book.txt"));

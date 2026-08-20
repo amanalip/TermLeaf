@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:45 AM EDT
+**Last updated:** August 20, 2026 at 1:49 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,34 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Distinguish ConPTY host controls
+
+**Commit subject:** `test: distinguish ConPTY host controls`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:49 AM EDT
+
+Scope:
+
+- Use diagnostics from GitHub Actions run `32336883054` to identify ConPTY's
+  process envelope separately from TermLeaf output.
+- Retain strict Unix byte-level validation and use exact application lifecycle
+  sequences for the equivalent Windows pre-terminal assertion.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| GitHub Actions run `32336883054` | Diagnosed: ConPTY emitted `?9001`, focus, title, and cursor-show controls; all other Windows assertions passed |
+| `cargo fmt --check` | Passed after formatting the sequence assertion |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed locally |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `cargo deny check` | Passed: advisories, bans, licenses, and sources |
+| `python3 tools/case_registry.py check` | Passed |
+| `cargo clean` | Passed: removed 1,996 files and 432.1 MiB |
 
 ### Filter echoed ConPTY negotiation
 
