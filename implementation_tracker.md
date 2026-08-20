@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 7:32 PM EDT
+**Last updated:** August 19, 2026 at 10:16 PM EDT
 
 ## Table of Contents
 
@@ -95,7 +95,7 @@ blocked.
 | --- | --- | --- |
 | Keyboard controls | Not started | Keep common actions quick and the full set discoverable. |
 | Help screen | Not started | Show commands and active key bindings without leaving the reader. |
-| Themes | Not started | Ship dark, light, high-contrast, monochrome, and responsive Paper themes. |
+| Themes | Not started | Ship dark, light, high-contrast, monochrome, and a contrast-tested responsive Paper theme with true-color, 256-color, and terminal-default fallbacks. |
 | Detailed status | Not started | Show title, chapter, location, page, percentage, clock, mode, and messages. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
 | Error messages | Not started | Say what failed, why it matters, and what the reader can try. |

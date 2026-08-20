@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 19, 2026 at 7:32 PM EDT
+**Last updated:** August 19, 2026 at 10:16 PM EDT
 
 ## Table of Contents
 
@@ -75,6 +75,36 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Refine the planned Paper theme
+
+**Commit subject:** `docs: refine Paper theme`
+
+**Revision:** This commit
+
+**Recorded:** August 19, 2026 at 10:16 PM EDT
+
+**Environment:** Linux 7.1.8-1-cachyos x86-64
+
+Scope:
+
+- Define Paper's semantic palette and contrast floor.
+- Specify responsive page behavior and terminal color fallbacks.
+- Clarify image fidelity and measurable render coverage.
+
+Checks:
+
+| Check | Result |
+| --- | --- |
+| Paper requirements remain within the existing first-release theme scope | Passed |
+| All seven planned foreground/background pairs exceed 4.5:1 calculated contrast | Passed: 5.14:1 minimum |
+| Theme behavior explicitly preserves logical reading anchors | Passed |
+| Source images remain unmodified and color-preserving by default | Passed |
+| Local Markdown links resolve and changed headings retain their table-of-contents entries | Passed |
+| Markdown files contain no em dash characters | Passed |
+| `git diff --check` | Passed |
+| Rust tests | Not applicable: the Cargo package does not exist yet |
+| `cargo clean` | Not applicable: no Cargo command ran and no `target/` directory was created |
 
 ### Establish the local book corpus and test reporting
 

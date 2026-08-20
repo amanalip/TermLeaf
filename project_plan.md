@@ -1,6 +1,6 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 19, 2026 at 7:28 PM EDT
+**Last updated:** August 19, 2026 at 10:16 PM EDT
 
 ## Table of Contents
 
@@ -294,18 +294,60 @@ choice through TOML configuration. Arbitrary custom palettes are deferred.
 The Paper theme will make the content area feel like a page without pretending
 the terminal is a graphical typesetter:
 
-- A warm ivory page field.
-- Dark charcoal text.
-- Muted olive accents that connect to the TermLeaf logo.
-- Restrained sepia selection and search highlights.
+- A warm ivory page field surrounded by a quiet warm-gray canvas.
+- Dark charcoal body text and softer brown-gray secondary text.
+- Muted olive headings and controls that connect to the TermLeaf logo.
+- Distinct sepia selection and ochre search treatments backed by underline,
+  bold, or reverse video where color alone would be ambiguous.
+- Underlined links whose destination remains visible through the confirmation
+  flow.
 - A subtle centered page boundary when the terminal is wide enough.
 - Comfortable horizontal margins that shrink before content becomes unusable.
 - A full-canvas fallback when a distinct page would leave too little room.
 - Nearest-color fallbacks for 256-color terminals.
-- A contrast-preserving monochrome fallback.
+- A contrast-preserving terminal-default fallback for limited color or
+  `NO_COLOR` sessions.
+
+The initial true-color palette uses semantic roles rather than scattering color
+values through widgets:
+
+| Role | Initial color | Use |
+| --- | --- | --- |
+| Outer canvas | `#D8D0BE` | Space around a centered page |
+| Page | `#F4EEDC` | Primary reading surface |
+| Text | `#292821` | Body text and essential status |
+| Secondary text | `#625F52` | De-emphasized metadata that remains readable |
+| Olive accent | `#4F5D38` | Headings, focus, and active controls |
+| Sepia accent | `#855A3A` | Links and annotation affordances |
+| Selection | `#DDC89B` | Selected logical ranges |
+| Search match | `#C8AD62` | Visible search results |
+
+These values are starting points, not permission to lower readability. Every
+foreground and background pairing used for text must meet at least a 4.5:1
+contrast ratio. Focus, selection, search, links, warnings, and annotation colors
+must also differ through text attributes or labels.
+
+Paper layout responds to available content width rather than fixed terminal
+breakpoints. It first reduces outer canvas, then page padding, then removes the
+page boundary. It never narrows the readable area below the application's
+minimum content width. Switching themes or crossing these states preserves the
+same logical reading anchor.
+
+Source images keep their original pixels and colors by default. Paper styles
+only their surrounding frame, caption, placeholder, and cell background. An
+image treatment that changes saturation or color temperature would need a
+separate, reversible reader option and is not implied by selecting the theme.
 
 The Paper theme will not change the terminal font, fake paper texture with noisy
-characters, or sacrifice contrast for decoration.
+characters, alter the display's hardware color temperature, or sacrifice
+contrast for decoration.
+
+Paper acceptance tests will cover true color, 256 color, terminal-default color,
+and `NO_COLOR` output at wide, ordinary, narrow, and minimum supported terminal
+sizes. Direct assertions will verify contrast roles, information-independent
+styling, logical-anchor preservation, and the order in which margins and the
+page boundary collapse. Reviewed render snapshots will cover reader, search,
+selection, annotation, image-caption, help, status, and error states.
 
 ### Status and Progress
 
@@ -905,7 +947,8 @@ small set of reviewed `insta` snapshots for:
 - Empty, short, long, malformed, and large documents.
 - ASCII, combining marks, CJK, emoji, tabs, and control characters.
 - Reader, help, search, error, and resize states.
-- Default, high-contrast, and monochrome presentation.
+- Default, Paper, high-contrast, and monochrome presentation, including Paper's
+  true-color, 256-color, and terminal-default fallbacks.
 
 Snapshots complement direct assertions. They do not replace checks for source
 positions, widths, navigation, or persistence.

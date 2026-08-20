@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 7:32 PM EDT
+**Last updated:** August 19, 2026 at 10:16 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,29 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Refine the planned Paper theme
+
+**Completed:** August 19, 2026 at 10:16 PM EDT
+
+**Commit subject:** `docs: refine Paper theme`
+
+Changes:
+
+- Define semantic Paper colors for the page, canvas, text, controls, selection,
+  and search.
+- Specify responsive margin and page-boundary collapse behavior.
+- Preserve source image colors while styling their surrounding presentation.
+- Require contrast, non-color indicators, logical-anchor preservation, and
+  render coverage across terminal color capabilities and viewport sizes.
+
+Validation:
+
+- All seven planned text color pairings exceed the 4.5:1 contrast floor; the
+  lowest calculated ratio is 5.14:1.
+- Local Markdown links resolve, changed headings retain their table-of-contents
+  entries, and Markdown files contain no em dash characters.
+- `git diff --check` passes.
 
 ### Establish test evidence and a local book corpus
 
@@ -302,4 +325,6 @@ the first release.
 Paper uses a warm ivory page, charcoal text, muted olive accents, restrained
 sepia highlights, and a subtle centered boundary. It gives up margins or the
 page boundary before content becomes cramped and has 256-color and monochrome
-fallbacks. It will not fake texture or reduce contrast for decoration.
+fallbacks. Its semantic color roles must retain 4.5:1 text contrast, and state
+must never rely on color alone. It preserves source image colors and will not
+fake texture, alter display hardware, or reduce contrast for decoration.
