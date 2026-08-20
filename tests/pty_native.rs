@@ -213,13 +213,24 @@ impl PtyCase {
             Err(mpsc::RecvTimeoutError::Timeout | mpsc::RecvTimeoutError::Disconnected) => {}
         }
         #[cfg(windows)]
-        if !self.cursor_position_reported
-            && self.output.windows(4).any(|window| window == b"\x1b[6n")
         {
-            self.send(b"\x1b[1;1R")?;
-            self.cursor_position_reported = true;
-            self.output.clear();
+            if !self.cursor_position_reported
+                && self.output.windows(4).any(|window| window == b"\x1b[6n")
+            {
+                self.send(b"\x1b[1;1R")?;
+                self.cursor_position_reported = true;
+            }
+            for sequence in [b"\x1b[6n".as_slice(), b"\x1b[1;1R".as_slice()] {
+                while let Some(start) = self
+                    .output
+                    .windows(sequence.len())
+                    .position(|window| window == sequence)
+                {
+                    self.output.drain(start..start + sequence.len());
+                }
+            }
             self.parser = vt100::Parser::new(24, 80, 0);
+            self.parser.process(&self.output);
         }
         Ok(())
     }
@@ -426,7 +437,7 @@ fn cli_010_pre_terminal_error_emits_no_control_sequences() -> Result<()> {
     let (status, screen, output) = case.finish()?;
 
     assert!(!status.success());
-    assert!(!output.contains(&0x1b));
+    assert!(!output.contains(&0x1b), "output={output:?}");
     assert!(!screen.alternate_screen());
     let diagnostic = String::from_utf8_lossy(&output);
     assert!(diagnostic.contains("definitely-missing-phase-zero-book.txt"));

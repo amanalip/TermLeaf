@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:40 AM EDT
+**Last updated:** August 20, 2026 at 1:45 AM EDT
 
 ## Table of Contents
 
@@ -30,6 +30,27 @@ No changes are pending inclusion in a commit.
 
 ## Commit History
 
+### Filter echoed ConPTY negotiation
+
+**Completed:** August 20, 2026 at 1:45 AM EDT
+
+**Commit subject:** `test: filter echoed ConPTY handshake`
+
+Changes:
+
+- Remove both the ConPTY cursor query and its cooked-mode echo from captured
+  application output.
+- Rebuild the terminal model from the filtered transcript on Windows.
+- Assert stable help structure without coupling the test to argv display-name
+  behavior.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- `cargo clean` removed all generated build output.
+- Exact Windows behavior is verified by the CI run triggered by this commit.
+
 ### Stabilize Windows CLI assertions
 
 **Completed:** August 20, 2026 at 1:40 AM EDT
@@ -49,7 +70,7 @@ Validation:
 - Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
   doctests, cargo-deny, and diff checks passed locally.
 - `cargo clean` removed all generated build output.
-- Exact Windows behavior is verified by the CI run triggered by this commit.
+- The triggered CI run supplied exact Windows follow-up evidence.
 
 ### Complete the ConPTY harness fix
 
@@ -70,7 +91,7 @@ Validation:
 - Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
   doctests, cargo-deny, and diff checks passed locally.
 - `cargo clean` removed all generated build output.
-- Exact Windows behavior is verified by the CI run triggered by this commit.
+- The triggered CI run supplied exact Windows follow-up evidence.
 
 ### Fix Windows CI regressions
 

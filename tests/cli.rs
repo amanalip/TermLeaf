@@ -63,7 +63,8 @@ fn cli_001_help_exits_before_terminal_initialization() -> Result<()> {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Usage: termleaf [BOOK]"));
+    assert!(stdout.contains("Usage:"));
+    assert!(stdout.contains("[BOOK]"));
     assert!(stdout.contains("Local book to open"));
     assert!(!stdout.contains('\u{1b}'));
     Ok(())

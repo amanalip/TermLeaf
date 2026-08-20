@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:40 AM EDT
+**Last updated:** August 20, 2026 at 1:45 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,35 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Filter echoed ConPTY negotiation
+
+**Commit subject:** `test: filter echoed ConPTY handshake`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:45 AM EDT
+
+Scope:
+
+- Diagnose GitHub Actions run `32336582895`: Windows still captured the echoed
+  cursor-position report after removing the earlier ConPTY query.
+- Remove both host-negotiation sequences before evaluating application output
+  or the VT100 model.
+- Keep the CLI help assertion focused on stable syntax and argument content.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| GitHub Actions run `32336582895` | Diagnosed: all application behavior passed except echoed host negotiation and an over-specific usage assertion |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed locally |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `cargo deny check` | Passed: advisories, bans, licenses, and sources |
+| `python3 tools/case_registry.py check` | Passed |
+| `cargo clean` | Passed: removed 1,996 files and 432.1 MiB |
 
 ### Stabilize Windows CLI assertions
 
