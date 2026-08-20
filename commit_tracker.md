@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:35 AM EDT
+**Last updated:** August 20, 2026 at 1:40 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,27 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Stabilize Windows CLI assertions
+
+**Completed:** August 20, 2026 at 1:40 AM EDT
+
+**Commit subject:** `test: isolate ConPTY negotiation output`
+
+Changes:
+
+- Give Clap a platform-independent `termleaf` display name.
+- Exclude ConPTY's startup cursor negotiation from captured application output
+  after the harness answers it.
+- Preserve the no-control-sequences contract for errors raised before terminal
+  initialization.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- `cargo clean` removed all generated build output.
+- Exact Windows behavior is verified by the CI run triggered by this commit.
 
 ### Complete the ConPTY harness fix
 

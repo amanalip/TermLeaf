@@ -218,6 +218,8 @@ impl PtyCase {
         {
             self.send(b"\x1b[1;1R")?;
             self.cursor_position_reported = true;
+            self.output.clear();
+            self.parser = vt100::Parser::new(24, 80, 0);
         }
         Ok(())
     }

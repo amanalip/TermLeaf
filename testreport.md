@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:35 AM EDT
+**Last updated:** August 20, 2026 at 1:40 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,35 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Stabilize Windows CLI assertions
+
+**Commit subject:** `test: isolate ConPTY negotiation output`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:40 AM EDT
+
+Scope:
+
+- Diagnose the two remaining Windows failures from GitHub Actions run
+  `32336321311` after five of six native PTY cases passed.
+- Fix Clap's Windows `.exe` display-name variation at the command definition.
+- Reset captured terminal output after the ConPTY startup handshake so assertions
+  inspect only bytes emitted by the application.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| GitHub Actions run `32336321311` | Diagnosed: Windows help name varied; ConPTY's host query reached the application-output assertion |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed locally |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `cargo deny check` | Passed: advisories, bans, licenses, and sources |
+| `python3 tools/case_registry.py check` | Passed |
+| `cargo clean` | Passed: removed 1,996 files and 432.1 MiB |
 
 ### Complete the ConPTY harness fix
 
