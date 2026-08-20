@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 19, 2026 at 7:28 PM EDT
+**Last updated:** August 20, 2026 at 12:05 AM EDT
 
 ## Table of Contents
 
@@ -43,9 +43,11 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 
 ## Where Things Stand
 
-The product contract and technical architecture are settled, but implementation
-has not started. The next milestone is the Rust foundation and a complete
-plain-text reading loop with reliable terminal restoration.
+The first-release feature scope and technical direction are settled, while
+several interaction, limit, and native-platform policies remain explicit open
+decisions. Implementation has not started. The next milestone is the Rust
+foundation and a complete plain-text reading loop with reliable terminal
+restoration.
 
 ## Technical Direction
 
@@ -65,3 +67,9 @@ security limits, delivery gates, and primary references.
   decisions that will matter later.
 - [Test report](testreport.md): the checks, fixtures, environment, and outcomes
   recorded for every commit.
+- [Rust code quality standards](code_quality.md): the engineering rules every
+  implementation change must satisfy.
+- [Test case framework](testcases.md): stable cases, execution profiles,
+  fixtures, environments, and phase gates for proving those rules.
+- [UI mockups](ui_mockups.md): responsive ASCII screens, focus and overlay
+  behavior, accessibility intent, implementation guidance, and phase ownership.

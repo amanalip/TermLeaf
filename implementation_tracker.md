@@ -1,12 +1,13 @@
 # Implementation Tracker
 
-**Last updated:** August 19, 2026 at 10:16 PM EDT
+**Last updated:** August 20, 2026 at 12:05 AM EDT
 
 ## Table of Contents
 
 - [How to Read This Tracker](#how-to-read-this-tracker)
 - [Right Now](#right-now)
 - [Delivery Phases](#delivery-phases)
+- [UI Delivery](#ui-delivery)
 - [Groundwork](#groundwork)
 - [The Reading Loop](#the-reading-loop)
 - [The Bookshelf](#the-bookshelf)
@@ -40,14 +41,32 @@ The detailed work and exit gates remain in the
 phase tracker and must be updated whenever work starts, completes, or becomes
 blocked.
 
+Each phase must pass its frozen exact gate, every earlier gate, and permanent
+regressions. A required failure or Blocked P0 case prevents completion. Planning
+documents marked Complete do not imply their Rust harness or feature is built.
+
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
-| 0. Rust foundation | Not started | Native terminal restoration and locked CI pass. |
-| 1. Plain-text reading loop | Not started | TXT reading, navigation, resize, and core test journeys pass. |
-| 2. Structured books and images | Not started | Safe EPUB and Markdown reading plus image fallbacks pass. |
-| 3. Dependable reading | Not started | Persistence, search, recents, annotations, help, and native terminal checks pass. |
-| 4. Product refinement | Not started | Recovery, links, accessibility, performance, and reader guidance meet their gates. |
-| 5. Release | Not started | Native packages, clean installs, checksums, notices, and platform smoke tests pass. |
+| 0. Rust foundation | Not started | UI shell, terminal guard, action/view state, locked CI, registry, profiles, harness, and exact foundation gate pass. |
+| 1. Plain-text reading loop | Not started | Responsive TXT reader, modes, keys, status, all themes, help skeleton, errors, and anchor-preserving render/PTY evidence pass. |
+| 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
+| 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
+| 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
+| 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
+
+## UI Delivery
+
+`ui_mockups.md` is the hierarchy and interaction reference. It clarifies work
+already inside the six phases; it does not add another phase.
+
+| Phase | UI responsibility |
+| --- | --- |
+| 0 | View/focus state, action dispatch, terminal guard, base shell, test backend, case registry, and profile manifests |
+| 1 | Reader modes, responsive classes, status foundation, core keys, all themes, Paper, help skeleton, errors, and too-small state |
+| 2 | TOC, link focus, semantic code/tables, image placement/fallbacks, loading/cancellation, and resource errors |
+| 3 | Recents, open path, search/history, text selection, annotation dialogs/editor/list, complete help, and persistence feedback |
+| 4 | Metadata refinement, annotation recovery, links, long-value inspection, usability, accessibility, performance, and guidance |
+| 5 | Native UI matrix, install journeys, terminal captures, limitations, and release documentation |
 
 ## Groundwork
 
@@ -59,7 +78,11 @@ blocked.
 | Remaining product details | In progress | Set the license expression, exact key map, OS versions, and tested terminals. |
 | Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
+| Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
+| UI mockup specification | Complete | Implement responsive screens, focus states, overlays, accessibility, and phase ownership from `ui_mockups.md`. |
 | Rust package | Not started | Create the manifest, lockfile, module skeleton, and minimum Rust version. |
+| Application view/focus model | Not started | Represent recent, open-path, reader, selection, editor, confirmation, help, error, and too-small states explicitly. |
+| Shared action registry | Not started | Drive input handling and generated help from one conflict-free action/key source. |
 | Command-line interface | Not started | Start with a book path and focused reader options through Clap. |
 | Configuration | Not started | Implement defaults, TOML settings, and explicit CLI overrides. |
 
@@ -94,6 +117,10 @@ blocked.
 | Feature | Status | What remains |
 | --- | --- | --- |
 | Keyboard controls | Not started | Keep common actions quick and the full set discoverable. |
+| Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
+| Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
+| Responsive UI states | Not started | Support wide, standard, compact, narrow, and non-destructive below-minimum layouts. |
+| Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
 | Help screen | Not started | Show commands and active key bindings without leaving the reader. |
 | Themes | Not started | Ship dark, light, high-contrast, monochrome, and a contrast-tested responsive Paper theme with true-color, 256-color, and terminal-default fallbacks. |
 | Detailed status | Not started | Show title, chapter, location, page, percentage, clock, mode, and messages. |
@@ -105,6 +132,11 @@ blocked.
 | Feature | Status | What remains |
 | --- | --- | --- |
 | Automated tests | Not started | Cover parsing, navigation, state, and terminal behavior. |
+| Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
+| Machine-readable case registry | Not started | Materialize IDs, status, ownership, implementation links, environments, fixtures, and evidence in Phase 0. |
+| Executable profile manifests | Not started | Implement `pr-core`, render, PTY, security, scheduled, phase, and release profiles in Phase 0. |
+| Frozen cumulative phase gates | Not started | Expand broad planning families into exact IDs and environments beginning with `phase-gate-0`. |
+| Hermetic test harness | Not started | Isolate paths, environment, time, network, workers, terminal state, fixtures, and fault injection. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | Not started | Check style, tests, and builds on every proposed change. |
 | Dependency policy | Not started | Configure cargo-deny for advisories, licenses, sources, and bans. |

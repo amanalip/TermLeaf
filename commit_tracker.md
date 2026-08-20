@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 19, 2026 at 10:16 PM EDT
+**Last updated:** August 20, 2026 at 12:05 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,47 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Define quality, testing, and UI implementation standards
+
+**Completed:** August 20, 2026 at 12:05 AM EDT
+
+**Commit subject:** `docs: define implementation standards`
+
+Changes:
+
+- Add `code_quality.md` as the enforceable implementation and review contract.
+- Cover architecture, types, errors, hostile input, terminal cleanup,
+  concurrency, persistence, privacy, performance, dependencies, and tests.
+- Require honest per-commit validation and `cargo clean` after complete local
+  Rust validation cycles.
+- Add `testcases.md` with stable IDs, exact test layers and profiles, fixture and
+  environment registries, change selection, phase gates, and completion rules.
+- Catalog feature, security, privacy, terminal, accessibility, performance,
+  supply-chain, property, fuzz, native, and release evidence.
+- Audit the catalog in four passes and replace unresolved oracles with explicit
+  Blocked decision records.
+- Add `ui_mockups.md` with detailed responsive ASCII screens, focus/input modes,
+  overlays, accessibility, safety, render guidance, and phase ownership.
+- Add stable UI interaction cases for open path, links, selection, history,
+  themes, long values, tiny terminals, confirmations, images, help, and errors.
+- Reconcile the roadmap and tracker with the standards while retaining six
+  phases and strengthening their exact cumulative gates.
+- Link all standards from the README, project plan, and implementation tracker.
+
+Validation:
+
+- Four independent test-framework reviews and two UI/roadmap synchronization
+  reviews were incorporated.
+- The catalog defines 332 unique case IDs with no duplicates or dangling exact
+  references.
+- Markdown tables, code fences, local links, and table-of-contents anchors
+  validate across all eight root documents.
+- `ui_mockups.md` contains ASCII only.
+- The plan, tracker, test framework, and UI specification each contain exactly
+  Phase 0 through Phase 5 in the same order.
+- Required Cargo commands agree, Markdown files contain no em dash characters,
+  and `git diff --check` passes.
 
 ### Refine the planned Paper theme
 
@@ -328,3 +369,40 @@ page boundary before content becomes cramped and has 256-color and monochrome
 fallbacks. Its semantic color roles must retain 4.5:1 text contrast, and state
 must never rely on color alone. It preserves source image colors and will not
 fake texture, alter display hardware, or reduce contrast for decoration.
+
+### DD-014: Make Rust quality rules part of the delivery contract
+
+**Date:** August 19, 2026 at 11:30 PM EDT
+
+**Status:** Accepted
+
+`code_quality.md` defines required implementation, review, testing, security,
+and dependency practices for TermLeaf. Exceptions must be narrow, justified,
+tested, and recorded; schedule pressure is not an exception. The standard may
+change when implementation evidence shows a better rule, but it must not be
+silently bypassed.
+
+### DD-015: Identify test evidence with stable case IDs
+
+**Date:** August 19, 2026 at 11:49 PM EDT
+
+**Status:** Accepted
+
+`testcases.md` maps product requirements and risks to stable IDs, executable
+profiles, fixtures, environments, and phase gates. IDs are never reused. A case
+with an unresolved oracle remains Blocked behind a named decision instead of
+passing several incompatible outcomes. Implementation and reports must identify
+the exact selected IDs rather than relying on a broad statement that tests ran.
+
+### DD-016: Keep UI implementation inside the six delivery phases
+
+**Date:** August 20, 2026 at 12:05 AM EDT
+
+**Status:** Accepted
+
+`ui_mockups.md` defines responsive hierarchy, focus, modes, overlays,
+accessibility, safety, and component guidance for the first-release screens.
+The UI does not create a seventh phase: shell/state work belongs to Phase 0,
+the TXT reader to Phase 1, structured semantics and images to Phase 2, dependable
+local interactions to Phase 3, refinement evidence to Phase 4, and native
+release evidence to Phase 5.

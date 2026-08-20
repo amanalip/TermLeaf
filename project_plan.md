@@ -1,6 +1,6 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 19, 2026 at 10:16 PM EDT
+**Last updated:** August 20, 2026 at 12:05 AM EDT
 
 ## Table of Contents
 
@@ -550,10 +550,18 @@ src/
 |   `-- state.rs
 `-- ui/
     |-- mod.rs
+    |-- recent.rs
     |-- reader.rs
+    |-- views.rs
     |-- help.rs
-    `-- status.rs
+    |-- status.rs
+    `-- theme.rs
 ```
+
+This is an initial responsibility map, not a required one-file-per-screen
+layout. `ui_mockups.md` defines the complete view, focus, overlay, responsive,
+and component inventory. Related temporary views should remain together until
+their behavior justifies a separate module.
 
 ### Dependency Direction
 
@@ -914,6 +922,11 @@ skipped coverage, and cleanup status in `testreport.md`. A complete local Rust
 validation cycle ends with `cargo clean` so ignored build output does not
 accumulate in the working directory.
 
+`testcases.md` is the concrete verification catalog. Implementation changes
+select its stable case IDs through versioned execution profiles. Cases that
+depend on unresolved product policy remain Blocked with a named decision rather
+than accepting several incompatible outcomes.
+
 ### Model and Unit Tests
 
 - Format detection and decoding.
@@ -990,13 +1003,14 @@ Every proposed change should eventually run:
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --locked
+cargo test --doc --locked
 cargo deny check
 ```
 
 Native Linux, macOS, and Windows jobs will build and run core tests for every
 platform TermLeaf intends to support. `cargo-nextest` can be added when suite
 runtime, process isolation, or CI reporting makes it worthwhile. Standard
-`cargo test --doc` remains necessary because Nextest does not run doctests.
+doctests remain necessary because Nextest does not run them.
 
 Scheduled work should include advisory refreshes, longer fuzz runs, dependency
 updates, and selected performance checks. Wall-clock benchmarks from shared CI
@@ -1032,6 +1046,19 @@ test corpora. Those assets need their own provenance and license review.
 
 ## Delivery Roadmap
 
+The roadmap remains six phases, numbered 0 through 5. Quality, testing, and UI
+specifications strengthen these phases rather than adding a separate planning or
+polish phase.
+
+Every stage exit requires its frozen `phase-gate-N` manifest, every earlier
+phase-gate manifest, and all permanent regressions to pass. The manifest names
+exact case IDs, profiles, fixtures, environments, fuzz durations, benchmarks,
+and manual procedures rather than broad families. No failing required case or
+Blocked P0 case may pass a gate; a Blocked P1 case needs an explicit scope or
+support decision. Applicable `code_quality.md` review items, exceptions,
+commands, results, skips, and external evidence belong in `testreport.md`.
+Complete local Rust validation cycles end with recorded `cargo clean`.
+
 ### Stage 0: Establish the Rust Foundation
 
 Work:
@@ -1039,9 +1066,14 @@ Work:
 - Create the Cargo package with the chosen license expression and Rust version.
 - Add Ratatui, Crossterm, Clap, error handling, and the first test setup.
 - Implement terminal setup and guaranteed restoration.
-- Define the application action and state loop.
+- Define the application action, view, focus, and state loop plus the base screen
+  shell and shared action registry.
 - Add formatting, Clippy, tests, and `cargo-deny` to CI.
-- Record target platforms, terminals, and provisional performance hardware.
+- Materialize the machine-readable test case registry, executable profile
+  manifests, fixture manifests, hermetic harness, and Ratatui test backend.
+- Freeze cumulative phase-gate manifests and validate case IDs bidirectionally.
+- Record and classify named target platform/terminal rows and provisional
+  performance hardware.
 
 Exit gate:
 
@@ -1049,6 +1081,10 @@ Exit gate:
 - Normal exit, startup failure, Ctrl-C, and a controlled panic restore the
   terminal.
 - CI passes from a locked dependency graph.
+- The registry has no malformed, duplicate, unknown, or orphaned case IDs;
+  `phase-gate-0` passes its exact foundation-owned cases and environments.
+- View/focus state and the base shell render deterministically without putting
+  Ratatui or Crossterm into core document, layout, reader, or persistence code.
 
 ### Stage 1: Complete the Plain-Text Reading Loop
 
@@ -1060,7 +1096,13 @@ Work:
 - Implement paged and continuous modes.
 - Navigate by line, page, start, and end with hybrid default keys.
 - Keep a stable logical anchor through resize.
-- Add the built-in themes, including the responsive Paper view.
+- Implement responsive wide, standard, compact, narrow, and below-minimum states.
+- Resolve the conflict-free key map, multikey policy, minimum usable dimensions,
+  status formulas/collapse order, and deterministic message lifetime.
+- Add all built-in dark, light, high-contrast, monochrome, and Paper themes plus
+  session theme selection and TOML-backed startup choice.
+- Add the generated help skeleton, safe reader errors, and terminal-too-small
+  suspension/recovery state.
 - Report missing files, invalid encoding, and unusable terminal sizes.
 
 Exit gate:
@@ -1069,6 +1111,10 @@ Exit gate:
   without losing the passage.
 - Model, property, render, and basic PTY tests cover the journey.
 - Provisional interaction and memory budgets are measured.
+- Direct cell, bounds, source-mapping, focus, and non-color assertions pass in
+  addition to snapshots.
+- Resize, theme, reading-mode, and below-minimum transitions preserve the logical
+  passage and suspended UI state.
 
 ### Stage 2: Add Structured Books and Images
 
@@ -1079,9 +1125,14 @@ Work:
 - Convert chapter XHTML into the shared document model.
 - Parse Markdown directly into the shared document model.
 - Add chapter and table-of-contents navigation.
+- Render semantic code and wide/narrow tables through the shared layout model.
 - Detect encrypted and fixed-layout books.
 - Decode bounded raster and SVG resources away from the UI thread.
 - Implement protocol detection, half-block fallback, and caption fallback.
+- Add link-focus behavior, image placement, loading/cancellation, resource-error,
+  and stale-image cleanup states.
+- Bound worker queues and reject stale generations without moving the visible
+  logical anchor when an image placeholder resolves.
 - Build a licensed corpus of EPUB 2, EPUB 3, malformed, large, and hostile
   fixtures.
 - Fuzz archive, XML, XHTML, and conversion boundaries.
@@ -1093,6 +1144,10 @@ Exit gate:
 - Malformed but recoverable XHTML remains readable.
 - Unsupported encryption and fixed layout receive specific messages.
 - Image failures never block surrounding text or damage terminal output.
+- Markdown semantics/source offsets, TOC/internal links, code, and table layouts
+  pass their exact wide/narrow cases.
+- Required archive, XML/XHTML, SVGZ, decoder, worker, cancellation, and image
+  protocol cases and fuzz targets pass with licensed fixture provenance.
 
 ### Stage 3: Make Reading Dependable
 
@@ -1102,8 +1157,9 @@ Work:
 - Save and restore logical reading positions atomically.
 - Add recent books and smart-case in-book search.
 - Add bookmarks, highlights, notes, and their management view.
-- Add help and complete keyboard coverage.
-- Introduce monochrome and high-contrast presentation.
+- Add open-path, link-focus, text-selection, search-history, bookmark/highlight
+  dialogs, note editor, theme view, and persistence-feedback states.
+- Add complete contextual help/status glossary and complete keyboard coverage.
 - Expand native terminal and accessibility testing.
 - Benchmark large books and remove avoidable relayout work.
 
@@ -1113,6 +1169,12 @@ Exit gate:
 - Resizing and reopening return to the same logical passage.
 - Search results map correctly to wrapped output.
 - Claimed terminals pass native integration tests.
+- Configuration precedence and current, old, future, corrupt, and interrupted
+  state behavior pass without silent loss.
+- Recent-book reopen/remove/clear/no-scan, local search history, and bookmark,
+  highlight, and note persistence/management pass exact cases.
+- Focus, paste, text-entry isolation, non-color cues, too-small suspension, and
+  contextual help pass the required automated/native Stage 3 rows.
 
 ### Stage 4: Refine the Reading Desk
 
@@ -1121,6 +1183,8 @@ Work:
 - Refine recent-book history and metadata presentation.
 - Refine annotation recovery when source books move or change.
 - Verify external-link confirmation and browser launching on each platform.
+- Refine long critical-value inspection, return-stack behavior, theme/status
+  details, and destructive confirmations through reader usability sessions.
 - Keep automatic library indexing outside the first release.
 - Test the common paths with readers other than the author.
 - Finish user, troubleshooting, and contributor guides.
@@ -1130,6 +1194,11 @@ Exit gate:
 - Returning to a book is quick and understandable.
 - Added storage has migration and recovery tests.
 - Accessibility and performance targets hold up under real use.
+- Annotation relocation/unresolved behavior and external scheme/display/launch
+  policies pass without attaching unrelated text or invoking a shell.
+- The complete Paper color/viewport/state matrix, privacy/filesystem side-effect
+  audit, native accessibility checks, and representative performance budgets or
+  documented exceptions pass.
 
 ### Stage 5: Ship It
 
@@ -1149,6 +1218,13 @@ Exit gate:
 - Release artifacts are reproducible enough to investigate differences and are
   traceable to the tagged source and lockfile.
 - Every promised platform passes its native smoke tests.
+- Every prior gate, permanent regression, required P0/P1 case, Required
+  environment row, supply-chain manifest, and release manifest passes.
+- Install, first-run, checksum, provenance, notices, and rollback pass; upgrade
+  is passed against a named predecessor or explicitly not applicable to the
+  first release.
+- Published terminal captures and known limitations match the delivered UI and
+  evidence for Unicode, bidi, images, terminals, and accessibility.
 
 ## When a Feature Is Finished
 
@@ -1279,6 +1355,19 @@ Update `testreport.md` for every commit, including documentation-only commits.
 Record checks that did not run as skipped or not applicable rather than implying
 coverage. Downloaded full books remain ignored local inputs unless provenance,
 licensing, size, and repository need justify committing a fixture.
+
+Apply `code_quality.md` to every Rust change and review. If implementation
+evidence exposes a rule that is ineffective or harmful, update the standard and
+record why rather than quietly ignoring it.
+
+Keep `testcases.md` synchronized with every feature, security limit, supported
+environment, and phase gate. Retired case IDs remain reserved so historical test
+reports continue to identify the behavior they exercised.
+
+Keep `ui_mockups.md` synchronized with reader-visible hierarchy, focus, input
+modes, responsive behavior, accessibility, and phase ownership. A visual change
+that alters behavior or removes information must update its product requirement
+and stable test cases in the same change.
 
 Crate versions, security advisories, and platform behavior will move. Review
 them when the Cargo manifest is created, before each release, and whenever a

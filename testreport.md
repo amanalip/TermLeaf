@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 19, 2026 at 10:16 PM EDT
+**Last updated:** August 20, 2026 at 12:05 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,11 @@ Every commit must have one report entry that records:
 - Fixtures used, including provenance when they are not generated locally.
 - Skipped or unavailable checks and the reason.
 - Whether `cargo clean` ran after the complete local Rust validation cycle.
+- Changed paths and their classified areas from `testcases.md`.
+- Exact selected case IDs, profile manifests, commands, features, environments,
+  fixture hashes, generated seeds, and external evidence links.
+- For each Blocked case: owner, reason, compensating evidence, removal condition,
+  and review date.
 
 Never mark a check as passing when it was not run. Prepare the report with the
 change and identify that atomic change as `This commit`; requiring its own hash
@@ -75,6 +80,78 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Define quality, testing, and UI implementation standards
+
+**Commit subject:** `docs: define implementation standards`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 12:05 AM EDT
+
+**Environment:** Linux 7.1.8-1-cachyos x86-64
+
+Scope:
+
+- Establish enforceable Rust implementation and review standards.
+- Add a concrete catalog of stable test IDs, profiles, fixtures, environments,
+  phase gates, selection rules, and completion criteria.
+- Connect both standards to project planning and implementation tracking.
+- Define exceptions, unresolved test decisions, and validation expectations.
+- Add detailed ASCII UI mockups and implementation guidance.
+- Reconcile the implementation roadmap and tracker while retaining six phases.
+
+Selection:
+
+- Changed paths: project standards, test catalog, UI specification, roadmap,
+  tracker, README, decision log, and test report.
+- Classified areas: documentation, test governance, UI hierarchy, phase gates,
+  accessibility, and release evidence.
+- Selected catalog IDs: `QG-010` for report completeness; no Rust implementation
+  case was executable because the Cargo package and machine registry do not yet
+  exist.
+- Profiles: documentation validation only. Rust, render, PTY, security, fuzz,
+  benchmark, native, and release profiles remain Planned.
+- Fixtures and environments: no book fixture was opened; local Linux environment
+  was used only for deterministic document validation.
+- Blocked cases: the named `DEC-TEST-*` rows remain owned by their target phases
+  with removal conditions stated in `testcases.md`; none was represented as
+  passing.
+
+Review passes:
+
+| Pass | Focus | Incorporated results |
+| --- | --- | --- |
+| 1 | Locked feature coverage | Added default paged geometry, both-mode jumps, EPUB semantics, integrated images, ordered fallbacks, restore journeys, durable annotations, literal search, and exact theme/status/help requirements. |
+| 2 | Security, privacy, and hostile input | Added exact boundary method, corrected atomic-save oracle, SVGZ/XML depth, hostile state paths, URL launch hardening, no-log inventory, filesystem/privacy canaries, decoder and supply-chain approval. |
+| 3 | Terminal, platform, accessibility, and release | Added named environment rows, signal/initial-state restoration, native keyboard cases, real image-protocol cleanup, terminal Unicode/bidi limits, assistive technology matrix, benchmark method, and native release evidence. |
+| 4 | Framework traceability and governance | Added case ownership/status lifecycle, machine registry, executable profile manifests, hermetic harness, fixture manifests, exact selection/report schema, immutable IDs, regression governance, and cumulative phase gates. |
+
+Synchronization reviews:
+
+| Review | Result |
+| --- | --- |
+| UI contract review | Added missing link focus, text selection, point/range note flow, search history, theme selection, status glossary, long-value inspection, mode-safe tiny-terminal recovery, confirmations, image anchor compensation, and explicit open UI decisions. |
+| Six-phase roadmap review | Confirmed six phases remain correct; assigned registry/harness/UI shell to Phase 0 and strengthened the existing Phase 1-5 work and cumulative exit evidence. |
+
+Checks:
+
+| Check | Result |
+| --- | --- |
+| Standards cover correctness, security, privacy, testing, and maintainability | Passed |
+| Required validation agrees with the project plan | Passed |
+| Cargo cleanup and per-commit reporting requirements are explicit | Passed |
+| Four independent completeness reviews completed and incorporated | Passed |
+| Stable test case ID uniqueness | Passed: 332 definitions, no duplicates or dangling exact references |
+| Markdown table and code-fence structure | Passed across eight files |
+| Local Markdown links and table-of-contents entries | Passed across eight files |
+| UI file contains ASCII only | Passed |
+| Markdown files contain no em dash characters | Passed |
+| Required Cargo command list agrees across standards and project plan | Passed |
+| Six-phase count and numbering agree across plan, tracker, tests, and UI | Passed: `0,1,2,3,4,5` in each |
+| `git diff --check` | Passed |
+| Rust tests | Not applicable: the Cargo package does not exist yet |
+| `cargo clean` | Not applicable: no Cargo command ran and no `target/` directory was created |
 
 ### Refine the planned Paper theme
 
