@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:26 AM EDT
+**Last updated:** August 20, 2026 at 1:35 AM EDT
 
 ## Table of Contents
 
@@ -80,6 +80,36 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 No additional changes are pending inclusion in a commit.
 
 ## Commit Reports
+
+### Complete the ConPTY harness fix
+
+**Commit subject:** `fix: answer ConPTY startup query`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 1:35 AM EDT
+
+Scope:
+
+- Diagnose the Windows PTY startup deadlock from the newly captured `ESC[6n`
+  output in all six cases.
+- Respond with a valid cursor-position report so ConPTY resumes child startup.
+- Replace the non-Unix unit terminal-state alias that Windows Clippy rejected
+  with an explicit marker type.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| GitHub Actions run `32335908510` | Diagnosed: ConPTY emitted `ESC[6n`; Windows Clippy rejected unit-state bindings and comparison |
+| ConPTY protocol audit | Passed: cursor-position request is answered once with `ESC[1;1R` through the PTY writer |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed locally |
+| `cargo test --locked` | Passed: 17 library, 4 CLI, and 7 native PTY tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `cargo deny check` | Passed: advisories, bans, licenses, and sources |
+| `python3 tools/case_registry.py check` | Passed |
+| `cargo clean` | Passed: removed 2,128 files and 442.5 MiB |
 
 ### Fix Windows CI regressions
 

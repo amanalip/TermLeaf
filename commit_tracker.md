@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:26 AM EDT
+**Last updated:** August 20, 2026 at 1:35 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,27 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Complete the ConPTY harness fix
+
+**Completed:** August 20, 2026 at 1:35 AM EDT
+
+**Commit subject:** `fix: answer ConPTY startup query`
+
+Changes:
+
+- Answer ConPTY's startup cursor-position request so the hosted child can begin
+  execution.
+- Use a concrete Windows terminal-state marker to keep all-target Clippy strict
+  without suppressing unit-value diagnostics.
+- Retain the first CI rerun's exact failure evidence for the follow-up fix.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 28 Rust tests,
+  doctests, cargo-deny, and diff checks passed locally.
+- `cargo clean` removed all generated build output.
+- Exact Windows behavior is verified by the CI run triggered by this commit.
 
 ### Fix Windows CI regressions
 

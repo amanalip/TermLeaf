@@ -28,6 +28,8 @@ struct PtyCase {
     output: Vec<u8>,
     deadline: Instant,
     initial_terminal_state: TerminalState,
+    #[cfg(windows)]
+    cursor_position_reported: bool,
     finished: bool,
 }
 
@@ -131,13 +133,15 @@ impl PtyCase {
             output: Vec::new(),
             deadline: Instant::now() + CASE_TIMEOUT,
             initial_terminal_state,
+            #[cfg(windows)]
+            cursor_position_reported: false,
             finished: false,
         })
     }
 
     fn wait_for_text(&mut self, expected: &str) -> Result<()> {
         while Instant::now() < self.deadline {
-            self.receive_chunk(Duration::from_millis(50));
+            self.receive_chunk(Duration::from_millis(50))?;
             if self.parser.screen().contents().contains(expected) {
                 return Ok(());
             }
@@ -169,7 +173,7 @@ impl PtyCase {
 
     fn finish(mut self) -> Result<(portable_pty::ExitStatus, vt100::Screen, Vec<u8>)> {
         let status = loop {
-            self.receive_chunk(Duration::from_millis(20));
+            self.receive_chunk(Duration::from_millis(20))?;
             if let Some(status) = self.child.try_wait().context("poll PTY child")? {
                 break status;
             }
@@ -202,11 +206,20 @@ impl PtyCase {
         Ok((status, self.parser.screen().clone(), self.output.clone()))
     }
 
-    fn receive_chunk(&mut self, timeout: Duration) {
+    #[cfg_attr(not(windows), allow(clippy::unnecessary_wraps))]
+    fn receive_chunk(&mut self, timeout: Duration) -> Result<()> {
         match self.chunks.recv_timeout(timeout) {
             Ok(chunk) => self.process(&chunk),
             Err(mpsc::RecvTimeoutError::Timeout | mpsc::RecvTimeoutError::Disconnected) => {}
         }
+        #[cfg(windows)]
+        if !self.cursor_position_reported
+            && self.output.windows(4).any(|window| window == b"\x1b[6n")
+        {
+            self.send(b"\x1b[1;1R")?;
+            self.cursor_position_reported = true;
+        }
+        Ok(())
     }
 
     fn process(&mut self, chunk: &[u8]) {
@@ -250,7 +263,8 @@ impl PtyCase {
 type TerminalState = String;
 
 #[cfg(not(unix))]
-type TerminalState = ();
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct TerminalState;
 
 #[cfg(unix)]
 fn terminal_state(master: &dyn MasterPty) -> TerminalState {
@@ -258,7 +272,9 @@ fn terminal_state(master: &dyn MasterPty) -> TerminalState {
 }
 
 #[cfg(not(unix))]
-fn terminal_state(_master: &dyn MasterPty) -> TerminalState {}
+fn terminal_state(_master: &dyn MasterPty) -> TerminalState {
+    TerminalState
+}
 
 fn is_pty_eof(error: &std::io::Error) -> bool {
     matches!(
