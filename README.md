@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:15 AM EDT
 
 ## Table of Contents
 
@@ -14,6 +14,8 @@ Turn pages without leaving the terminal.
 - [First Release](#first-release)
 - [Where Things Stand](#where-things-stand)
 - [Technical Direction](#technical-direction)
+- [Development](#development)
+- [License](#license)
 - [Project Notes](#project-notes)
 
 ## What Is TermLeaf?
@@ -43,11 +45,11 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 
 ## Where Things Stand
 
-The first-release feature scope and technical direction are settled, while
-several interaction, limit, and native-platform policies remain explicit open
-decisions. Implementation has not started. The next milestone is the Rust
-foundation and a complete plain-text reading loop with reliable terminal
-restoration.
+Phase 0 development is in progress. The repository now has a locked Rust
+package, an application state and action loop, a deterministic Ratatui shell,
+and a terminal guard with tested setup rollback and restoration. Native PTY,
+signal, registry, profile-manifest, and full platform evidence still remain
+before the foundation phase can be called complete.
 
 ## Technical Direction
 
@@ -56,6 +58,23 @@ followed by Markdown and bounded EPUB parsing. The reader owns logical document
 positions and Unicode-aware layout so resizing does not lose the current
 passage. The [project plan](project_plan.md) records the complete architecture,
 security limits, delivery gates, and primary references.
+
+## Development
+
+The package requires Rust 1.88 or newer. Run the core local checks with:
+
+```text
+cargo fmt --check
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --locked
+cargo test --doc --locked
+cargo deny check
+```
+
+## License
+
+Copyright (C) 2026 Aman Ali. TermLeaf is licensed under
+`GPL-3.0-only`; see [LICENSE](LICENSE) for the full terms.
 
 ## Project Notes
 

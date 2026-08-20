@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:15 AM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,66 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No additional changes are pending inclusion in a commit.
+### Start the Rust foundation
+
+**Commit subject:** `feat: start Rust foundation`
+
+**Revision:** This commit
+
+**Recorded:** August 20, 2026 at 12:15 AM EDT
+
+**Environment:** Linux 7.1.8-1-cachyos x86-64; rustc/cargo 1.97.1;
+cargo-deny 0.20.2
+
+Scope:
+
+- Initialize the locked Rust package, application loop, terminal guard, base
+  Ratatui shell, CLI, CI definition, and dependency policy.
+- Exercise setup rollback, normal cleanup, cleanup after one restoration error,
+  unwinding cleanup, state/focus transitions, deterministic rendering, and
+  pre-terminal CLI behavior.
+
+Selection:
+
+- Changed paths: Cargo package and lockfile, application/CLI/terminal/UI source,
+  tests, CI, dependency policy, README, plan, trackers, and test report.
+- Classified areas: CLI/startup, terminal lifecycle, theme/UI foundation,
+  dependency/feature flags, CI, license, and documentation.
+- Selected case IDs: `QG-001` through `QG-005`, `QG-007` through `QG-013`,
+  `CLI-001`, `CLI-002`, `CLI-005`, `TERM-001`, `TERM-003` through `TERM-005`,
+  `TERM-007`, `PROP-010`, `SUP-001` through `SUP-004`, and `SUP-006` through
+  `SUP-008`.
+- Profiles run: the currently materialized local `pr-core` commands and
+  dependency-policy check. The frozen machine-readable manifests do not exist
+  yet and are not claimed complete.
+- Fixtures: no book fixtures or downloaded corpus files were used.
+- Environment: local non-PTY Linux process tests and Ratatui `TestBackend` at
+  `40x10`; no native terminal compatibility row was claimed.
+
+Checks:
+
+| Command or procedure | Result |
+| --- | --- |
+| `cargo fmt --check` | Passed |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed |
+| `cargo test --locked` | Passed: 10 unit/render tests and 3 CLI process tests |
+| `cargo test --doc --locked` | Passed: 0 doctests present |
+| `/tmp/opencode/cargo-deny/bin/cargo-deny check` | Passed: advisories, bans, licenses, and sources |
+| `cargo clean` | Passed: removed 1,444 files and 324.8 MiB |
+
+Skipped or incomplete evidence:
+
+- Rust 1.88 validation did not run because only Rust 1.97.1 is installed and
+  `rustup` is unavailable in the local environment. A separate locked Rust 1.88
+  CI job is defined but has not produced hosted evidence yet.
+- Native PTY, Ctrl-C/signal, initial terminal-state capture, panic-diagnostic,
+  SSH/tmux, macOS, and Windows restoration cases did not run. Current terminal
+  case tests prove the guard logic with an injected control boundary only, so
+  those case IDs are not promoted to Passing.
+- The machine-readable case registry, executable profile and phase-gate
+  manifests, fixture manifests, and full hermetic harness remain Phase 0 work.
+- Hosted CI was defined but did not run locally. `SUP-004` has static workflow
+  evidence only; release trigger and artifact controls remain later work.
 
 ## Commit Reports
 

@@ -1,6 +1,6 @@
 # TermLeaf Project Plan
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:15 AM EDT
 
 ## Table of Contents
 
@@ -1244,7 +1244,6 @@ A feature earns **Complete** in the tracker when:
 
 | Question | Why it matters | Target stage |
 | --- | --- | --- |
-| Is the license `GPL-3.0-only` or `GPL-3.0-or-later`? | The manifest and distributed notices need an exact SPDX expression. | Stage 0 |
 | Which OS versions and terminals are promised? | Release claims need native evidence and maintenance boundaries. | Stage 0 |
 | What exact hybrid key map avoids text-entry conflicts? | Defaults shape daily use and future configuration. | Stage 1 |
 | How should a document identity survive moves or edits? | Saved positions need stability without collecting unnecessary private data. | Stage 1 |

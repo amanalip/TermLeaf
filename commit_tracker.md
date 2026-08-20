@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:15 AM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,33 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Start the Rust foundation
+
+**Completed:** August 20, 2026 at 12:15 AM EDT
+
+**Commit subject:** `feat: start Rust foundation`
+
+Changes:
+
+- Initialize the Rust 1.88 package with a locked dependency graph and an exact
+  `GPL-3.0-only` license expression.
+- Add the foundation application state, focus model, action registry, CLI, and
+  deterministic Ratatui shell.
+- Add a terminal lifecycle guard that rolls back partial setup and restores all
+  changed modes after normal return, cleanup failure, or unwinding.
+- Add unit, render, and CLI process tests plus locked cross-platform CI and
+  cargo-deny policy.
+- Mark Phase 0 in progress without claiming unfinished registry, profile, PTY,
+  signal, or native-platform evidence.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, 13 Rust tests, doctests, and
+  cargo-deny passed on Linux with Rust 1.97.1.
+- `cargo clean` removed the generated local build output.
+- Rust 1.88 and native PTY/platform evidence remain assigned to CI and later
+  Phase 0 work rather than being claimed from this environment.
 
 ### Define quality, testing, and UI implementation standards
 
@@ -406,3 +433,14 @@ The UI does not create a seventh phase: shell/state work belongs to Phase 0,
 the TXT reader to Phase 1, structured semantics and images to Phase 2, dependable
 local interactions to Phase 3, refinement evidence to Phase 4, and native
 release evidence to Phase 5.
+
+### DD-017: License TermLeaf under GPL-3.0-only
+
+**Date:** August 20, 2026 at 12:15 AM EDT
+
+**Status:** Accepted
+
+TermLeaf uses the exact SPDX expression `GPL-3.0-only`. The Cargo package,
+README notice, and repository license therefore grant GPL version 3 without the
+optional "or any later version" election. This resolves the licensing choice
+before Rust source distribution begins.

@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 20, 2026 at 12:05 AM EDT
+**Last updated:** August 20, 2026 at 12:15 AM EDT
 
 ## Table of Contents
 
@@ -27,14 +27,14 @@
 
 ## Right Now
 
-TermLeaf now has a researched Rust architecture and a locked first-release
-feature contract, but no reader implementation yet. The next step is to
-initialize the Rust package, prove terminal restoration on native platforms,
-and build the plain-text reading loop before structured formats and images.
+Phase 0 is under way. The locked Rust package, state/action loop, base Ratatui
+shell, and testable terminal guard now exist. The next foundation work is the
+machine-readable case registry and profile manifests, followed by native PTY,
+signal, panic-diagnostic, and platform restoration evidence.
 
 ## Delivery Phases
 
-**Overall progress:** 0 of 6 phases complete. Phase 0 is next.
+**Overall progress:** 0 of 6 phases complete. Phase 0 is in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -47,7 +47,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
-| 0. Rust foundation | Not started | UI shell, terminal guard, action/view state, locked CI, registry, profiles, harness, and exact foundation gate pass. |
+| 0. Rust foundation | In progress | UI shell, terminal guard, action/view state, locked CI, registry, profiles, harness, and exact foundation gate pass. |
 | 1. Plain-text reading loop | Not started | Responsive TXT reader, modes, keys, status, all themes, help skeleton, errors, and anchor-preserving render/PTY evidence pass. |
 | 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
@@ -80,10 +80,10 @@ already inside the six phases; it does not add another phase.
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
 | Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
 | UI mockup specification | Complete | Implement responsive screens, focus states, overlays, accessibility, and phase ownership from `ui_mockups.md`. |
-| Rust package | Not started | Create the manifest, lockfile, module skeleton, and minimum Rust version. |
-| Application view/focus model | Not started | Represent recent, open-path, reader, selection, editor, confirmation, help, error, and too-small states explicitly. |
-| Shared action registry | Not started | Drive input handling and generated help from one conflict-free action/key source. |
-| Command-line interface | Not started | Start with a book path and focused reader options through Clap. |
+| Rust package | Complete | The manifest, committed lockfile, GPL expression, lint policy, and Rust 1.88 minimum are in place. |
+| Application view/focus model | In progress | Foundation recent-books, reader placeholder, help, focus, and return behavior exist; later phase views remain. |
+| Shared action registry | In progress | Foundation quit, help, and back input and help text share one registry; Stage 1 must settle the reading key map. |
+| Command-line interface | In progress | Clap accepts an optional local book path and handles help, version, and missing paths before terminal setup. |
 | Configuration | Not started | Implement defaults, TOML settings, and explicit CLI overrides. |
 
 ## The Reading Loop
@@ -131,15 +131,15 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | Not started | Cover parsing, navigation, state, and terminal behavior. |
+| Automated tests | In progress | Foundation unit, render, and CLI process tests run; PTY and later feature suites remain. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Not started | Materialize IDs, status, ownership, implementation links, environments, fixtures, and evidence in Phase 0. |
 | Executable profile manifests | Not started | Implement `pr-core`, render, PTY, security, scheduled, phase, and release profiles in Phase 0. |
 | Frozen cumulative phase gates | Not started | Expand broad planning families into exact IDs and environments beginning with `phase-gate-0`. |
 | Hermetic test harness | Not started | Isolate paths, environment, time, network, workers, terminal state, fixtures, and fault injection. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
-| Continuous integration | Not started | Check style, tests, and builds on every proposed change. |
-| Dependency policy | Not started | Configure cargo-deny for advisories, licenses, sources, and bans. |
+| Continuous integration | In progress | Locked Linux, macOS, and Windows core jobs plus a Linux dependency-policy job are defined but need hosted evidence. |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally; hosted and cross-platform evidence remains. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |
