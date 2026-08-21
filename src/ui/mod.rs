@@ -54,7 +54,7 @@ fn active_theme(app: &App) -> Theme {
     if app.no_color() {
         Theme::no_color()
     } else {
-        Theme::named(app.theme())
+        Theme::for_output(app.theme(), app.color_mode())
     }
 }
 
@@ -89,7 +89,12 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, app: &App) {
         };
         format_status(&model, area.width)
     } else {
-        " F1/? Help  q Quit".to_owned()
+        match app.message() {
+            // Temporary confirmations stay visible on every screen, not
+            // only while a book is open.
+            Some(message) => format!(" {}", message.text()),
+            None => " F1/? Help  q Quit".to_owned(),
+        }
     };
 
     frame.render_widget(
@@ -221,7 +226,10 @@ mod tests {
 
         let mut file = tempfile::NamedTempFile::new()?;
         writeln!(file, "{contents}")?;
-        App::new(Some(file.path().to_path_buf()))
+        App::open(crate::app::StartupOptions {
+            book: Some(file.path().to_path_buf()),
+            ..crate::app::StartupOptions::default()
+        })
     }
 
     fn draw(app: &mut App, width: u16, height: u16) -> Result<String> {
@@ -240,7 +248,7 @@ mod tests {
     #[test]
     fn app_003_base_shell_renders_deterministically() -> Result<()> {
         let mut terminal = Terminal::new(TestBackend::new(40, 10))?;
-        let mut app = App::new(None)?;
+        let mut app = App::open(crate::app::StartupOptions::default())?;
 
         terminal.draw(|frame| render(frame, &mut app))?;
 

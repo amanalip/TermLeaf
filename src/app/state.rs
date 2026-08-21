@@ -9,7 +9,7 @@ use crate::{
     layout::PageLayout,
     reader::{self, Mode},
     ui::status::StatusMessage,
-    ui::theme::ThemeName,
+    ui::theme::{ColorMode, ThemeName},
 };
 use anyhow::{Context, Result, bail};
 
@@ -211,11 +211,24 @@ pub struct App {
     running: bool,
     theme: ThemeName,
     no_color: bool,
+    color_mode: ColorMode,
     theme_cursor: usize,
     message: Option<StatusMessage>,
     reader: Option<ReaderSession>,
     content_width: u16,
     content_height: u16,
+}
+
+/// Reader launch choices after configuration precedence is applied.
+///
+/// `book` is the command-line path when one was supplied; `theme` is already
+/// resolved (explicit option, then config.toml, then the built-in default).
+#[derive(Debug, Default)]
+pub struct StartupOptions {
+    /// Local book path supplied on the command line, when any.
+    pub book: Option<PathBuf>,
+    /// Resolved startup theme for the session.
+    pub theme: ThemeName,
 }
 
 impl App {
@@ -224,14 +237,15 @@ impl App {
     /// The book is decoded before terminal initialization so failures reach
     /// the reader as plain diagnostics on an untouched shell. The open file
     /// handle stays held for the session, keeping the source immutable from
-    /// the reader's point of view.
+    /// the reader's point of view. Color capability is detected from the
+    /// launch environment here so every later draw uses one fixed decision.
     ///
     /// # Errors
     ///
     /// Returns an error when the supplied book path cannot be inspected, is
     /// not a regular file, exceeds the size limit, or does not decode.
-    pub fn new(book: Option<PathBuf>) -> Result<Self> {
-        let (view, reader) = match book {
+    pub fn open(options: StartupOptions) -> Result<Self> {
+        let (view, reader) = match options.book {
             Some(path) => {
                 Self::validate_path(&path)?;
                 let display = path.display().to_string();
@@ -241,7 +255,10 @@ impl App {
                         match error {
                             DocumentError::Read { source, .. } => anyhow::Error::new(source)
                                 .context(format!("could not read '{display}'")),
-                            typed => anyhow::Error::new(typed).context("could not open book"),
+                            // Typed document errors already name the path,
+                            // reason, and recovery; an extra layer would
+                            // only bury them.
+                            typed => anyhow::Error::new(typed),
                         }
                     },
                 )?;
@@ -259,9 +276,13 @@ impl App {
         Ok(Self {
             view,
             running: true,
-            theme: ThemeName::default(),
+            theme: options.theme,
             no_color: std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty()),
-            theme_cursor: ThemeName::default() as usize,
+            color_mode: ColorMode::detect(
+                env_value("COLORTERM").as_deref(),
+                env_value("TERM").as_deref(),
+            ),
+            theme_cursor: options.theme as usize,
             message: None,
             reader,
             content_width: MINIMUM_WIDTH,
@@ -348,6 +369,18 @@ impl App {
         self.no_color
     }
 
+    /// The terminal color capability detected at launch.
+    #[must_use]
+    pub const fn color_mode(&self) -> ColorMode {
+        self.color_mode
+    }
+
+    /// Overrides the detected color capability so tests can exercise every
+    /// fallback rendering deterministically.
+    pub fn set_color_mode(&mut self, mode: ColorMode) {
+        self.color_mode = mode;
+    }
+
     /// The reader session, when a book is open.
     #[must_use]
     pub const fn reader(&self) -> Option<&ReaderSession> {
@@ -413,7 +446,7 @@ impl App {
                     return_to: Box::new(self.view.clone()),
                 };
             }
-            Action::NextLine | Action::PreviousLine => {
+            Action::NextLine | Action::PreviousLine if matches!(self.view, View::Reader { .. }) => {
                 let direction = match action {
                     Action::NextLine => reader::Direction::TowardEnd,
                     _ => reader::Direction::TowardStart,
@@ -422,7 +455,7 @@ impl App {
                     reader::step_line(layout, document, anchor, direction)
                 });
             }
-            Action::NextPage | Action::PreviousPage => {
+            Action::NextPage | Action::PreviousPage if matches!(self.view, View::Reader { .. }) => {
                 let direction = match action {
                     Action::NextPage => reader::Direction::TowardEnd,
                     _ => reader::Direction::TowardStart,
@@ -432,21 +465,31 @@ impl App {
                     reader::step_page(layout, document, anchor, rows, direction)
                 });
             }
-            Action::DocumentStart => {
+            Action::DocumentStart if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, layout, _| reader::jump_document_start(layout, document));
             }
-            Action::DocumentEnd => {
+            Action::DocumentEnd if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, _, _| reader::jump_document_end(document));
             }
-            Action::SectionStart => {
+            Action::SectionStart if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, layout, _| reader::jump_section_start(layout, document, 0));
             }
-            Action::SectionEnd => {
+            Action::SectionEnd if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, layout, _| reader::jump_section_end(layout, document, 0));
             }
-            Action::SetModePaged => self.set_mode(Mode::Paged),
-            Action::SetModeContinuous => self.set_mode(Mode::Continuous),
-            Action::Confirm | Action::ShowHelp => {}
+            Action::SetModePaged | Action::SetModeContinuous
+                if matches!(self.view, View::Reader { .. }) =>
+            {
+                let mode = match action {
+                    Action::SetModePaged => Mode::Paged,
+                    _ => Mode::Continuous,
+                };
+                self.set_mode(mode);
+            }
+            // Reader actions outside the Reader view are intentionally
+            // inert, and Confirm has no global meaning yet: overlays such as
+            // help must never move the hidden reading anchor.
+            _ => {}
         }
 
         self.tick_message();
@@ -512,6 +555,10 @@ impl App {
     }
 }
 
+fn env_value(key: &str) -> Option<String> {
+    std::env::var_os(key).map(|value| value.to_string_lossy().into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,6 +569,7 @@ mod tests {
             running: true,
             theme: ThemeName::Paper,
             no_color: false,
+            color_mode: ColorMode::TrueColor,
             theme_cursor: ThemeName::Paper as usize,
             message: None,
             reader: None,
@@ -532,7 +580,7 @@ mod tests {
 
     #[test]
     fn app_002_help_returns_to_its_invoking_view_and_focus() -> Result<()> {
-        let mut app = App::new(None)?;
+        let mut app = App::open(StartupOptions::default())?;
 
         app.update(Action::ShowHelp);
         assert_eq!(app.focus(), Focus::Help);
@@ -545,7 +593,7 @@ mod tests {
 
     #[test]
     fn app_002_quit_stops_the_state_loop() -> Result<()> {
-        let mut app = App::new(None)?;
+        let mut app = App::open(StartupOptions::default())?;
 
         app.update(Action::Quit);
 
@@ -600,7 +648,11 @@ mod tests {
         }
 
         let file = tempfile::NamedTempFile::new().expect("create reader focus fixture");
-        let mut reader = App::new(Some(file.path().to_path_buf())).expect("open reader fixture");
+        let mut reader = App::open(StartupOptions {
+            book: Some(file.path().to_path_buf()),
+            ..StartupOptions::default()
+        })
+        .expect("open reader fixture");
         assert!(matches!(reader.view(), View::Reader { .. }));
         assert_eq!(reader.focus(), Focus::ReadingAnchor);
         reader.update(Action::ShowHelp);

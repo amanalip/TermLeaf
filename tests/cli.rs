@@ -66,6 +66,7 @@ fn cli_001_help_exits_before_terminal_initialization() -> Result<()> {
     assert!(stdout.contains("Usage:"));
     assert!(stdout.contains("[BOOK]"));
     assert!(stdout.contains("Local book to open"));
+    assert!(stdout.contains("--theme"), "the theme option is documented");
     assert!(!stdout.contains('\u{1b}'));
     Ok(())
 }
@@ -116,5 +117,52 @@ fn cli_006_unreadable_path_fails_before_terminal_initialization() -> Result<()> 
     assert!(stderr.contains("unreadable-book.txt"));
     assert!(stderr.contains("file is not readable"));
     assert!(!stderr.contains('\u{1b}'));
+    Ok(())
+}
+
+#[test]
+fn txt_008_file_above_the_byte_limit_fails_before_terminal_setup() -> Result<()> {
+    let output = run(|command, root| {
+        let path = root.join("oversized-book.txt");
+        let file = std::fs::File::create(&path).expect("create oversized test book");
+        file.set_len(termleaf::document::TextLimits::default().max_bytes + 1)
+            .expect("grow test book past the limit");
+        command.arg(path);
+    })?;
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("book is too large"), "{stderr}");
+    assert!(
+        stderr.contains("limit is 33554432 bytes"),
+        "the default limit names its byte count: {stderr}"
+    );
+    assert!(!stderr.contains('\u{1b}'));
+    Ok(())
+}
+#[test]
+fn theme_002_startup_config_is_read_without_being_rewritten() -> Result<()> {
+    let config_root = tempfile::tempdir()?;
+    let output = run(|command, root| {
+        let path = termleaf::persistence::config::path_under(config_root.path());
+        std::fs::create_dir_all(path.parent().expect("config parent"))
+            .expect("create config directory");
+        std::fs::write(&path, "theme = \"monochrome\"\n").expect("write startup config");
+        // A missing book keeps the journey short; settings still load first.
+        // Point the child's XDG_CONFIG_HOME at the longer-lived directory so
+        // the fixture survives past the harness root teardown.
+        command.env("XDG_CONFIG_HOME", config_root.path());
+        command.arg(root.join("missing-book.txt"));
+    })?;
+
+    assert!(!output.status.success());
+    let contents = std::fs::read_to_string(termleaf::persistence::config::path_under(
+        config_root.path(),
+    ))
+    .expect("config survives the run");
+    assert_eq!(
+        contents, "theme = \"monochrome\"\n",
+        "startup loads config without rewriting it"
+    );
     Ok(())
 }

@@ -220,6 +220,7 @@ impl KeyMapper {
         if !matches!(event.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
             return None;
         }
+        let event = normalize_shift(event);
 
         if self.g_prefix_pending {
             self.g_prefix_pending = false;
@@ -245,6 +246,19 @@ impl KeyMapper {
             .find(|binding| binding.key == event.code && binding.modifiers == event.modifiers)
             .map(|binding| binding.action)
     }
+}
+
+/// Drops the SHIFT modifier from character keys before matching.
+///
+/// Real terminals report capital letters as the uppercase character carrying
+/// SHIFT; the registry addresses characters directly (`G`, `?`), so SHIFT
+/// must not participate in the comparison. Ctrl- and Alt-based bindings keep
+/// their modifiers.
+fn normalize_shift(mut event: KeyEvent) -> KeyEvent {
+    if matches!(event.code, KeyCode::Char(_)) {
+        event.modifiers.remove(KeyModifiers::SHIFT);
+    }
+    event
 }
 
 #[must_use]
@@ -322,6 +336,14 @@ mod tests {
                 Action::DocumentEnd,
             ),
             (
+                key(KeyCode::Char('G'), KeyModifiers::SHIFT),
+                Action::DocumentEnd,
+            ),
+            (
+                key(KeyCode::Char('?'), KeyModifiers::SHIFT),
+                Action::ShowHelp,
+            ),
+            (
                 key(KeyCode::Char('{'), KeyModifiers::NONE),
                 Action::SectionStart,
             ),
@@ -383,9 +405,20 @@ mod tests {
             None
         );
         assert_eq!(
-            mapper.map(key(KeyCode::Char('g'), KeyModifiers::SHIFT)),
+            mapper.map(key(KeyCode::Char('g'), KeyModifiers::CONTROL)),
             None,
-            "modified g does not complete the prefix"
+            "control-modified g cancels the prefix without completing it"
+        );
+
+        let mut mapper = KeyMapper::default();
+        assert_eq!(
+            mapper.map(key(KeyCode::Char('g'), KeyModifiers::NONE)),
+            None
+        );
+        assert_eq!(
+            mapper.map(key(KeyCode::Char('G'), KeyModifiers::SHIFT)),
+            Some(Action::DocumentEnd),
+            "a terminal's shifted G cancels the prefix and then maps normally"
         );
     }
 

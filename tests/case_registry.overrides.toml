@@ -233,8 +233,14 @@ last_evidence = ["testreport.md#complete-phase-0-implementation"]
 [cases.KEY-002]
 location = ["src/app/action.rs::key_002_flow_control_keys_do_not_collide_with_text_keys"]
 
+[cases.KEY-001]
+location = ["tests/pty_native.rs::key_001_reader_keys_navigate_help_and_quit_inside_a_pty"]
+
 [cases.KEY-003]
-location = ["src/app/action.rs::key_003_gg_prefix_is_deterministic_and_never_loses_input"]
+location = [
+    "src/app/action.rs::key_003_gg_prefix_is_deterministic_and_never_loses_input",
+    "tests/pty_native.rs::key_001_reader_keys_navigate_help_and_quit_inside_a_pty",
+]
 
 [cases.NAV-007]
 status = "Implemented"
@@ -281,7 +287,12 @@ last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 location = ["src/document/text.rs::txt_007_empty_and_whitespace_only_files_are_stable"]
 
 [cases.TXT-008]
-location = ["src/document/text.rs::txt_008_byte_limit_holds_at_below_and_above_the_boundary"]
+status = "Implemented"
+location = [
+    "src/document/text.rs::txt_008_byte_limit_holds_at_below_and_above_the_boundary",
+    "tests/cli.rs::txt_008_file_above_the_byte_limit_fails_before_terminal_setup",
+]
+last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 
 [cases.TXT-009]
 location = ["src/document/text.rs::txt_009_extremely_long_line_parses_with_progress_and_no_panic"]
@@ -424,13 +435,43 @@ location = [
 ]
 
 [cases.THEME-002]
+status = "Implemented"
 location = [
     "src/ui/theme.rs::theme_names_round_trip_through_config_slugs",
     "src/ui/mod.rs::theme_002_session_selection_applies_and_reports_the_theme",
+    "src/persistence/config.rs::cfg_002_every_theme_slug_round_trips_and_unknown_keys_are_ignored",
+    "tests/cli.rs::theme_002_startup_config_is_read_without_being_rewritten",
+    "tests/pty_native.rs::theme_002_configured_theme_loads_and_session_switch_reports_over_a_pty",
 ]
+last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 
 [cases.THEME-005]
-location = ["src/ui/theme.rs::no_color_fallback_uses_terminal_defaults_with_attributes"]
+location = [
+    "src/ui/theme.rs::no_color_fallback_uses_terminal_defaults_with_attributes",
+    "src/ui/theme.rs::theme_005_detection_prefers_colorterm_then_term",
+    "src/ui/theme.rs::theme_005_output_modes_preserve_identity_attributes_and_defaults",
+    "src/ui/theme.rs::theme_005_nearest_index_hits_known_palette_anchors",
+    "src/ui/theme.rs::theme_005_every_palette_entry_maps_to_itself",
+    "src/ui/theme.rs::theme_005_conversions_stay_within_one_cube_step_of_the_source",
+]
+
+[cases.CFG-001]
+status = "Implemented"
+location = ["src/persistence/config.rs::cfg_001_missing_or_unresolvable_config_loads_defaults"]
+last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
+
+[cases.CFG-002]
+status = "Implemented"
+location = [
+    "src/persistence/config.rs::cfg_002_every_theme_slug_round_trips_and_unknown_keys_are_ignored",
+    "src/process.rs::cfg_002_explicit_theme_overrides_config_which_overrides_the_default",
+]
+last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
+
+[cases.CFG-003]
+status = "Implemented"
+location = ["src/persistence/config.rs::cfg_003_malformed_wrong_typed_and_unreadable_config_fall_back_to_defaults"]
+last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 
 [cases.THEME-010]
 status = "Implemented"

@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 20, 2026 at 1:49 AM EDT
+**Last updated:** August 21, 2026 at 5:14 PM EDT
 
 ## Table of Contents
 
@@ -29,6 +29,80 @@ otherwise have to reconstruct.
 No changes are pending inclusion in a commit.
 
 ## Commit History
+
+### Complete the plain-text reading loop
+
+**Completed:** August 21, 2026 at 5:31 PM EDT
+
+**Commit subject:** `feat: complete the plain-text reading loop`
+
+Changes:
+
+- Add `src/persistence`: bounded startup configuration loading from the
+  platform config directory (`serde`, `toml` 1.1.x, `directories` 6.x from
+  the sanctioned Core Stack), with `XDG_CONFIG_HOME` relocation on every
+  platform for hermetic harnesses.
+- Apply configuration precedence in `process::run`:
+  built-in default < `config.toml` theme < explicit `--theme` CLI option;
+  the CLI validates slugs and documents the option in `--help`.
+- Detect terminal color capability once at launch (`COLORTERM`,
+  `TERM`) and adapt themes: exact RGB for true color, an exact
+  nearest-squared-distance xterm-256 mapping (6×6×6 cube plus grayscale,
+  fixed points verified) for 256-color terminals, and the attribute-only
+  fallback for unknown terminals or `NO_COLOR`.
+- Add native PTY render journeys: open a book, navigate (Down, PageDown,
+  Home, `G`), round-trip help with Escape, complete the `gg` prefix across
+  PTY reads, quit with full restoration; and a configured-theme journey
+  asserting the selection cursor/applied marker plus confirmation message.
+- Add integration evidence that files above the byte limit fail before
+  terminal setup with the typed message (sparse-file fixture) and that
+  startup never rewrites `config.toml`.
+- Fix three defects exposed by the PTY journeys: character keys now drop
+  SHIFT before binding matching so `G`/`?` fire on real terminals; the event
+  loop owns one persistent `KeyMapper` so multikey prefixes survive between
+  events; reader navigation/mode actions are inert outside the Reader view.
+- Surface temporary status messages on non-reader screens instead of
+  dropping them, keeping confirmations visible after theme changes.
+- Let typed document errors reach the diagnostic unchanged instead of
+  wrapping them in a generic "could not open book" context layer.
+- Register all new tests in the case registry; mark `CFG-001`–`CFG-003`,
+  `TXT-008`, and `THEME-002` Implemented and extend location-only evidence
+  for `KEY-001`, `KEY-003`, and `THEME-005`.
+- Allow `BSD-3-Clause` (`encoding_rs` bundled WHATWG data) and `MPL-2.0`
+  (`option-ext` via `directories`) in `deny.toml`.
+
+Decisions:
+
+- **DD-022:** Configuration precedence is built-in default <
+  `config.toml` < explicit `--theme`. A missing, unreadable, wrong-typed,
+  or malformed file falls back to defaults without blocking startup, and an
+  unrecognized theme slug resolves to Paper. Typed configuration errors are
+  deferred to the Phase 3 CFG cases. A non-empty `XDG_CONFIG_HOME`
+  relocates settings on every platform so PTY/CLI harnesses stay hermetic;
+  otherwise `directories::ProjectDirs` picks native locations.
+- **DD-023:** Output color capability is detected once per launch:
+  `COLORTERM` containing `truecolor`/`24bit` selects exact RGB; else `TERM`
+  containing `256color` selects nearest-xterm-256 output computed by exact
+  squared-RGB distance over the cube and grayscale ramp; anything else
+  renders terminal-default attributes only. `NO_COLOR` still forces the
+  attribute fallback regardless of detection. Detection is conservative by
+  design: unproven capability never receives RGB values.
+- **DD-024:** Character-key bindings match without SHIFT because terminals
+  deliver capitals as `Char + SHIFT`; Ctrl/Alt semantics are untouched. The
+  terminal event loop owns one persistent `KeyMapper` for the whole
+  session, making the timer-free prefix policy real outside unit tests.
+  Reader navigation and mode actions apply only in the Reader view so help,
+  themes, and future overlays can never move the hidden reading anchor.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 88 library
+  plus 6 CLI plus 9 native PTY Rust tests, doctests, cargo-deny, and diff
+  checks passed locally.
+- `cargo clean` removed all generated build output (2,327 files,
+  596.5 MiB).
+- Hosted environment rows, manual KEY/LAY procedures, render-profile
+  snapshot review, and the phase-gate exit run remain open Phase 1 work.
 
 ### Start the plain-text reading loop
 

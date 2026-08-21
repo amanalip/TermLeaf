@@ -83,6 +83,41 @@ pub enum Role {
     Error,
 }
 
+/// The terminal color capability a session renders for.
+///
+/// Detection happens once at launch from the environment; rendering then uses
+/// one fixed decision so styles never flicker between capability guesses.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ColorMode {
+    /// Exact RGB values (COLORTERM advertising true color).
+    TrueColor,
+    /// Nearest entry of the xterm-256 palette (`TERM` advertising 256 colors).
+    #[default]
+    Ansi256,
+    /// Terminal-default foreground and background plus attributes only.
+    TerminalDefault,
+}
+
+impl ColorMode {
+    /// Classifies a launch environment without reading it directly.
+    ///
+    /// `COLORTERM` advertising `truecolor`/`24bit` wins because it is the only
+    /// widely honored true-color signal; `256color` in `TERM` selects the
+    /// indexed palette; anything else falls back to terminal defaults, which
+    /// stay readable on 16-color and unknown terminals.
+    #[must_use]
+    pub fn detect(colorterm: Option<&str>, term: Option<&str>) -> Self {
+        let lowered = colorterm.unwrap_or_default().to_ascii_lowercase();
+        if lowered.contains("truecolor") || lowered.contains("24bit") {
+            Self::TrueColor
+        } else if term.unwrap_or_default().contains("256color") {
+            Self::Ansi256
+        } else {
+            Self::TerminalDefault
+        }
+    }
+}
+
 /// One complete theme mapping roles to styled output.
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
@@ -100,6 +135,21 @@ impl Theme {
             ThemeName::HighContrast => high_contrast(),
             ThemeName::Monochrome => monochrome(),
             ThemeName::Paper => paper(),
+        }
+    }
+
+    /// The named theme adapted to the terminal's color capability.
+    ///
+    /// True color keeps the exact palette; 256-color terminals receive the
+    /// nearest xterm palette entry for every RGB role; terminal-default
+    /// capability receives the attribute-only fallback, which preserves
+    /// contrast without assuming any background.
+    #[must_use]
+    pub fn for_output(name: ThemeName, mode: ColorMode) -> Self {
+        match mode {
+            ColorMode::TrueColor => Self::named(name),
+            ColorMode::TerminalDefault => Self::no_color(),
+            ColorMode::Ansi256 => nearest_256(Self::named(name)),
         }
     }
 
@@ -225,6 +275,78 @@ fn paper() -> Theme {
     }
 }
 
+/// The xterm-256 color cube brightness steps for channels 0 through 5.
+const CUBE_LEVELS: [u16; 6] = [0, 95, 135, 175, 215, 255];
+
+/// Maps every RGB color in a theme to its nearest xterm-256 palette entry.
+///
+/// Named ANSI colors (the high-contrast theme) already address terminal
+/// palette entries directly and pass through untouched. Modifiers and the
+/// foreground/background slot are preserved exactly.
+fn nearest_256(mut theme: Theme) -> Theme {
+    theme.styles = theme.styles.map(|style| Style {
+        fg: style.fg.map(to_256),
+        bg: style.bg.map(to_256),
+        underline_color: style.underline_color.map(to_256),
+        ..style
+    });
+    theme
+}
+
+fn to_256(color: Color) -> Color {
+    match color {
+        Color::Rgb(red, green, blue) => Color::Indexed(nearest_index(red, green, blue)),
+        direct => direct,
+    }
+}
+
+/// Finds the closest xterm-256 index by squared RGB distance.
+///
+/// The 6×6×6 cube is a per-channel grid, so its best entry minimizes each
+/// channel independently; every grayscale ramp entry supplies the other
+/// candidates, and near-neutral tones such as Paper's page pick gray over the
+/// cube whenever it is genuinely closer.
+fn nearest_index(red: u8, green: u8, blue: u8) -> u8 {
+    let squared = |first: u16, second: u16| -> u32 {
+        let distance = u32::from(first.abs_diff(second));
+        distance * distance
+    };
+
+    let closest_level = |value: u16| -> (usize, u32) {
+        CUBE_LEVELS
+            .iter()
+            .enumerate()
+            .map(|(index, level)| (index, squared(value, *level)))
+            .min_by_key(|&(index, distance)| (distance, index))
+            .unwrap_or((0, u32::MAX))
+    };
+
+    let (red_index, red_distance) = closest_level(u16::from(red));
+    let (green_index, green_distance) = closest_level(u16::from(green));
+    let (blue_index, blue_distance) = closest_level(u16::from(blue));
+    let cube_index = 16 + 36 * red_index + 6 * green_index + blue_index;
+    let cube_distance = red_distance + green_distance + blue_distance;
+
+    let mut gray_index = 232;
+    let mut gray_distance = u32::MAX;
+    for step in 0..24_usize {
+        let level = u16::try_from(8 + 10 * step).expect("the gray ramp stays in range");
+        let distance = squared(u16::from(red), level)
+            + squared(u16::from(green), level)
+            + squared(u16::from(blue), level);
+        if distance < gray_distance {
+            gray_distance = distance;
+            gray_index = 232 + step;
+        }
+    }
+
+    if cube_distance <= gray_distance {
+        u8::try_from(cube_index).expect("cube indices stay below 256")
+    } else {
+        u8::try_from(gray_index).expect("gray indices stay below 256")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,5 +451,177 @@ mod tests {
     fn role_indices_match_the_style_array_layout() {
         assert_eq!(Role::Canvas as usize, 0);
         assert_eq!(Role::Error as usize, 9);
+    }
+
+    #[test]
+    fn theme_005_detection_prefers_colorterm_then_term() {
+        assert_eq!(
+            ColorMode::detect(Some("truecolor"), None),
+            ColorMode::TrueColor
+        );
+        assert_eq!(ColorMode::detect(Some("24bit"), None), ColorMode::TrueColor);
+        assert_eq!(
+            ColorMode::detect(Some("TrueColor"), None),
+            ColorMode::TrueColor,
+            "the signal is case insensitive"
+        );
+        assert_eq!(
+            ColorMode::detect(None, Some("xterm-256color")),
+            ColorMode::Ansi256
+        );
+        assert_eq!(
+            ColorMode::detect(Some(""), Some("xterm")),
+            ColorMode::TerminalDefault
+        );
+        assert_eq!(
+            ColorMode::detect(None, None),
+            ColorMode::TerminalDefault,
+            "an unknown terminal keeps the safe default"
+        );
+    }
+
+    #[test]
+    fn theme_005_output_modes_preserve_identity_attributes_and_defaults() {
+        for name in ThemeName::ALL {
+            let exact = Theme::named(name);
+            let true_color = Theme::for_output(name, ColorMode::TrueColor);
+            let indexed = Theme::for_output(name, ColorMode::Ansi256);
+            let default = Theme::for_output(name, ColorMode::TerminalDefault);
+
+            for index in 0..exact.styles.len() {
+                let source = exact.styles[index];
+                let converted = indexed.styles[index];
+                if let Some(Color::Rgb(..)) = source.fg {
+                    assert!(
+                        matches!(converted.fg, Some(Color::Indexed(_))),
+                        "{name:?} role {index} converts RGB foreground to Indexed"
+                    );
+                } else {
+                    assert_eq!(source.fg, converted.fg, "{name:?} role {index}");
+                }
+                if let Some(Color::Rgb(..)) = source.bg {
+                    assert!(
+                        matches!(converted.bg, Some(Color::Indexed(_))),
+                        "{name:?} role {index} converts RGB background to Indexed"
+                    );
+                } else {
+                    assert_eq!(source.bg, converted.bg, "{name:?} role {index}");
+                }
+                assert_eq!(
+                    source.add_modifier, converted.add_modifier,
+                    "{name:?} role {index} keeps non-color cues"
+                );
+                assert_eq!(
+                    source.sub_modifier, converted.sub_modifier,
+                    "{name:?} role {index} keeps non-color cues"
+                );
+            }
+
+            for role in [
+                Role::Canvas,
+                Role::Surface,
+                Role::Text,
+                Role::Secondary,
+                Role::Accent,
+                Role::Link,
+                Role::Selection,
+                Role::Search,
+                Role::Warning,
+                Role::Error,
+            ] {
+                assert_eq!(true_color.style(role), exact.style(role));
+                let fallback = default.style(role);
+                let no_color = Theme::no_color().style(role);
+                assert_eq!(
+                    fallback.fg, no_color.fg,
+                    "{name:?} terminal-default keeps defaults"
+                );
+                assert_eq!(
+                    fallback.add_modifier, no_color.add_modifier,
+                    "{name:?} terminal-default keeps attribute cues"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn theme_005_nearest_index_hits_known_palette_anchors() {
+        let cases = [
+            ((0, 0, 0), 16),
+            ((255, 255, 255), 231),
+            ((255, 0, 0), 196),
+            ((0, 255, 0), 46),
+            ((0, 0, 255), 21),
+            // Paper's page tone is near-neutral and lands on the gray ramp.
+            ((0xF4, 0xEE, 0xDC), 255),
+        ];
+        for ((red, green, blue), expected) in cases {
+            assert_eq!(
+                nearest_index(red, green, blue),
+                expected,
+                "#{red:02X}{green:02X}{blue:02X}"
+            );
+        }
+    }
+
+    /// The xterm-256 palette entry for cube and grayscale indexes.
+    fn palette_rgb(index: u8) -> (u8, u8, u8) {
+        match index {
+            16..=231 => {
+                let rest = u16::from(index) - 16;
+                let level = |step: u16| {
+                    u8::try_from(CUBE_LEVELS[usize::from(step)]).expect("cube levels fit u8")
+                };
+                (level(rest / 36), level((rest / 6) % 6), level(rest % 6))
+            }
+            232..=255 => {
+                let gray = 8 + 10 * (u16::from(index) - 232);
+                let gray = u8::try_from(gray).expect("gray ramp fits u8");
+                (gray, gray, gray)
+            }
+            _ => unreachable!("base-16 anchors are terminal defined"),
+        }
+    }
+
+    #[test]
+    fn theme_005_every_palette_entry_maps_to_itself() {
+        for index in 16..=255_u8 {
+            let (red, green, blue) = palette_rgb(index);
+            assert_eq!(
+                nearest_index(red, green, blue),
+                index,
+                "#{red:02X}{green:02X}{blue:02X}"
+            );
+        }
+    }
+
+    #[test]
+    fn theme_005_conversions_stay_within_one_cube_step_of_the_source() {
+        for name in ThemeName::ALL {
+            let source = Theme::named(name);
+            let converted = Theme::for_output(name, ColorMode::Ansi256);
+            for (before, after) in source.styles.iter().zip(converted.styles.iter()) {
+                for (original, mapped) in before
+                    .fg
+                    .zip(after.fg)
+                    .into_iter()
+                    .chain(before.bg.zip(after.bg))
+                {
+                    let Color::Rgb(red, green, blue) = original else {
+                        continue;
+                    };
+                    let Color::Indexed(index) = mapped else {
+                        panic!("{name:?} maps RGB to Indexed");
+                    };
+                    let (mapped_red, mapped_green, mapped_blue) = palette_rgb(index);
+                    assert!(
+                        u16::from(red).abs_diff(u16::from(mapped_red)) <= 48
+                            && u16::from(green).abs_diff(u16::from(mapped_green)) <= 48
+                            && u16::from(blue).abs_diff(u16::from(mapped_blue)) <= 48,
+                        "{name:?} #{red:02X}{green:02X}{blue:02X} drifts too far"
+                    );
+                }
+            }
+        }
     }
 }

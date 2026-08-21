@@ -119,7 +119,7 @@ fn active_theme(app: &App) -> Theme {
     if app.no_color() {
         Theme::no_color()
     } else {
-        Theme::named(app.theme())
+        Theme::for_output(app.theme(), app.color_mode())
     }
 }
 

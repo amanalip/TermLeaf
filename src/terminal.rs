@@ -11,7 +11,7 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::{
-    app::{App, action_for},
+    app::{App, KeyMapper},
     interrupt, ui,
 };
 
@@ -184,6 +184,9 @@ where
 }
 
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
+    // One mapper owns multikey prefix state for the whole session; a fresh
+    // mapper per event would make sequences such as `gg` impossible.
+    let mut mapper = KeyMapper::default();
     while app.is_running() {
         if interrupt::requested() {
             app.update(crate::app::Action::Quit);
@@ -192,7 +195,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
         terminal.draw(|frame| ui::render(frame, app))?;
         if event::poll(Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
-            && let Some(action) = action_for(key)
+            && let Some(action) = mapper.map(key)
         {
             app.update(action);
         }
@@ -523,7 +526,7 @@ mod tests {
         let Ok(mode) = std::env::var("TERMLEAF_TEST_TERMINAL_FAULT") else {
             return Ok(());
         };
-        let mut app = App::new(None)?;
+        let mut app = App::open(crate::app::StartupOptions::default())?;
         let status = crate::process::run_and_report(
             || {
                 run_with_loop(&mut app, |terminal, app| {

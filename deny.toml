@@ -7,6 +7,10 @@ allow = [
     "Apache-2.0",
     "GPL-3.0-only",
     "MIT",
+    # encoding_rs ships its WHATWG mapping tables under BSD-3-Clause.
+    "BSD-3-Clause",
+    # option-ext, pulled in by directories, is file-level MPL-2.0.
+    "MPL-2.0",
     "Unicode-3.0",
     "Zlib",
 ]

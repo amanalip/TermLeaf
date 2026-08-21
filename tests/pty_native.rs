@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write as _,
     io::{Read, Write},
     path::Path,
     sync::mpsc::{self, Receiver},
@@ -33,8 +34,56 @@ struct PtyCase {
     finished: bool,
 }
 
+fn isolated_command(root: &Path, arguments: &[String]) -> CommandBuilder {
+    let mut command = CommandBuilder::new(TERMLEAF);
+    command.env_clear();
+    #[cfg(windows)]
+    for key in [
+        "ComSpec",
+        "OS",
+        "PATH",
+        "PATHEXT",
+        "SystemDrive",
+        "SystemRoot",
+        "WINDIR",
+    ] {
+        if let Some(value) = std::env::var_os(key) {
+            command.env(key, value);
+        }
+    }
+    command.env("TERM", "xterm-256color");
+    command.env("LANG", "C.UTF-8");
+    command.env("LC_ALL", "C.UTF-8");
+    command.env("HOME", root);
+    command.env("USERPROFILE", root);
+    command.env("APPDATA", root.join("appdata"));
+    command.env("LOCALAPPDATA", root.join("local-appdata"));
+    command.env("TEMP", root.join("temp"));
+    command.env("TMP", root.join("temp"));
+    command.env("XDG_CONFIG_HOME", root.join("config"));
+    command.env("XDG_DATA_HOME", root.join("data"));
+    command.env("XDG_STATE_HOME", root.join("state"));
+    command.env("XDG_CACHE_HOME", root.join("cache"));
+    for argument in arguments {
+        command.arg(argument);
+    }
+    command
+}
+
 impl PtyCase {
     fn spawn(arguments: &[&str]) -> Result<Self> {
+        Self::spawn_with(|_| {
+            arguments
+                .iter()
+                .map(|argument| (*argument).to_owned())
+                .collect()
+        })
+    }
+
+    /// Spawns a session whose fixture files are created inside the isolated
+    /// root; the setup closure returns absolute argument paths so the child
+    /// never depends on its inherited working directory.
+    fn spawn_with(setup: impl FnOnce(&Path) -> Vec<String>) -> Result<Self> {
         let serial = match PTY_CASE_LOCK.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
@@ -52,6 +101,7 @@ impl PtyCase {
             std::fs::create_dir_all(root.path().join(directory))
                 .context("create isolated PTY directory")?;
         }
+        let arguments = setup(root.path());
         let pair = native_pty_system()
             .openpty(PtySize {
                 rows: 24,
@@ -60,38 +110,7 @@ impl PtyCase {
                 pixel_height: 0,
             })
             .context("open native PTY")?;
-        let mut command = CommandBuilder::new(TERMLEAF);
-        command.env_clear();
-        #[cfg(windows)]
-        for key in [
-            "ComSpec",
-            "OS",
-            "PATH",
-            "PATHEXT",
-            "SystemDrive",
-            "SystemRoot",
-            "WINDIR",
-        ] {
-            if let Some(value) = std::env::var_os(key) {
-                command.env(key, value);
-            }
-        }
-        command.env("TERM", "xterm-256color");
-        command.env("LANG", "C.UTF-8");
-        command.env("LC_ALL", "C.UTF-8");
-        command.env("HOME", root.path());
-        command.env("USERPROFILE", root.path());
-        command.env("APPDATA", root.path().join("appdata"));
-        command.env("LOCALAPPDATA", root.path().join("local-appdata"));
-        command.env("TEMP", root.path().join("temp"));
-        command.env("TMP", root.path().join("temp"));
-        command.env("XDG_CONFIG_HOME", root.path().join("config"));
-        command.env("XDG_DATA_HOME", root.path().join("data"));
-        command.env("XDG_STATE_HOME", root.path().join("state"));
-        command.env("XDG_CACHE_HOME", root.path().join("cache"));
-        for argument in arguments {
-            command.arg(argument);
-        }
+        let command = isolated_command(root.path(), &arguments);
 
         let initial_terminal_state = terminal_state(pair.master.as_ref());
         let child = pair
@@ -154,7 +173,8 @@ impl PtyCase {
         }
         self.kill_and_reap()?;
         bail!(
-            "timed out waiting for {expected:?}; output={:?}",
+            "timed out waiting for {expected:?}; screen={:?} output={:?}",
+            self.parser.screen().contents(),
             String::from_utf8_lossy(&self.output)
         )
     }
@@ -341,6 +361,76 @@ fn cli_004_launch_without_path_opens_recent_books() -> Result<()> {
     let mut case = PtyCase::spawn(&[])?;
 
     case.wait_for_text("Recent books")?;
+    case.send(b"q")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
+#[test]
+fn key_001_reader_keys_navigate_help_and_quit_inside_a_pty() -> Result<()> {
+    let mut book = String::new();
+    for index in 1..=60 {
+        let _ = writeln!(book, "journey paragraph {index:02} carries readable words");
+    }
+    let mut case = PtyCase::spawn_with(|root| {
+        let path = root.join("journey-book.txt");
+        std::fs::write(&path, book).expect("write journey book");
+        vec![path.display().to_string()]
+    })?;
+
+    case.wait_for_text("journey paragraph 01")?;
+    assert!(case.parser.screen().alternate_screen());
+
+    case.send(b"\x1b[B")?; // Down
+    case.send(b"\x1b[6~")?; // PageDown
+    case.send(b"G")?; // Jump to the end of the book.
+    case.wait_for_text("journey paragraph 60")?;
+
+    case.send(b"?")?; // Help overlays the current passage.
+    case.wait_for_text("Reader commands")?;
+
+    case.send(b"\x1b")?; // Back returns to the same logical passage...
+    std::thread::sleep(Duration::from_millis(100));
+    case.send(b"\x1b[H")?; // ...conventional keys still reach the reader.
+    case.wait_for_text("journey paragraph 01")?;
+
+    case.send(b"G")?;
+    case.wait_for_text("journey paragraph 60")?;
+    std::thread::sleep(Duration::from_millis(100));
+    case.send(b"gg")?; // The multikey prefix completes across PTY reads.
+    case.wait_for_text("Loc 1 ")?;
+
+    case.send(b"q")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
+#[test]
+fn theme_002_configured_theme_loads_and_session_switch_reports_over_a_pty() -> Result<()> {
+    let mut case = PtyCase::spawn_with(|root| {
+        let path = termleaf::persistence::config::path_under(&root.join("config"));
+        std::fs::create_dir_all(path.parent().expect("config parent")).expect("config dir");
+        std::fs::write(path, "theme = \"dark\"\n").expect("write startup config");
+        vec![]
+    })?;
+
+    case.wait_for_text("No recent books yet.")?;
+    case.send(b"t")?;
+    case.wait_for_text("Themes")?;
+    let contents = case.parser.screen().contents();
+    assert!(
+        contents.contains("> Dark  (applied)"),
+        "the configured theme starts selected and applied: {contents}"
+    );
+
+    case.send(b"\r")?; // Enter applies the selection and reports it.
+    case.wait_for_text("Theme: Dark")?;
     case.send(b"q")?;
     let (status, screen, output) = case.finish()?;
 

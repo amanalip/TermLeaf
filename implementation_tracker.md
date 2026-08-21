@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 20, 2026 at 1:02 AM EDT
+**Last updated:** August 21, 2026 at 5:14 PM EDT
 
 ## Table of Contents
 
@@ -27,14 +27,19 @@
 
 ## Right Now
 
-Phase 1 is in progress on top of the completed Phase 0 foundation. The
-plain-text path now decodes UTF-8/UTF-16 under a byte limit, the shared
+Phase 1 implementation is locally complete on top of the Phase 0 foundation.
+The plain-text path decodes UTF-8/UTF-16 under a byte limit, the shared
 document model validates logical positions, grapheme- and cell-width-aware
 layout maps every visual row back to source ranges, and paged/continuous
 navigation moves one validated anchor. Five themes with semantic roles, the
 collapsing status line, theme selection, help, and the below-minimum state
-render through Ratatui. Remaining Phase 1 work: TOML-backed startup theme,
-PTY render journeys, hosted environment evidence, and the phase-gate exit run.
+render through Ratatui. The TOML-backed startup theme now resolves through
+default < config.toml < `--theme`, output color capability is detected at
+launch with an exact nearest-256 fallback, and native PTY journeys cover the
+reader navigation/help/prefix loop plus configured-theme startup. Remaining
+Phase 1 work is evidence, not code: hosted environment rows, the manual
+KEY/LAY procedures, render-profile snapshot review, and the phase-gate exit
+run.
 
 ## Delivery Phases
 
@@ -52,7 +57,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
-| 1. Plain-text reading loop | In progress | Core TXT decode/layout/navigation/themes/status render locally; TOML startup theme, PTY journeys, and the full gate evidence remain. |
+| 1. Plain-text reading loop | In progress | Implementation, local core suite, and PTY journeys pass; hosted rows, manual procedures, render review, and the full gate run remain. |
 | 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
@@ -87,19 +92,19 @@ already inside the six phases; it does not add another phase.
 | Rust package | Complete | The manifest, committed lockfile, GPL expression, lint policy, and Rust 1.88 minimum are in place. |
 | Application view/focus model | Complete | Every first-release view identity derives one exclusive focus owner; later phases add view-specific data and behavior. |
 | Shared action registry | Complete | Foundation quit, interrupt, help, and back behavior share one registry; Phase 1 extends it with reader actions. |
-| Command-line interface | Complete | Clap accepts an optional local book path and handles help, version, missing, non-file, and unreadable paths before terminal setup. |
-| Configuration | Not started | Implement defaults, TOML settings, and explicit CLI overrides. |
+| Command-line interface | Complete | Clap accepts an optional local book path and a `--theme` override, and handles help, version, missing, non-file, and unreadable paths before terminal setup. |
+| Configuration | In progress | Defaults, TOML startup theme with default < config.toml < CLI precedence, tolerant fallbacks, and hermetic `XDG_CONFIG_HOME` relocation ship; full schema, typed errors, and state arrive with Phase 3 CFG cases. |
 
 ## The Reading Loop
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, and viewport rendering work; snapshots and PTY evidence remain. |
+| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, and local PTY render journeys work; reviewed snapshots and hosted PTY evidence remain. |
 | Responsive layout | In progress | Width-keyed layout cache, Paper chrome collapse order, and anchor-preserving resize work; property suites and cache-stale tests remain. |
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; TOC/search jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
-| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, and paragraph preservation are done; file-level limit integration tests remain. |
+| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
 | EPUB format | Not started | Add bounded ZIP preflight, rbook semantics, and XHTML conversion. |
 | Markdown format | Not started | Parse source-aware Markdown directly into the shared document model. |
 | Inline images | Not started | Decode bounded raster and SVG content through protocol, cell, and caption fallbacks. |
@@ -120,14 +125,14 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | In progress | Hybrid conventional/Vim map with deterministic `gg` prefix ships; help lists every binding; PTY keyboard evidence remains. |
+| Keyboard controls | In progress | Hybrid conventional/Vim map with deterministic `gg` prefix ships and is exercised end to end by local PTY journeys; full KEY-001 matrix on hosted rows, AltGr/release/paste cases, and manual procedures remain. |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
 | Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
 | Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
-| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, and tested Paper contrast; TOML startup choice and 256-color fallbacks remain. |
-| Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, and tick-lifetime messages ship; failed-save states arrive with persistence. |
+| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, and nearest-256 output for 256-color terminals; the hosted Paper matrix review and terminal-default visual checks remain. |
+| Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, tick-lifetime messages on every screen including the home status, and theme confirmations ship; failed-save states arrive with persistence. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
 | Error messages | In progress | Typed document errors name path, reason, and recovery before terminal setup; in-app recoverable-error view arrives later. |
 
@@ -135,7 +140,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation unit, render, isolated CLI, and Linux PTY tests run; native platform and later feature suites remain. |
+| Automated tests | In progress | Foundation unit, render, isolated CLI, and Linux PTY tests run — now 88 library, 6 CLI, and 9 native PTY cases locally; native platform and later feature suites remain. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |
@@ -143,7 +148,7 @@ already inside the six phases; it does not add another phase.
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
-| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally; hosted and cross-platform evidence remains. |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 1 dependencies (including `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`); hosted and cross-platform evidence remains. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |

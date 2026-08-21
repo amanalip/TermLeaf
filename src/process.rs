@@ -7,7 +7,14 @@ use std::{
 
 use anyhow::Result;
 
-use crate::{app::App, cli::Cli, interrupt, terminal};
+use crate::{
+    app::{App, StartupOptions},
+    cli::Cli,
+    interrupt,
+    persistence::config::Settings,
+    terminal,
+    ui::theme::ThemeName,
+};
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 
@@ -18,11 +25,27 @@ pub fn run(cli: Cli) -> ExitCode {
     run_and_report(
         || {
             interrupt::install()?;
-            let app = App::new(cli.book)?;
+            let settings = Settings::load();
+            let app = App::open(StartupOptions {
+                book: cli.book,
+                theme: startup_theme(cli.theme.as_deref(), settings.theme.as_deref()),
+            })?;
             terminal::run(app)
         },
         &mut io::stderr(),
     )
+}
+
+/// Applies configuration precedence: explicit option beats config.toml.
+///
+/// An unrecognized slug falls back to the default rather than blocking
+/// startup; typed configuration errors arrive with the Phase 3 cases.
+fn startup_theme(explicit: Option<&str>, configured: Option<&str>) -> ThemeName {
+    [explicit, configured]
+        .into_iter()
+        .flatten()
+        .find_map(ThemeName::parse)
+        .unwrap_or_default()
 }
 
 pub(crate) fn run_and_report<F>(operation: F, diagnostics: &mut dyn Write) -> ExitCode
@@ -96,5 +119,32 @@ mod tests {
             String::from_utf8_lossy(&diagnostics),
             "TermLeaf stopped because of an internal error.\nTerminal restoration was attempted.\n"
         );
+    }
+
+    #[test]
+    fn cfg_002_explicit_theme_overrides_config_which_overrides_the_default() {
+        use crate::ui::theme::ThemeName;
+
+        assert_eq!(
+            startup_theme(Some("light"), Some("dark")),
+            ThemeName::Light,
+            "the command line wins"
+        );
+        assert_eq!(startup_theme(None, Some("dark")), ThemeName::Dark);
+        assert_eq!(
+            startup_theme(Some("monochrome"), None),
+            ThemeName::Monochrome
+        );
+        assert_eq!(
+            startup_theme(None, None),
+            ThemeName::Paper,
+            "no signal keeps the built-in default"
+        );
+        assert_eq!(
+            startup_theme(None, Some("not-a-theme")),
+            ThemeName::Paper,
+            "an unrecognized configured slug falls back"
+        );
+        assert_eq!(startup_theme(Some("bogus"), Some("dark")), ThemeName::Dark);
     }
 }

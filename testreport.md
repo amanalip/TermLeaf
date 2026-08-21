@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 20, 2026 at 1:49 AM EDT
+**Last updated:** August 21, 2026 at 5:14 PM EDT
 
 ## Table of Contents
 
@@ -77,9 +77,94 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No additional changes are pending inclusion in a commit.
+Completing the plain-text reading loop: TOML-backed startup theme with
+precedence and CLI override, launch-time output color-mode detection with a
+nearest-256 fallback, native PTY reader journeys, file-level size-limit
+evidence, SHIFT normalization plus persistent prefix mapping in the event
+loop, view-scoped reader actions, global temporary messages, and registry,
+tracker, and report updates.
 
 ## Commit Reports
+
+### Complete the plain-text reading loop
+
+**Commit subject:** `feat: complete the plain-text reading loop`
+
+**Revision:** This commit
+
+**Recorded:** August 21, 2026 at 5:14 PM EDT
+
+**Behavior and risks.** Completes the remaining Phase 1 implementation items.
+New behavior exercised: configuration loading from the platform config
+directory with default < config.toml < `--theme` precedence; tolerant
+fallback for missing, unreadable, wrong-typed, and malformed TOML; every
+theme slug round-tripping through config without the file ever being
+rewritten; output color-capability detection (`COLORTERM`, `TERM`) with an
+exact nearest-xterm-256 mapping that preserves modifiers, keeps palette
+entries as fixed points, and degrades unknown terminals to terminal-default;
+native PTY render journeys covering Down/PageDown/Home/`G`/help/Escape/`gg`
+with restoration checks; startup-theme selection observable over PTY through
+the selection cursor and applied marker; sparse-file evidence that books
+above the byte limit fail before terminal setup with the full typed message.
+
+The journeys exposed three real defects that this change fixes:
+
+1. Uppercase bindings (`G`, `?`) never fired on real terminals because
+   crossterm reports capitals as `Char + SHIFT` while the registry matched
+   bare characters. Character keys now drop SHIFT before matching.
+2. The event loop built a fresh mapper per event, so the timer-free `gg`
+   prefix could never complete across reads. The loop now owns one
+   persistent [`KeyMapper`] for the session.
+3. Reader navigation and mode actions leaked into overlay views such as
+   help, silently moving the hidden anchor. They are now inert outside the
+   Reader view, and temporary messages render in the non-reader status line
+   so confirmations are visible everywhere.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Commands and results.**
+
+| Command | Result |
+| --- | --- |
+| `cargo fmt --check` | Passed: no diff |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed: no warnings |
+| `cargo test --locked` | Passed: 88 library, 6 CLI, and 9 native PTY tests, 0 failed |
+| `cargo test --doc --locked` | Passed: 0 doctests |
+| `python3 tools/case_registry.py generate` | Passed: manifests regenerated; frozen gate membership unchanged |
+| `python3 tools/case_registry.py check` | Passed: bidirectional validation clean |
+| `cargo deny check` | Passed after allowing `BSD-3-Clause` (`encoding_rs` bundled WHATWG data) and `MPL-2.0` (`option-ext` via `directories`) |
+
+**Fixtures.** Synthetic only: generated journey book (60 numbered
+paragraphs), generated `config.toml`, and a sparse oversized `.txt` created
+with `set_len`; no downloaded or repository assets involved.
+
+**Skipped or unavailable.**
+
+| Check | Reason |
+| --- | --- |
+| Hosted platform/MSRV/PTY jobs | Require pushed CI runs; recorded separately when they execute. New dependencies (`serde`, `toml` 1.1.x, `directories` 6.x) are Core Stack selections from `project_plan.md`. |
+| Phase-gate exit run | Gate evidence requires hosted environment rows plus the manual procedures (`KEY-001` full matrix, `KEY-005`, `KEY-006`, `LAY-013`, `LAY-014`); not claimed by this commit. |
+| Render-profile snapshot review | `pr-render` remains Planned; Paper viewport collapse review stays open. |
+
+**Changed paths and classified areas.** `Cargo.toml`/`Cargo.lock`
+(dependency), `src/persistence/*` (configuration), `src/cli.rs`
+(command-line surface), `src/process.rs` (process boundary), `src/app/*`
+(state, key map, view scoping), `src/ui/theme.rs` and `src/ui/mod.rs`
+(theme or UI), `src/terminal.rs` (event loop), `tests/cli.rs`,
+`tests/pty_native.rs` (integration), `tests/case_registry.overrides.toml`
+plus regenerated manifests (test fixtures).
+
+**Selected exact IDs.** Implemented this change: `CFG-001`, `CFG-002`,
+`CFG-003`, `TXT-008`, `THEME-002`. Location-only evidence added or extended
+for: `KEY-001`, `KEY-003`, `THEME-005`. All remaining `phase-gate-1` IDs
+stay Planned pending their declared layers, profiles, or hosted rows.
+
+**Blocked cases.** Unchanged from the Phase 0 report: `TERM-011`/`TERM-012`
+hosted-environment rows remain owned by their target phases per `DD-018`.
+
+**Cleanup.** `cargo clean` ran after this complete local Rust validation
+cycle and removed 2,327 files (596.5 MiB).
 
 ### Start the plain-text reading loop
 

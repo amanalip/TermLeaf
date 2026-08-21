@@ -6,6 +6,7 @@ pub mod clock;
 pub mod document;
 pub mod interrupt;
 pub mod layout;
+pub mod persistence;
 pub mod process;
 pub mod reader;
 pub mod terminal;
