@@ -889,7 +889,7 @@ location = ["src/document/text.rs::txt_001_valid_utf8_without_bom_decodes_exactl
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -907,7 +907,7 @@ location = ["src/document/text.rs::txt_002_utf8_bom_is_removed_once_and_content_
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -925,7 +925,7 @@ location = ["src/document/text.rs::txt_003_marked_utf16_le_and_be_decode_without
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -943,7 +943,7 @@ location = ["src/document/text.rs::txt_004_invalid_utf8_and_unmarked_utf16_are_r
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -961,7 +961,7 @@ location = ["src/document/text.rs::txt_005_lf_crlf_and_cr_variants_produce_equiv
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -979,7 +979,7 @@ location = ["src/document/text.rs::txt_006_paragraphs_and_repeated_blank_lines_s
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -1123,7 +1123,7 @@ location = ["src/document/model.rs::model_004_invalid_sections_blocks_and_offset
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2203,7 +2203,7 @@ location = ["src/layout/mod.rs::lay_003_cjk_lines_break_deterministically_at_opp
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2221,7 +2221,7 @@ location = ["src/layout/mod.rs::lay_004_tabs_and_control_bytes_render_as_safe_vi
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2473,7 +2473,7 @@ location = ["src/reader.rs::nav_003_previous_page_after_next_page_returns_withou
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2491,7 +2491,7 @@ location = ["src/reader.rs::nav_004_boundary_navigation_clamps_safely"]
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2545,7 +2545,7 @@ location = ["src/app/action.rs::nav_007_conventional_and_vim_families_reach_the_
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2635,7 +2635,7 @@ location = ["src/reader.rs::nav_012_continuous_mode_moves_exactly_one_visual_row
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2671,7 +2671,7 @@ location = ["src/reader.rs::nav_014_section_and_document_jumps_are_four_distinct
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -3863,7 +3863,7 @@ location = ["src/ui/theme.rs::theme_010_every_paper_text_pairing_meets_the_contr
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -3989,7 +3989,7 @@ location = ["src/ui/status.rs::status_003_mode_and_percent_update_while_page_is_
 profiles = ["pr-core", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -4025,7 +4025,7 @@ location = ["src/ui/status.rs::status_005_full_status_matches_exact_expected_str
 profiles = ["pr-render", "phase-gate-1", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 decisions = []
 evidence_method = "Unit/render / pr-render"
 

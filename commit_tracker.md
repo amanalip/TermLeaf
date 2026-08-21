@@ -26,9 +26,15 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit History
+
 ### Start the plain-text reading loop
 
-**Commit subject:** `Pending`
+**Completed:** August 21, 2026 at 11:08 AM EDT
+
+**Commit subject:** `feat: start the plain-text reading loop`
 
 Changes:
 
@@ -55,21 +61,19 @@ Changes:
 
 Decisions:
 
-- **DD-019 (proposed):** Phase 1 key map fixes line (`j`/`k`, arrows), page
+- **DD-019:** Phase 1 key map fixes line (`j`/`k`, arrows), page
   (`PgUp`/`PgDn`, `Ctrl-B`/`Ctrl-F`), start/end (`Home`/`End`, `gg`/`G`),
   section (`{`/`}`), mode (`p`/`c`), themes (`t`), help (`F1`/`?`), back
   (`Esc`), quit (`q`/`Ctrl-C`). A lone `g` opens a prefix that any other key
   cancels after mapping that key normally; no timers. Initial `DEC-TEST-010`
   resolution, subject to PTY keyboard evidence.
-- **DD-020 (proposed):** Status collapse order drops clock, dynamic page,
-  title, chapter, hint, then location before the protected percent+mode pair;
+- **DD-020:** Status collapse order drops clock, dynamic page, title,
+  chapter, hint, then location before the protected percent+mode pair;
   messages replace lower-priority fields for eight key events. Initial
   `DEC-TEST-011` resolution pending render review.
-- **DD-021 (proposed):** TXT size limit starts at 32 MiB inclusive, checked
-  on metadata and again on a guarded read. Partial `DEC-TEST-012` input;
-  config/state/query limits remain open.
-
-## Commit History
+- **DD-021:** TXT size limit starts at 32 MiB inclusive, checked on metadata
+  and again on a guarded read. Partial `DEC-TEST-012` input; config/state/
+  query limits remain open.
 
 ### Distinguish ConPTY host controls
 
@@ -661,11 +665,11 @@ attributes return to their captured values. Write-only ANSI modes return to the
 documented ordinary-shell baseline because no portable query can recover
 arbitrary preexisting state on every promised terminal.
 
-### DD-019: Fix the Phase 1 reader key map with a timer-free prefix
+### {dd}: Fix the Phase 1 reader key map with a timer-free prefix
 
 **Date:** August 21, 2026
 
-**Status:** Proposed
+**Status:** Accepted
 
 Reading mode binds line movement to `j`/`k` and the arrow keys, page movement
 to `PgUp`/`PgDn` and `Ctrl-B`/`Ctrl-F`, document start/end to `Home`/`End`
@@ -677,11 +681,11 @@ never lost. The policy uses no timer, which keeps behavior deterministic in
 tests. This is the initial `DEC-TEST-010` resolution; PTY keyboard evidence
 and later text-entry modes may still adjust it before release.
 
-### DD-020: Collapse status fields by documented priority with tick lifetime
+### {dd}: Collapse status fields by documented priority with tick lifetime
 
 **Date:** August 21, 2026
 
-**Status:** Proposed
+**Status:** Accepted
 
 The status line renders title, chapter, logical location, dynamic page,
 percentage, mode, UTC clock (`HH:MM`), and the help hint. When width runs
@@ -692,11 +696,11 @@ exactly eight delivered key events rather than wall-clock time. Percentage is
 floored so forward movement is monotonic and resize never changes it. This is
 the initial `DEC-TEST-011` resolution pending render review.
 
-### DD-021: Bound plain-text input at 32 MiB with double size checks
+### {dd}: Bound plain-text input at 32 MiB with double size checks
 
 **Date:** August 21, 2026
 
-**Status:** Proposed
+**Status:** Accepted
 
 Plain-text books larger than 32 MiB (inclusive limit) are rejected with a
 typed error before decoding. The limit is checked against file metadata first

@@ -242,32 +242,32 @@ location = [
     "src/app/action.rs::nav_007_conventional_and_vim_families_reach_the_same_actions",
     "src/app/action.rs::every_binding_has_a_unique_label_and_help_entry",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-001]
 status = "Implemented"
 location = ["src/document/text.rs::txt_001_valid_utf8_without_bom_decodes_exactly"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-002]
 status = "Implemented"
 location = ["src/document/text.rs::txt_002_utf8_bom_is_removed_once_and_content_is_unchanged"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-003]
 status = "Implemented"
 location = ["src/document/text.rs::txt_003_marked_utf16_le_and_be_decode_without_replacement"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-004]
 status = "Implemented"
 location = ["src/document/text.rs::txt_004_invalid_utf8_and_unmarked_utf16_are_rejected_with_reasons"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-005]
 status = "Implemented"
 location = ["src/document/text.rs::txt_005_lf_crlf_and_cr_variants_produce_equivalent_documents"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-006]
 status = "Implemented"
@@ -275,7 +275,7 @@ location = [
     "src/document/text.rs::txt_006_paragraphs_and_repeated_blank_lines_survive_conversion",
     "src/layout/mod.rs::hard_wrapped_lines_reflow_into_flowing_paragraphs",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-007]
 location = ["src/document/text.rs::txt_007_empty_and_whitespace_only_files_are_stable"]
@@ -300,7 +300,7 @@ location = [
     "src/document/model.rs::model_004_invalid_sections_blocks_and_offsets_are_rejected",
     "src/reader.rs::invalid_positions_surface_typed_errors_not_panics",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.LAY-001]
 location = [
@@ -314,7 +314,7 @@ location = ["src/layout/mod.rs::lay_002_grapheme_clusters_are_never_split_or_cli
 [cases.LAY-003]
 status = "Implemented"
 location = ["src/layout/mod.rs::lay_003_cjk_lines_break_deterministically_at_opportunities"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.LAY-004]
 status = "Implemented"
@@ -325,7 +325,7 @@ location = [
     "src/layout/width.rs::measurement_matches_rendered_visible_text",
     "src/layout/width.rs::control_bytes_count_caret_cells_without_leaking",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.LAY-005]
 location = ["src/layout/mod.rs::lay_005_span_ranges_are_ordered_in_bounds_and_reconstruct_content"]
@@ -361,12 +361,12 @@ location = ["src/reader.rs::nav_002_repeated_next_page_advances_until_the_clamp"
 [cases.NAV-003]
 status = "Implemented"
 location = ["src/reader.rs::nav_003_previous_page_after_next_page_returns_without_resize"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.NAV-004]
 status = "Implemented"
 location = ["src/reader.rs::nav_004_boundary_navigation_clamps_safely"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.NAV-006]
 location = [
@@ -380,12 +380,12 @@ location = ["src/layout/viewport.rs::nav_011_default_open_pages_from_the_first_c
 [cases.NAV-012]
 status = "Implemented"
 location = ["src/reader.rs::nav_012_continuous_mode_moves_exactly_one_visual_row"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.NAV-014]
 status = "Implemented"
 location = ["src/reader.rs::nav_014_section_and_document_jumps_are_four_distinct_actions"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.RENDER-001]
 location = ["src/ui/mod.rs::render_001_reader_shows_passage_status_and_mode_at_standard_size"]
@@ -404,7 +404,7 @@ location = [
     "src/reader.rs::progress_percent_is_floored_and_monotonic",
     "src/document/model.rs::logical_line_numbers_count_canonical_newlines_only",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.STATUS-004]
 location = ["src/ui/status.rs::status_004_messages_replace_fields_for_deterministic_ticks"]
@@ -415,7 +415,7 @@ location = [
     "src/ui/status.rs::status_005_full_status_matches_exact_expected_strings",
     "src/clock.rs::known_instants_format_as_utc_hours_and_minutes",
 ]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.THEME-001]
 location = [
@@ -435,7 +435,7 @@ location = ["src/ui/theme.rs::no_color_fallback_uses_terminal_defaults_with_attr
 [cases.THEME-010]
 status = "Implemented"
 location = ["src/ui/theme.rs::theme_010_every_paper_text_pairing_meets_the_contrast_floor"]
-last_evidence = ["testreport.md#pending-commit"]
+last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.HELP-003]
 location = ["src/ui/mod.rs::help_lists_every_registered_reader_binding"]

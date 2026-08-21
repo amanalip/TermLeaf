@@ -77,7 +77,17 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-**Commit subject:** `Pending`
+No additional changes are pending inclusion in a commit.
+
+## Commit Reports
+
+### Start the plain-text reading loop
+
+**Commit subject:** `feat: start the plain-text reading loop`
+
+**Revision:** `c65061d`
+
+**Recorded:** August 21, 2026 at 11:08 AM EDT
 
 **Behavior and risks.** Starts Phase 1, the plain-text reading loop, on top of
 the Phase 0 foundation. New risks exercised: bounded file reading before
@@ -140,8 +150,6 @@ hosted-environment rows remain owned by their target phases per `DD-018`.
 
 **Cleanup.** `cargo clean` ran after this complete local Rust validation
 cycle and removed 3,724 files (780.3 MiB).
-
-## Commit Reports
 
 ### Distinguish ConPTY host controls
 
