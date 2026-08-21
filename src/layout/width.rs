@@ -129,6 +129,36 @@ mod tests {
         assert_eq!(visible_text("ok\u{7F}", 0), "ok^?");
         assert!(caret_notation(0x41).is_none());
         assert_eq!(caret_notation(0x01), Some(['^', 'A']));
+        assert_eq!(caret_notation(0x07), Some(['^', 'G']));
         assert_eq!(caret_notation(0x7F), Some(['^', '?']));
+    }
+
+    #[test]
+    fn lay_011_ambiguous_width_characters_measure_narrow_deterministically() {
+        // East Asian Ambiguous code points (plus-minus, white circle,
+        // not sign) measure as one cell: the pinned narrow policy. The
+        // measurement is pure, so repeated calls are always identical.
+        for character in ['\u{B1}', '\u{25CB}', '\u{A4}', '\u{2190}'] {
+            let first = display_width(&character.to_string(), 0);
+            assert_eq!(first, 1, "{character:?} measures narrow");
+            assert_eq!(
+                first,
+                display_width(&character.to_string(), 37),
+                "{character:?} measurement never depends on the column"
+            );
+        }
+
+        // A layout built from ambiguous characters is deterministic across
+        // rebuilds and independent of theme or mode state.
+        let text = "\u{B1}\u{25CB} value \u{2190} previous\n".repeat(4);
+        let document = crate::document::text::document_from_text(
+            crate::document::DocumentId::new("ambiguous".to_owned()),
+            None,
+            &text,
+        )
+        .expect("ambiguous fixture parses");
+        let rows = super::super::layout_document(&document, 21);
+        let again = super::super::layout_document(&document, 21);
+        assert_eq!(rows.rows(), again.rows());
     }
 }

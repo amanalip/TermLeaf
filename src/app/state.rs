@@ -248,7 +248,7 @@ impl App {
         let (view, reader) = match options.book {
             Some(path) => {
                 Self::validate_path(&path)?;
-                let display = path.display().to_string();
+                let display = crate::document::sanitize_path(&path.display().to_string());
                 let limits = crate::document::TextLimits::default();
                 let document = crate::document::text::load_text_file(&path, &limits).map_err(
                     |error| -> anyhow::Error {
@@ -291,28 +291,27 @@ impl App {
     }
 
     fn validate_path(path: &Path) -> Result<()> {
+        let display = crate::document::sanitize_path(&path.display().to_string());
         let metadata = path.metadata().with_context(|| {
-            format!(
-                "could not open book '{}'; check that the path exists and is readable",
-                path.display()
-            )
+            format!("could not open book '{display}'; check that the path exists and is readable")
         })?;
         if !metadata.is_file() {
-            bail!(
-                "could not open book '{}'; the path is not a file",
-                path.display()
-            );
+            bail!("could not open book '{display}'; the path is not a file");
         }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
 
             if metadata.permissions().mode() & 0o444 == 0 {
-                bail!(
-                    "could not open book '{}'; the file is not readable",
-                    path.display()
-                );
+                bail!("could not open book '{display}'; the file is not readable");
             }
+        }
+        if crate::document::detect_format(path).is_none() {
+            use crate::document::DocumentError;
+
+            return Err(anyhow::Error::new(DocumentError::UnsupportedFormat {
+                path: display,
+            }));
         }
         Ok(())
     }
@@ -517,6 +516,15 @@ impl App {
             Action::Quit | Action::Back | Action::ShowThemes => {
                 self.view = return_to;
             }
+            // Help stays reachable from every interactive surface, including
+            // overlays; returning restores the theme list exactly.
+            Action::ShowHelp => {
+                self.view = View::Help {
+                    return_to: Box::new(View::ThemeSelection {
+                        return_to: Box::new(return_to),
+                    }),
+                };
+            }
             _ => {}
         }
     }
@@ -647,7 +655,11 @@ mod tests {
             assert_eq!(app.focus(), expected_focus);
         }
 
-        let file = tempfile::NamedTempFile::new().expect("create reader focus fixture");
+        let file = tempfile::Builder::new()
+            .prefix("reader-focus")
+            .suffix(".txt")
+            .tempfile()
+            .expect("create reader focus fixture");
         let mut reader = App::open(StartupOptions {
             book: Some(file.path().to_path_buf()),
             ..StartupOptions::default()

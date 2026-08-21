@@ -224,7 +224,10 @@ mod tests {
     fn book_app(contents: &str) -> Result<App> {
         use std::io::Write;
 
-        let mut file = tempfile::NamedTempFile::new()?;
+        let mut file = tempfile::Builder::new()
+            .prefix("book")
+            .suffix(".txt")
+            .tempfile()?;
         writeln!(file, "{contents}")?;
         App::open(crate::app::StartupOptions {
             book: Some(file.path().to_path_buf()),

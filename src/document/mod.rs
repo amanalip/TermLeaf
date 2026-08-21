@@ -8,6 +8,6 @@ mod error;
 pub mod model;
 pub mod text;
 
-pub use error::{DocumentError, PositionError};
+pub use error::{DocumentError, Format, PositionError, detect_format, sanitize_path};
 pub use model::{Block, BlockKind, Document, DocumentId, Position, Section};
 pub use text::TextLimits;

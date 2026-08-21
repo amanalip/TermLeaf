@@ -8,7 +8,7 @@
 
 use std::{fs::File, io::Read, path::Path};
 
-use super::{Document, DocumentError, DocumentId, model::Block, model::BlockKind};
+use super::{Document, DocumentError, DocumentId, model::Block, model::BlockKind, sanitize_path};
 
 /// Initial plain-text size policy pending the final `DEC-TEST-012` numbers.
 ///
@@ -249,7 +249,7 @@ fn build_blocks(canonical: &str) -> Vec<Block> {
 /// [`DocumentError::Read`] for operating-system failures, and the decode
 /// errors from [`decode_text`].
 pub fn load_text_file(path: &Path, limits: &TextLimits) -> Result<Document, DocumentError> {
-    let display = path.display().to_string();
+    let display = sanitize_path(&path.display().to_string());
     let mut file = File::open(path).map_err(|source| DocumentError::Read {
         path: display.clone(),
         source,
@@ -525,5 +525,54 @@ mod tests {
             .position(0, 0, source.len())
             .expect("end boundary is valid");
         assert_eq!(end.absolute_byte(&document), source.len());
+    }
+
+    #[test]
+    fn model_002_traversal_is_deterministic_complete_and_unduplicated() {
+        let source = "one\n\n\ntwo three\nfour\nfive\n\nsix\n";
+        let document = document_from_text(DocumentId::new("traverse".to_owned()), None, source)
+            .expect("fixture parses");
+
+        // Reading order over the single section visits every block exactly
+        // once and reconstructs the logical content in order.
+        let mut visited_kinds = Vec::new();
+        let mut reconstructed = String::new();
+        for section in document.sections() {
+            for (index, block) in section.blocks().iter().enumerate() {
+                visited_kinds.push((index, block.kind()));
+                reconstructed.push_str(document.block_text(0, index).expect("block text"));
+            }
+        }
+
+        assert_eq!(
+            visited_kinds
+                .iter()
+                .map(|(_, kind)| *kind)
+                .collect::<Vec<_>>(),
+            [
+                BlockKind::Paragraph,
+                BlockKind::BlankLine,
+                BlockKind::BlankLine,
+                BlockKind::Paragraph,
+                BlockKind::BlankLine,
+                BlockKind::Paragraph,
+            ]
+        );
+        assert_eq!(reconstructed, source);
+
+        // A second traversal is identical: no hidden state.
+        let again: Vec<_> = document.sections()[0]
+            .blocks()
+            .iter()
+            .map(|block| (block.kind(), block.range().clone()))
+            .collect();
+        assert_eq!(
+            again,
+            document.sections()[0]
+                .blocks()
+                .iter()
+                .map(|block| (block.kind(), block.range().clone()))
+                .collect::<Vec<_>>()
+        );
     }
 }

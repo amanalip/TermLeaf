@@ -28,6 +28,7 @@ unicode-width = "0.2.2"
 [dev-dependencies]
 portable-pty = { version = "0.9", default-features = false }
 tempfile = "3.23"
+unicode-segmentation = "1.13"
 vt100 = "0.16"
 
 [target.'cfg(unix)'.dev-dependencies]

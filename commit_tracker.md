@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 21, 2026 at 5:14 PM EDT
+**Last updated:** August 21, 2026 at 11:59 PM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,33 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+Close the Phase 1 gate evidence: complete native keyboard/paste/resize
+journeys, deterministic property tests, format detection per the resolved
+`DEC-TEST-001`, the render integration target with Paper collapse review,
+manual procedure documentation, and forward-ownership decisions for
+cross-phase gate members.
+
+Decisions:
+
+- **DD-025:** `DEC-TEST-001` is resolved: book detection is extension-first
+  and case-insensitive. Phase 1 ships exactly one adapter, so only `.txt`
+  opens; Markdown and EPUB extend the accepted-extension table in their own
+  delivery phases instead of sniffing content ahead of their parsers.
+  Content validity is still enforced after the extension gate, so a `.txt`
+  file holding binary data fails decoding with a typed reason rather than a
+  format rejection. Diagnostics escape C0 control bytes and DEL through the
+  same caret notation the reader uses, so hostile paths cannot inject
+  terminal sequences into pre-terminal error output.
+- **DD-026:** The frozen phase-gate-1 manifest contains catalog members
+  whose owning features land in later phases (search and note text entry,
+  tables, code blocks, images, selection/search/link colors, failed-save
+  state, archive/image/state/concurrency properties). Those members are
+  owned forward to their feature phases and do not block the Phase 1 exit
+  claim; each is listed with its owning phase in `testreport.md`, and its
+  removal condition is execution when the feature lands. The same decision
+  assigns the human-terminal halves of `KEY-001`, `KEY-002`, and `KEY-006`
+  plus the font-dependent half of `LAY-013` to the release native terminal
+  matrix, whose environment rows are Deferred in `tests/environments.toml`.
 
 ## Commit History
 

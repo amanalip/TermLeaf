@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 21, 2026 at 5:14 PM EDT
+**Last updated:** August 21, 2026 at 11:59 PM EDT
 
 ## Table of Contents
 
@@ -27,19 +27,20 @@
 
 ## Right Now
 
-Phase 1 implementation is locally complete on top of the Phase 0 foundation.
-The plain-text path decodes UTF-8/UTF-16 under a byte limit, the shared
-document model validates logical positions, grapheme- and cell-width-aware
-layout maps every visual row back to source ranges, and paged/continuous
-navigation moves one validated anchor. Five themes with semantic roles, the
-collapsing status line, theme selection, help, and the below-minimum state
-render through Ratatui. The TOML-backed startup theme now resolves through
-default < config.toml < `--theme`, output color capability is detected at
-launch with an exact nearest-256 fallback, and native PTY journeys cover the
-reader navigation/help/prefix loop plus configured-theme startup. Remaining
-Phase 1 work is evidence, not code: hosted environment rows, the manual
-KEY/LAY procedures, render-profile snapshot review, and the phase-gate exit
-run.
+The phase-gate-1 evidence run is complete locally. The frozen manifest's
+closeable members all pass: the full reader key matrix, bracketed-paste
+inertness, resize transients, focus/mouse/release event inertness, the
+deterministic property suite, extension-first format detection under the
+resolved `DEC-TEST-001` (DD-025), locale variants, right-to-left samples,
+ambiguous-width policy, the Paper capability matrix and collapse order,
+status collapse stepping, redraw stability, help from every Phase 1 surface,
+and typed-error diagnostics with control-byte escaping. One navigation
+defect found by the properties was fixed: previous page is now the exact
+inverse of next page whenever the forward hop fits unclamped. Cross-phase
+members are owned forward by DD-026 with procedures written in
+`manual_procedures.md`. Remaining before Complete: pushed hosted CI rows for
+this revision and the release-matrix manual executions that require real GUI
+terminals.
 
 ## Delivery Phases
 
@@ -99,8 +100,8 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, and local PTY render journeys work; reviewed snapshots and hosted PTY evidence remain. |
-| Responsive layout | In progress | Width-keyed layout cache, Paper chrome collapse order, and anchor-preserving resize work; property suites and cache-stale tests remain. |
+| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, PTY render journeys, and the reviewed `tests/render.rs` assertion suite work; hosted rows for the gate revision remain. |
+| Responsive layout | In progress | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites all pass; release-matrix visual checks remain. |
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; TOC/search jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
@@ -113,7 +114,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Open a local book | In progress | Missing, non-file, unreadable, oversized, and undecodable paths fail before terminal setup; unsupported-format messaging lands with format detection. |
+| Open a local book | In progress | Extension-first detection (DD-024/`DEC-TEST-001`) accepts case-insensitive `.txt` and rejects other or missing extensions pre-terminal; missing, non-file, unreadable, oversized, undecodable, and misleading-content paths fail before terminal setup. |
 | Recent books | Not started | Reopen, remove, and clear recent entries without scanning directories. |
 | Library index | Not planned | Keep automatic indexing outside the first release. |
 | Book details | Not started | Show title, author, and structure when the file provides them. |
@@ -125,22 +126,22 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | In progress | Hybrid conventional/Vim map with deterministic `gg` prefix ships and is exercised end to end by local PTY journeys; full KEY-001 matrix on hosted rows, AltGr/release/paste cases, and manual procedures remain. |
+| Keyboard controls | In progress | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
 | Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
 | Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
-| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, and nearest-256 output for 256-color terminals; the hosted Paper matrix review and terminal-default visual checks remain. |
+| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; real-terminal visual review belongs to the Deferred release rows. |
 | Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, tick-lifetime messages on every screen including the home status, and theme confirmations ship; failed-save states arrive with persistence. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
-| Error messages | In progress | Typed document errors name path, reason, and recovery before terminal setup; in-app recoverable-error view arrives later. |
+| Error messages | In progress | Typed document errors name path, reason, and recovery before terminal setup, and diagnostics escape control bytes so hostile paths cannot inject terminal sequences; the in-app recoverable-error view and note-content half arrive later. |
 
 ## Confidence and Releases
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation unit, render, isolated CLI, and Linux PTY tests run — now 88 library, 6 CLI, and 9 native PTY cases locally; native platform and later feature suites remain. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, and PTY suites run — 97 library, 8 CLI, 4 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |

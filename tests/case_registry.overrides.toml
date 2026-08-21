@@ -231,16 +231,55 @@ location = ["Cargo.toml"]
 last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
 [cases.KEY-002]
-location = ["src/app/action.rs::key_002_flow_control_keys_do_not_collide_with_text_keys"]
+status = "Implemented"
+location = [
+    "src/app/action.rs::key_002_flow_control_keys_do_not_collide_with_text_keys",
+    "tests/pty_native.rs::key_002_flow_control_keys_page_without_colliding_in_a_pty",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.KEY-001]
-location = ["tests/pty_native.rs::key_001_reader_keys_navigate_help_and_quit_inside_a_pty"]
+status = "Implemented"
+location = [
+    "tests/pty_native.rs::key_001_reader_keys_navigate_help_and_quit_inside_a_pty",
+    "src/app/action.rs::nav_007_conventional_and_vim_families_reach_the_same_actions",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.KEY-003]
+status = "Implemented"
 location = [
     "src/app/action.rs::key_003_gg_prefix_is_deterministic_and_never_loses_input",
     "tests/pty_native.rs::key_001_reader_keys_navigate_help_and_quit_inside_a_pty",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.KEY-006]
+status = "Implemented"
+location = ["tests/pty_native.rs::key_006_escape_alt_ambiguity_and_ctrl_c_stay_safe_in_a_pty"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.KEY-007]
+status = "Implemented"
+location = [
+    "tests/pty_native.rs::key_007_paste_events_are_inert_in_every_phase_one_mode",
+    "src/terminal.rs::term_007_focus_mouse_resize_and_paste_events_are_inert",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.TERM-006]
+status = "Implemented"
+location = ["tests/pty_native.rs::term_006_resize_transients_recover_to_the_same_anchor"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.TERM-007]
+status = "Implemented"
+location = [
+    "src/terminal.rs::term_007_focus_mouse_resize_and_paste_events_are_inert",
+    "src/terminal.rs::term_007_unsupported_key_events_do_not_map_but_bindings_survive_inert_events",
+    "src/terminal.rs::term_007_release_events_stay_inert_through_the_event_filter",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-007]
 status = "Implemented"
@@ -429,10 +468,13 @@ location = [
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.THEME-001]
+status = "Implemented"
 location = [
     "src/ui/theme.rs::theme_001_all_five_themes_define_every_role_distinctly",
     "src/ui/theme.rs::role_indices_match_the_style_array_layout",
+    "tests/render.rs::theme_001_all_five_themes_render_readable_passages",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.THEME-002]
 status = "Implemented"
@@ -473,6 +515,54 @@ status = "Implemented"
 location = ["src/persistence/config.rs::cfg_003_malformed_wrong_typed_and_unreadable_config_fall_back_to_defaults"]
 last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 
+[cases.CLI-003]
+status = "Implemented"
+location = ["tests/document_io.rs::cli_003_existing_supported_path_opens_one_immutable_source"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.CLI-007]
+status = "Implemented"
+location = [
+    "src/document/error.rs::cli_007_txt_extension_is_accepted_case_insensitively",
+    "src/document/error.rs::cli_007_unsupported_or_missing_extensions_are_one_typed_rejection",
+    "tests/cli.rs::cli_007_unsupported_extensions_reject_with_one_typed_message",
+    "tests/cli.rs::cli_007_txt_content_still_validates_after_the_extension_gate",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.TXT-010]
+status = "Implemented"
+location = ["tests/document_io.rs::txt_010_read_only_source_survives_navigation_and_exit"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.MODEL-002]
+status = "Implemented"
+location = ["src/document/text.rs::model_002_traversal_is_deterministic_complete_and_unduplicated"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.LAY-014]
+status = "Implemented"
+location = ["tests/document_io.rs::lay_014_right_to_left_samples_stay_bounded_and_logical"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.ERR-001]
+status = "Implemented"
+location = ["src/document/error.rs::err_001_each_document_error_names_path_reason_and_recovery"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.ERR-003]
+status = "Implemented"
+location = [
+    "src/document/error.rs::err_003_control_bytes_in_failing_paths_cannot_reach_the_terminal",
+    "tests/document_io.rs::err_003_sanitized_paths_keep_diagnostics_terminal_safe",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.LAY-015]
+status = "Implemented"
+location = ["tests/pty_native.rs::lay_015_locale_variants_render_identical_unicode"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
 [cases.THEME-010]
 status = "Implemented"
 location = ["src/ui/theme.rs::theme_010_every_paper_text_pairing_meets_the_contrast_floor"]
@@ -480,3 +570,106 @@ last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.HELP-003]
 location = ["src/ui/mod.rs::help_lists_every_registered_reader_binding"]
+
+[cases.PROP-001]
+status = "Implemented"
+location = ["tests/properties.rs::prop_001_no_row_exceeds_width_and_layout_terminates"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.PROP-002]
+status = "Implemented"
+location = ["tests/properties.rs::prop_002_spans_never_split_graphemes"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.PROP-003]
+status = "Implemented"
+location = ["tests/properties.rs::prop_003_anchor_passage_survives_resize_sequences"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.PROP-004]
+status = "Implemented"
+location = ["tests/properties.rs::prop_004_next_page_progresses_then_clamps_at_the_end"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.NAV-010]
+status = "Implemented"
+location = ["tests/properties.rs::nav_010_resize_between_navigation_actions_keeps_movement_valid"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.PROP-010]
+status = "Implemented"
+location = ["tests/properties.rs::prop_010_action_sequences_keep_state_valid_or_typed"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.LAY-011]
+status = "Implemented"
+location = ["src/layout/width.rs::lay_011_ambiguous_width_characters_measure_narrow_deterministically"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.THEME-003]
+status = "Implemented"
+location = ["tests/render.rs::theme_003_switching_themes_mid_passage_keeps_the_anchor"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.THEME-004]
+status = "Implemented"
+location = [
+    "tests/render.rs::theme_004_paper_true_color_roles_render_exactly",
+    "src/ui/theme.rs::theme_010_every_paper_text_pairing_meets_the_contrast_floor",
+]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.THEME-006]
+status = "Implemented"
+location = ["tests/render.rs::theme_006_paper_collapses_canvas_padding_then_boundary"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.THEME-009]
+status = "Implemented"
+location = ["tests/render.rs::theme_009_paper_matrix_over_phase_one_states_stays_readable"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.RENDER-002]
+status = "Implemented"
+location = ["tests/render.rs::render_002_empty_short_long_and_error_states_render_safely"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.RENDER-003]
+status = "Implemented"
+location = ["tests/render.rs::render_003_unicode_cells_render_with_exact_widths_and_no_leaks"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.RENDER-004]
+status = "Implemented"
+location = ["tests/render.rs::render_004_redraw_is_stable_and_single_field_changes_are_local"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.STATUS-001]
+status = "Implemented"
+location = ["tests/render.rs::status_001_full_status_fields_render_at_wide_width"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.STATUS-006]
+status = "Implemented"
+location = ["tests/render.rs::status_006_fields_collapse_in_priority_order_and_messages_restore"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.HELP-001]
+status = "Implemented"
+location = ["tests/render.rs::help_001_help_opens_from_every_phase_one_mode_and_returns"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.NAV-009]
+status = "Implemented"
+location = ["tests/render.rs::nav_009_help_round_trip_preserves_the_passage_anchor"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.LAY-007]
+status = "Implemented"
+location = ["tests/render.rs::lay_007_theme_mode_changes_keep_the_anchor_and_reuse_the_layout_cache"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.LAY-013]
+status = "Implemented"
+location = ["tests/render.rs::lay_013_unicode_placement_claims_match_support_limits"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]

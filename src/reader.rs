@@ -68,8 +68,11 @@ pub fn step_line(
 /// Moves the anchor by one viewport of rows, clamping at the ends.
 ///
 /// Paging counts visual rows from the anchor's own row, so repeated
-/// next-page steps advance until the clamp and a next-page/previous-page
-/// pair returns to the prior anchor without resize in between.
+/// next-page steps advance until the clamp. The backward step is defined as
+/// the inverse of the unclamped forward step: it restores the prior anchor
+/// exactly whenever that forward hop fit inside the document and no blank
+/// spacer rows were skipped past. Blank joiners may otherwise shorten the
+/// hop, and the step never moves toward the end or below the document start.
 #[must_use]
 pub fn step_page(
     layout: &PageLayout,
@@ -89,12 +92,38 @@ pub fn step_page(
             next_content_row(layout, jumped)
         }
         Direction::TowardStart if current == 0 => return None,
-        Direction::TowardStart => {
+        Direction::TowardStart => inverse_page_step(layout, current, viewport_rows).or_else(|| {
             let jumped = current - viewport_rows.min(current);
             previous_content_row(layout, jumped)
-        }
+        }),
     }?;
     row_start_position(layout, document, target)
+}
+
+/// Finds the smallest content row whose forward page step lands exactly on
+/// `current`, making the backward step a true inverse of the forward step.
+///
+/// The search stays inside one bounded window below the anchor; layouts with
+/// more consecutive blank rows than the window fall back to the plain hop.
+fn inverse_page_step(layout: &PageLayout, current: usize, viewport_rows: usize) -> Option<usize> {
+    let window = usize::from(u16::try_from(viewport_rows).unwrap_or(u16::MAX))
+        .saturating_mul(2)
+        .saturating_add(8);
+    let upper = current.saturating_sub(1);
+    let lower = current.saturating_sub(window);
+    let mut candidate = lower;
+    while candidate <= upper {
+        if !layout.rows()[candidate].spans().is_empty() {
+            let jumped = candidate
+                .saturating_add(viewport_rows)
+                .min(layout.rows().len() - 1);
+            if next_content_row(layout, jumped) == Some(current) {
+                return Some(candidate);
+            }
+        }
+        candidate += 1;
+    }
+    None
 }
 
 /// Anchors the first content row of the document.

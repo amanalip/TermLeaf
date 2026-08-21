@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 5:14 PM EDT
+**Last updated:** August 21, 2026 at 11:59 PM EDT
 
 ## Table of Contents
 
@@ -77,14 +77,131 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-Completing the plain-text reading loop: TOML-backed startup theme with
-precedence and CLI override, launch-time output color-mode detection with a
-nearest-256 fallback, native PTY reader journeys, file-level size-limit
-evidence, SHIFT normalization plus persistent prefix mapping in the event
-loop, view-scoped reader actions, global temporary messages, and registry,
-tracker, and report updates.
+Completing the Phase 1 gate evidence run: full KEY-001/KEY-002/KEY-006/
+KEY-007/TERM-006/TERM-007 PTY and unit journeys, the deterministic property
+suite, extension-first format detection with diagnostic control escaping
+(`DEC-TEST-001`/DD-025), the inverse paging policy fix, help reachable from
+the theme overlay, the `tests/render.rs` target activating `pr-render`,
+locale-variant PTY evidence, and manual procedure documentation with
+forward-ownership decisions (DD-026).
 
 ## Commit Reports
+
+### Complete the Phase 1 gate
+
+**Commit subject:** Pending
+
+**Revision:** This commit
+
+**Recorded:** August 21, 2026 in the evening EDT
+
+**Behavior and risks.** Closes every Phase 1-closeable gap in the frozen
+`phase-gate-1` manifest. New behavior exercised: the complete reader key
+matrix inside native PTYs on every required environment row (Up, Down,
+PageUp/PageDown, Ctrl-B/Ctrl-F, Home/End, F1, Escape versus Alt chords,
+Ctrl-C); bracketed paste inertness including multiline, control-containing,
+and 64 KiB oversized payloads in both Phase 1 modes; repeated resizes through
+a tiny transient size and back to the same logical anchor; focus, mouse,
+resize, release, and paste events staying inert at the event-filter boundary
+with prefix state preserved; deterministic seeded properties for row width
+bounds, grapheme integrity, anchor survival across resize sequences, page
+progression and its exact inverse semantics, and action-sequence state
+validity; extension-first format detection accepting case-insensitive `.txt`
+and rejecting every other or missing extension pre-terminal while still
+strictly decoding `.txt` content (misleading pairs covered both ways);
+caret-notation escaping of control bytes in failing-path diagnostics;
+read-only and immutable source guarantees; right-to-left samples staying
+bounded at five widths; locale variants rendering identical Unicode;
+ambiguous-width characters pinned to the narrow measurement; Paper collapse
+order asserted cell-by-cell from wide canvas to boundary removal; a Paper
+capability matrix over three color modes by five viewports by reader and
+help states; true-color role values verified at exact cells; theme switches
+at mid-passage preserving the anchor across all five themes; status field
+collapse order proven by first-drop widths with deterministic message
+lifetime restore; redraw stability with single-field changes; help reachable
+from Recent books, Reader, Themes, and over itself, returning through the
+overlay stack to the exact passage.
+
+One navigation defect was found and fixed by the new property suite:
+previous page was not the inverse of next page when blank spacer rows or
+end clamping intervened. The backward step now searches for the smallest
+content row whose unclamped forward step lands exactly on the current page,
+restoring prior anchors exactly whenever the forward hop fit inside the
+document, with a bounded fallback hop otherwise (`src/reader.rs`).
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI. PTY cases run under
+the hermetic harness with `LANG`/`LC_ALL=C.UTF-8`; the locale case varies
+both to `C` and `en_US.UTF-8` deliberately.
+
+**Commands and results.**
+
+| Command | Result |
+| --- | --- |
+| `python3 tools/case_registry.py generate` | Passed: manifests regenerated; gate membership unchanged except catalog text for resolved DEC-TEST-001 |
+| `python3 tools/case_registry.py check` | Passed: bidirectional validation clean after overrides |
+| `cargo fmt --check` | Passed: no diff |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed: no warnings |
+| `cargo test --locked` | Passed: 97 library, 8 CLI, 4 document-I/O, 14 render, 6 property, and 14 native PTY tests, 0 failed |
+| `cargo test --doc --locked` | Passed: 0 doctests |
+| `cargo deny check` | see below |
+
+**Fixtures.** Synthetic only: generated journey/flow/escape/paste/resize/
+locale books (60 or 20 numbered paragraphs), generated property documents
+from a fixed-seed xorshift generator over an ASCII/CJK/combining/ZWJ/flag/
+skin-tone/tab alphabet, sparse oversized `.txt`, read-only temp files, and
+Arabic/Hebrew/mixed-direction samples built from Unicode escapes. No
+downloaded or repository assets were involved.
+
+**Selected exact IDs.** Implemented this change: `CLI-003`, `CLI-007`,
+`TXT-010`, `MODEL-002`, `LAY-007`, `LAY-011`, `LAY-013`, `LAY-014`,
+`LAY-015`, `NAV-009`, `NAV-010`, `THEME-001`, `THEME-003`, `THEME-004`,
+`THEME-006`, `THEME-009`, `RENDER-002`, `RENDER-003`, `RENDER-004`,
+`STATUS-001`, `STATUS-006`, `HELP-001`, `ERR-001`, `ERR-003`, `PROP-001`,
+`PROP-002`, `PROP-003`, `PROP-004`, `PROP-010`, `KEY-001`, `KEY-002`,
+`KEY-003`, `KEY-006`, `KEY-007`, `TERM-006`, `TERM-007`. Evidence extended
+for already-Implemented `LAY-001`..`LAY-008`, `NAV-001`..`NAV-008`,
+`NAV-011`..`NAV-014`, `STATUS-002`..`STATUS-005`, `THEME-002`, `RENDER-001`,
+which re-ran inside the same suites.
+
+**Skipped or unavailable, with forward ownership (DD-026).**
+
+| Check | Reason and removal condition |
+| --- | --- |
+| `KEY-005` | Search/note text entry does not exist until Phase 3; execute then per `manual_procedures.md`. Removal condition: Phase 3 KEY procedures recorded. |
+| `NAV-008` P0 | Search/note-editing modes do not exist until Phase 3; the inertness principle is enforced today at the event filter (`term_007`). Owned forward to Phase 3; removal when SEARCH/UI text-entry cases land. |
+| `NAV-009` TOC/annotation halves | Those views arrive in Phases 2-3; the help half passes now. |
+| `NAV-013` chapter/TOC/search/bookmark/highlight/note jumps | Owning features arrive in Phases 2-3; line/page/start/end jumps pass in both modes today. |
+| `LAY-009`, `LAY-010` code/table halves | Markdown/EPUB semantics land in Phase 2; long-line wrap policy is exercised by TXT cases today. |
+| `THEME-005` terminal-default visual checks | Automated TerminalDefault matrix passes; real-terminal visual review belongs to the Deferred environment rows. |
+| `THEME-007` selection/search/link/warning colors | Selection/search/link arrive in later phases; accent focus plus non-color cues are rendered today. |
+| `THEME-008` images | Images arrive in Phase 2. |
+| `STATUS-007` failed-save state | Persistence arrives in Phase 3; layout-derived page versus logical location is covered by LAY-006/LAY-007 today. |
+| `ERR-003` note-content half | Notes arrive in Phase 3; control-byte escaping of diagnostics passes now. |
+| `PROP-005`..`PROP-009` | Search/state/archive/image/concurrency features own these properties in their phases. |
+| `KEY-001`/`KEY-002`/`KEY-006` human-terminal halves, `LAY-013` font half, `LAY-014` observation | Require Deferred GUI environment rows; procedures written in `manual_procedures.md`; owned by the release native matrix. |
+| Provisional PERF budgets | Benchmarks are owned by Phase 4 per the registry; budgets stay provisional pending representative-hardware recording, so no gate-1 benchmark membership exists. |
+| Hosted platform/MSRV/PTY rows for this revision | Recorded separately once the pushed CI run completes. |
+
+**Changed paths and classified areas.** `Cargo.toml`/`Cargo.lock`
+(dependency, dev-only `unicode-segmentation`), `src/document/*` (plain-text
+ingestion, document model, typed errors), `src/app/*` (state, key map,
+theme-overlay help), `src/process.rs` (process boundary diagnostics),
+`src/reader.rs` (navigation policy fix), `src/layout/width.rs`
+(layout/Unicode), `src/terminal.rs` (event filter), `tests/cli.rs`,
+`tests/document_io.rs`, `tests/render.rs`, `tests/properties.rs`,
+`tests/pty_native.rs` (integration targets), `tools/case_registry.py`
+(registry tooling), `tests/case_registry.overrides.toml` plus regenerated
+manifests (test fixtures), `testcases.md` (resolved decision),
+`manual_procedures.md` (manual layer).
+
+**Blocked cases.** Unchanged: `TERM-011`/`TERM-012` hosted rows remain owned
+per `DD-018`; hosted evidence for those lifecycle rows was produced again by
+CI runs recorded against earlier revisions and will be refreshed for this
+revision on push.
+
+**Cleanup.** `cargo clean` ran after this complete local Rust validation
+cycle and removed 3,537 files (819.3 MiB).
 
 ### Complete the plain-text reading loop
 

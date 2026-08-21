@@ -11,7 +11,7 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::{
-    app::{App, KeyMapper},
+    app::{Action, App, KeyMapper},
     interrupt, ui,
 };
 
@@ -194,13 +194,29 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
         }
         terminal.draw(|frame| ui::render(frame, app))?;
         if event::poll(Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()?
-            && let Some(action) = mapper.map(key)
+            && let Some(action) = action_from_event(&mut mapper, &event::read()?)
         {
             app.update(action);
         }
     }
     Ok(())
+}
+
+/// Converts one terminal event into an application action.
+///
+/// Focus, mouse, resize, and bracketed-paste events are deliberately inert:
+/// no Phase 1 mode consumes them, so forwarding them could only move state
+/// by surprise. Keyboard events keep the session key mapper so multikey
+/// prefixes survive between reads, including across inert events.
+fn action_from_event(mapper: &mut KeyMapper, event: &Event) -> Option<Action> {
+    match event {
+        Event::Key(key) => mapper.map(*key),
+        Event::FocusGained
+        | Event::FocusLost
+        | Event::Mouse(_)
+        | Event::Resize(..)
+        | Event::Paste(_) => None,
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +225,9 @@ mod tests {
 
     #[cfg(unix)]
     use anyhow::bail;
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+    };
 
     use super::*;
 
@@ -367,6 +386,76 @@ mod tests {
         ]));
         assert_eq!(error.to_string(), "show_cursor");
         Ok(())
+    }
+
+    #[test]
+    fn term_007_focus_mouse_resize_and_paste_events_are_inert() {
+        let mouse = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 3,
+            row: 4,
+            modifiers: KeyModifiers::NONE,
+        });
+        let events = [
+            Event::FocusGained,
+            Event::FocusLost,
+            mouse,
+            Event::Resize(80, 24),
+            Event::Paste("q\n\x03whole paste".to_owned()),
+        ];
+
+        for event in events {
+            let mut mapper = KeyMapper::default();
+            assert!(
+                action_from_event(&mut mapper, &event).is_none(),
+                "{event:?} must not become an action"
+            );
+        }
+    }
+
+    #[test]
+    fn term_007_unsupported_key_events_do_not_map_but_bindings_survive_inert_events() {
+        let unsupported = [
+            KeyEvent::new(KeyCode::Char('j'), KeyModifiers::ALT),
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+            KeyEvent::new(
+                KeyCode::Char('q'),
+                KeyModifiers::CONTROL | KeyModifiers::ALT,
+            ),
+            KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE),
+        ];
+        for event in unsupported {
+            let mut mapper = KeyMapper::default();
+            assert!(action_from_event(&mut mapper, &Event::Key(event)).is_none());
+        }
+
+        // Inert traffic must not consume or corrupt the prefix state: a lone
+        // `g`, then a paste, then `g` still completes book-start.
+        let mut mapper = KeyMapper::default();
+        let press = |mapper: &mut KeyMapper, code| {
+            action_from_event(mapper, &Event::Key(KeyEvent::new(code, KeyModifiers::NONE)))
+        };
+        assert_eq!(press(&mut mapper, KeyCode::Char('g')), None);
+        assert_eq!(
+            action_from_event(&mut mapper, &Event::Paste("ignored".to_owned())),
+            None
+        );
+        assert_eq!(
+            press(&mut mapper, KeyCode::Char('g')),
+            Some(Action::DocumentStart)
+        );
+    }
+
+    #[test]
+    fn term_007_release_events_stay_inert_through_the_event_filter() {
+        let release = Event::Key(KeyEvent::new_with_kind(
+            KeyCode::Char('q'),
+            KeyModifiers::NONE,
+            KeyEventKind::Release,
+        ));
+        let mut mapper = KeyMapper::default();
+
+        assert!(action_from_event(&mut mapper, &release).is_none());
     }
 
     #[cfg(unix)]

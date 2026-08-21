@@ -297,7 +297,7 @@ def build_profiles(cases: list[CatalogCase]) -> str:
             [
                 "[[profile]]",
                 f"id = {quote(profile)}",
-                f"status = {quote('Active' if profile in {'pr-core', 'native-pty'} else 'Planned')}",
+                f"status = {quote('Active' if profile in {'pr-core', 'pr-render', 'native-pty'} else 'Planned')}",
                 f"includes = {array(includes)}",
                 f"case_ids = {array(case_ids)}",
                 'runner = "native-host"',
@@ -420,7 +420,8 @@ def validate_registry() -> None:
     }
     orphan_tests = sorted(rust_tests() - located_tests)
     if orphan_tests:
-        raise ValueError(f"Rust tests without registry locations: {', '.join(orphan_tests)}")
+        formatted = ", ".join(f"{path}::{symbol}" for path, symbol in orphan_tests)
+        raise ValueError(f"Rust tests without registry locations: {formatted}")
 
     for case in cases:
         if case["status"] not in {"Planned", "Implemented", "Passing", "Blocked", "Retired"}:

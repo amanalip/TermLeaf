@@ -358,7 +358,6 @@ affected exact oracle, and the case registry together.
 
 | Decision ID | Blocks | Required decision |
 | --- | --- | --- |
-| `DEC-TEST-001` | `CLI-007` | Whether format detection is extension-first, content-first, or an exact combination |
 | `DEC-TEST-002` | `CLI-009`, `A11Y-005` | Exact piped-input, piped-output, and plain-text/noninteractive behavior |
 | `DEC-TEST-003` | `SEC-008` | Compression-ratio formula, inclusivity, per-entry/aggregate scope, zero-byte handling, and small-file threshold |
 | `DEC-TEST-004` | `SEARCH-007` | Empty/control query behavior and maximum query length |
@@ -381,6 +380,13 @@ targets and catchable external `SIGINT` on POSIX. Windows console Ctrl-C,
 Ctrl-Break, close, logoff, and shutdown events, POSIX termination/hangup, and
 uncatchable events are not claimed until a safe native harness and checkpoint
 semantics require them.
+
+`DEC-TEST-001` was resolved by `DD-024`: detection is extension-first and
+case-insensitive. Phase 1 ships exactly one adapter, so only `.txt` opens;
+Markdown and EPUB extend the accepted-extension table in their own delivery
+phases instead of sniffing content ahead of their parsers. Content validity is
+still enforced after the extension gate, so a `.txt` file holding binary data
+fails decoding with a typed reason.
 
 ## Boundary Method
 
@@ -470,7 +476,7 @@ commands, required environments, and every excluded mapped ID with its reason.
 | `CLI-004` | P1 | Start without a path. | Recent-books screen opens without directory scanning. | PTY / `native-pty` |
 | `CLI-005` | P1 | Pass a missing path. | Error names the safe path, says it is missing, suggests recovery, and terminal remains normal. | Integration / `pr-core` |
 | `CLI-006` | P1 | Pass an unreadable path. | Permission error is specific; source and state remain unchanged. | Integration / `pr-core` |
-| `CLI-007` | P1 | Pass an unsupported extension and misleading extension/content pair. | Remains Blocked until `DEC-TEST-001`; final table returns one exact format or typed unsupported-format error. | Unit / `pr-core` |
+| `CLI-007` | P1 | Pass an unsupported extension and misleading extension/content pair. | Extension-first detection per the resolved `DEC-TEST-001` (DD-024): a case-insensitive `.txt` extension opens, any other or missing extension returns one typed unsupported-format error before terminal setup, and `.txt` content still decodes strictly. | Unit / `pr-core` |
 | `CLI-008` | P1 | Supply config plus explicit CLI overrides. | Only explicitly supplied CLI values override config; defaults remain lowest precedence. | Unit / `pr-core` |
 | `CLI-009` | P1 | Pipe input or output instead of a TTY. | Remains Blocked until `DEC-TEST-002`; final behavior emits no unapproved full-screen control sequences. | PTY / `native-pty` |
 | `CLI-010` | P0 | Force failure before and after terminal initialization. | Pre-init failure emits no cleanup sequences; post-init failure restores every changed mode. | PTY / `native-pty` |

@@ -66,7 +66,11 @@ where
     match outcome {
         Ok(Ok(())) => ExitCode::SUCCESS,
         Ok(Err(error)) => {
-            let _write_result = writeln!(diagnostics, "TermLeaf could not continue: {error}");
+            let _write_result = writeln!(
+                diagnostics,
+                "TermLeaf could not continue: {}",
+                crate::document::sanitize_path(&error.to_string())
+            );
             ExitCode::FAILURE
         }
         Err(_) => {

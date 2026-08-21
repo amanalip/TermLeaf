@@ -26,7 +26,7 @@ argv = ["cargo", "deny", "check"]
 
 [[profile]]
 id = "pr-render"
-status = "Planned"
+status = "Active"
 includes = ["pr-core"]
 case_ids = ["APP-003", "TERM-008", "MD-003", "MD-007", "MD-011", "EPUB-012", "EPUB-013", "IMG-011", "IMG-012", "IMG-014", "LAY-007", "LAY-009", "LAY-010", "LAY-012", "NAV-006", "NAV-009", "NAV-011", "SEARCH-004", "SEARCH-006", "SEARCH-008", "SEARCH-013", "RECENT-003", "RECENT-006", "ANN-003", "ANN-005", "ANN-011", "ANN-012", "THEME-001", "THEME-003", "THEME-004", "THEME-005", "THEME-006", "THEME-007", "THEME-008", "THEME-009", "RENDER-001", "RENDER-002", "RENDER-003", "RENDER-004", "STATUS-001", "STATUS-002", "STATUS-004", "STATUS-005", "STATUS-006", "STATUS-007", "HELP-001", "HELP-002", "HELP-004", "HELP-005", "UI-001", "UI-002", "UI-003", "UI-004", "UI-005", "UI-006", "UI-009", "UI-010", "UI-011", "LINK-002", "LINK-008", "A11Y-002", "A11Y-003"]
 runner = "native-host"
