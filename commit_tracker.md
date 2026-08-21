@@ -26,33 +26,81 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-Close the Phase 1 gate evidence: complete native keyboard/paste/resize
-journeys, deterministic property tests, format detection per the resolved
-`DEC-TEST-001`, the render integration target with Paper collapse review,
-manual procedure documentation, and forward-ownership decisions for
-cross-phase gate members.
+No changes are pending inclusion in a commit.
+
+## Commit History
+
+### Close the Phase 1 gate evidence
+
+**Completed:** August 21, 2026 at 7:15 PM EDT
+
+**Commit subject:** `test: close the Phase 1 gate evidence`
+
+Changes:
+
+- Complete the closeable `phase-gate-1` members. Native PTY journeys now
+  cover the full reader key matrix (Up/Down, PageUp/PageDown, Home/End, F1,
+  Escape versus Alt chords), flow-control paging, bracketed-paste
+  inertness with multiline/control/oversized payloads, resize transients
+  through a tiny geometry and back to the same anchor, and locale variants
+  (`C`, `en_US.UTF-8`) rendering identical Unicode.
+- Extract the terminal event filter so focus, mouse, resize, release, and
+  paste events are provably inert while prefix state survives inert
+  traffic (`term_007`, universal).
+- Add a deterministic property suite (`tests/properties.rs`) over a seeded
+  xorshift generator: row width bounds, grapheme integrity, anchor
+  survival across resize sequences, page progression plus exact inverse
+  semantics, resize-interleaved navigation, and action-sequence state
+  validity.
+- Add the `tests/render.rs` integration target and activate `pr-render`:
+  Paper collapse order cell-by-cell, a three-color-mode by five-viewport
+  matrix over reader/help states, exact true-color role values,
+  theme-switch anchor preservation across all five themes, status field
+  collapse by first-drop widths with message lifetime restore, redraw
+  stability, help reachable from Recent books/Reader/Themes/itself, and
+  render-layer Unicode placement claims.
+- Resolve `DEC-TEST-001` (DD-025): extension-first, case-insensitive `.txt`
+  detection; other or missing extensions fail pre-terminal with one typed
+  message; `.txt` content still decodes strictly (misleading pairs covered
+  both directions).
+- Escape C0 control bytes and DEL in failing-path diagnostics through caret
+  notation so hostile names cannot inject terminal sequences.
+- Fix previous-page inversion found by the properties: the backward step is
+  now the smallest content row whose unclamped forward step lands exactly
+  on the current page.
+- Make help reachable from the theme overlay with exact return stacking.
+- Pin ambiguous-width characters to the narrow measurement; add read-only
+  source and immutable-open integration journeys; add right-to-left sample
+  journeys at five widths.
+- Document manual KEY/LAY procedures and forward ownership for cross-phase
+  gate members (DD-026) in `manual_procedures.md`.
+- Scope the paste journey away from ConPTY after its input pipeline was
+  shown to consume bracketed-paste markers (`db27a0f`).
 
 Decisions:
 
-- **DD-025:** `DEC-TEST-001` is resolved: book detection is extension-first
-  and case-insensitive. Phase 1 ships exactly one adapter, so only `.txt`
-  opens; Markdown and EPUB extend the accepted-extension table in their own
-  delivery phases instead of sniffing content ahead of their parsers.
-  Content validity is still enforced after the extension gate, so a `.txt`
-  file holding binary data fails decoding with a typed reason rather than a
-  format rejection. Diagnostics escape C0 control bytes and DEL through the
-  same caret notation the reader uses, so hostile paths cannot inject
-  terminal sequences into pre-terminal error output.
-- **DD-026:** The frozen phase-gate-1 manifest contains catalog members
-  whose owning features land in later phases (search and note text entry,
-  tables, code blocks, images, selection/search/link colors, failed-save
-  state, archive/image/state/concurrency properties). Those members are
-  owned forward to their feature phases and do not block the Phase 1 exit
-  claim; each is listed with its owning phase in `testreport.md`, and its
-  removal condition is execution when the feature lands. The same decision
-  assigns the human-terminal halves of `KEY-001`, `KEY-002`, and `KEY-006`
-  plus the font-dependent half of `LAY-013` to the release native terminal
-  matrix, whose environment rows are Deferred in `tests/environments.toml`.
+- **DD-025:** Detection is extension-first and case-insensitive. Phase 1
+  ships only `.txt`; Markdown and EPUB extend the table in their phases.
+  Content validity is enforced after the extension gate. Diagnostics escape
+  control bytes through the same caret notation the reader uses.
+- **DD-026:** Frozen gate members whose owning features land later are
+  owned forward and do not block the Phase 1 exit claim: KEY-005 and NAV-008
+  (search/note entry, Phase 3), NAV-009 TOC/annotation halves and NAV-013
+  non-line/page jumps (Phases 2-3), LAY-009 tables and LAY-010 code blocks
+  (Phase 2), THEME-007 selection/search/link colors (later phases), THEME-008
+  images (Phase 2), STATUS-007 failed-save state (Phase 3), ERR-003
+  note-content half (Phase 3), PROP-005..PROP-009 (owning feature phases),
+  and the human-terminal/font-dependent halves of KEY-001, KEY-002, KEY-006,
+  LAY-013, LAY-014 (release native matrix rows).
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 97 library
+  plus 8 CLI plus 4 document-I/O plus 14 render plus 6 property plus 14
+  native PTY Rust tests, doctests, cargo-deny, and diff checks passed
+  locally; `cargo clean` removed 3,537 files (819.3 MiB).
+- Hosted run `32535725291` passed all eight jobs on `db27a0f`, evidencing
+  ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY.
 
 ## Commit History
 

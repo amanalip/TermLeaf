@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 11:59 PM EDT
+**Last updated:** August 21, 2026 at 7:20 PM EDT
 
 ## Table of Contents
 
@@ -77,23 +77,17 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-Completing the Phase 1 gate evidence run: full KEY-001/KEY-002/KEY-006/
-KEY-007/TERM-006/TERM-007 PTY and unit journeys, the deterministic property
-suite, extension-first format detection with diagnostic control escaping
-(`DEC-TEST-001`/DD-025), the inverse paging policy fix, help reachable from
-the theme overlay, the `tests/render.rs` target activating `pr-render`,
-locale-variant PTY evidence, and manual procedure documentation with
-forward-ownership decisions (DD-026).
+No changes are pending inclusion in a commit.
 
 ## Commit Reports
 
 ### Complete the Phase 1 gate
 
-**Commit subject:** Pending
+**Commit subject:** `test: close the Phase 1 gate evidence`
 
-**Revision:** This commit
+**Revision:** `344f9fb`, completed by `db27a0f` (ConPTY paste-journey scoping)
 
-**Recorded:** August 21, 2026 in the evening EDT
+**Recorded:** August 21, 2026 at 7:12 PM EDT
 
 **Behavior and risks.** Closes every Phase 1-closeable gap in the frozen
 `phase-gate-1` manifest. New behavior exercised: the complete reader key
@@ -191,7 +185,8 @@ which re-ran inside the same suites.
 | `PROP-005`..`PROP-009` | Search/state/archive/image/concurrency features own these properties in their phases. |
 | `KEY-001`/`KEY-002`/`KEY-006` human-terminal halves, `LAY-013` font half, `LAY-014` observation | Require Deferred GUI environment rows; procedures written in `manual_procedures.md`; owned by the release native matrix. |
 | Provisional PERF budgets | Benchmarks are owned by Phase 4 per the registry; budgets stay provisional pending representative-hardware recording, so no gate-1 benchmark membership exists. |
-| Hosted platform/MSRV/PTY rows for this revision | Recorded separately once the pushed CI run completes. |
+| Hosted rows for `29a730a` (Phase 1 implementation) | GitHub Actions run `32529070577`: all eight jobs passed (Rust checks and native PTY on ubuntu-24.04, macos-15, windows-2025; dependency policy; Rust 1.88). |
+| Hosted rows for this gate revision | Run `32535423048` (`344f9fb`) failed only the two Windows jobs on the ConPTY paste finding above; run `32535725291` (`db27a0f`) passed all eight jobs: Rust checks and Native PTY on ubuntu-24.04/macos-15/windows-2025, Dependency policy, Rust 1.88. Required environment rows ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY are thereby evidenced at revision `db27a0f`. |
 
 **Changed paths and classified areas.** `Cargo.toml`/`Cargo.lock`
 (dependency, dev-only `unicode-segmentation`), `src/document/*` (plain-text

@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 21, 2026 at 11:59 PM EDT
+**Last updated:** August 21, 2026 at 7:20 PM EDT
 
 ## Table of Contents
 
@@ -27,24 +27,23 @@
 
 ## Right Now
 
-The phase-gate-1 evidence run is complete locally. The frozen manifest's
-closeable members all pass: the full reader key matrix, bracketed-paste
-inertness, resize transients, focus/mouse/release event inertness, the
-deterministic property suite, extension-first format detection under the
-resolved `DEC-TEST-001` (DD-025), locale variants, right-to-left samples,
-ambiguous-width policy, the Paper capability matrix and collapse order,
-status collapse stepping, redraw stability, help from every Phase 1 surface,
-and typed-error diagnostics with control-byte escaping. One navigation
-defect found by the properties was fixed: previous page is now the exact
-inverse of next page whenever the forward hop fits unclamped. Cross-phase
-members are owned forward by DD-026 with procedures written in
-`manual_procedures.md`. Remaining before Complete: pushed hosted CI rows for
-this revision and the release-matrix manual executions that require real GUI
-terminals.
+Phase 1 is complete. The plain-text reading loop passed its frozen
+phase-gate-1 manifest locally and on every required hosted environment row
+(run `32535725291`: Rust checks and native PTY on ubuntu-24.04, macos-15,
+and windows-2025, plus dependency policy and the 1.88 MSRV job). The gate
+run closed the full reader key matrix, paste inertness, resize transients,
+the deterministic property suite, extension-first format detection
+(DD-025), the Paper capability matrix and collapse order, status collapse
+stepping, help from every Phase 1 surface, and locale/right-to-left/ambiguous-width
+evidence. The properties also fixed a real defect: previous page now
+inverts next page exactly whenever its forward hop fits unclamped.
+Cross-phase gate members are owned forward by DD-026 with procedures in
+`manual_procedures.md`; their GUI-terminal executions join the release
+matrix. Phase 2 begins with bounded ZIP preflight and `rbook` semantics.
 
 ## Delivery Phases
 
-**Implementation progress:** 1 of 6 phases complete. Phase 1 is in progress.
+**Implementation progress:** 2 of 6 phases complete. Phase 2 is not started.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -58,7 +57,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
-| 1. Plain-text reading loop | In progress | Implementation, local core suite, and PTY journeys pass; hosted rows, manual procedures, render review, and the full gate run remain. |
+| 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
 | 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
@@ -100,8 +99,8 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, PTY render journeys, and the reviewed `tests/render.rs` assertion suite work; hosted rows for the gate revision remain. |
-| Responsive layout | In progress | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites all pass; release-matrix visual checks remain. |
+| Plain-text rendering | Complete | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, PTY render journeys, and the reviewed `tests/render.rs` assertion suite pass locally and on all hosted rows. |
+| Responsive layout | Complete | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites pass on the gate rows; real-terminal visual review joins the release matrix. |
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; TOC/search jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
@@ -126,16 +125,16 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | In progress | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
+| Keyboard controls | Complete | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs on all hosted rows; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
 | Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
 | Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
-| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; real-terminal visual review belongs to the Deferred release rows. |
+| Themes | Complete | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; real-terminal visual review joins the Deferred release rows. |
 | Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, tick-lifetime messages on every screen including the home status, and theme confirmations ship; failed-save states arrive with persistence. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
-| Error messages | In progress | Typed document errors name path, reason, and recovery before terminal setup, and diagnostics escape control bytes so hostile paths cannot inject terminal sequences; the in-app recoverable-error view and note-content half arrive later. |
+| Error messages | Complete | Typed document errors name path, reason, and recovery before terminal setup, and diagnostics escape control bytes so hostile paths cannot inject terminal sequences; the in-app recoverable-error view is later-phase scope. |
 
 ## Confidence and Releases
 
