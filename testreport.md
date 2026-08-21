@@ -77,7 +77,69 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No additional changes are pending inclusion in a commit.
+**Commit subject:** `Pending`
+
+**Behavior and risks.** Starts Phase 1, the plain-text reading loop, on top of
+the Phase 0 foundation. New risks exercised: bounded file reading before
+allocation, strict UTF-8 versus BOM-marked UTF-16 decoding, unmarked-UTF-16
+rejection, newline normalization, paragraph/blank-line preservation,
+grapheme-safe cell-width wrapping with source-range mapping, anchor-preserving
+navigation across resize, the hybrid key map with a timer-free `gg` prefix
+policy, semantic-role themes including Paper contrast and `NO_COLOR`, the
+priority-collapsing status line with input-driven message lifetime, theme
+selection, help listing every registered binding, and the below-minimum
+suspension/recovery state.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1, MSRV
+target unchanged at 1.88 in CI; `cargo-deny` not installed locally.
+
+**Commands and results.**
+
+| Command | Result |
+| --- | --- |
+| `cargo fmt --check` | Passed: no diff |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Passed: no warnings |
+| `cargo test --locked` | Passed: 79 lib + 4 CLI + 7 native PTY tests, 0 failed |
+| `cargo test --doc --locked` | Passed: 0 doctests |
+| `python3 tools/case_registry.py generate` | Passed: manifests regenerated; frozen gate membership unchanged |
+| `python3 tools/case_registry.py check` | Passed: bidirectional validation clean |
+| Manual PTY smoke (Python `pty`) | Passed: Alice fixture and the local Pride and Prejudice TXT open, render Paper chrome plus status, jump to end (`G`), toggle themes (`t`+Enter), quit cleanly with exit code 0 |
+
+**Fixtures.** Synthetic in-test fixtures only for unit coverage; manual smoke
+used `downloads/gutenberg/pride-and-prejudice-1342.txt` (SHA-256 above) and a
+generated `/tmp` Alice excerpt. No repository assets changed.
+
+**Skipped or unavailable.**
+
+| Check | Reason |
+| --- | --- |
+| `cargo deny check` | `cargo-deny` is not installed on this machine; CI runs it. New dependencies (`encoding_rs`, `unicode-segmentation`, `unicode-width`, `unicode-linebreak`, `thiserror`) are exactly the Core Stack selections from `project_plan.md`. |
+| Hosted platform/MSRV jobs | Require pushed CI runs; recorded separately when they execute. |
+| Phase-gate exit run | Phase 1 is in progress; gate evidence is not claimed. |
+
+**Changed paths and classified areas.** `Cargo.toml`/`Cargo.lock`
+(dependency), `src/document/*` (plain-text ingestion, document model),
+`src/layout/*` (layout/Unicode), `src/reader.rs` (navigation/reading mode),
+`src/app/action.rs` and `src/app/state.rs` (navigation or reading mode,
+theme/UI state), `src/ui/*` (theme or UI), `src/clock.rs` (status support),
+`src/lib.rs`, `tests/case_registry.overrides.toml` plus regenerated manifests
+(tests/fixtures).
+
+**Selected exact IDs.** Implemented this change: `TXT-001`–`TXT-006`,
+`MODEL-004`, `LAY-003`, `LAY-004`, `NAV-003`, `NAV-004`, `NAV-007`,
+`NAV-012`, `NAV-014`, `STATUS-003`, `STATUS-005`, `THEME-010`. Location-only
+evidence added for: `KEY-002`, `KEY-003`, `TXT-007`–`TXT-009`, `MODEL-001`,
+`MODEL-003`, `LAY-001`, `LAY-002`, `LAY-005`, `LAY-006`, `LAY-008`,
+`LAY-012`, `NAV-001`, `NAV-002`, `NAV-006`, `NAV-011`, `RENDER-001`,
+`STATUS-002`, `STATUS-004`, `THEME-001`, `THEME-002`, `THEME-005`,
+`HELP-003`, and refreshed `APP-003`. All remaining `phase-gate-1` IDs stay
+Planned or Blocked pending their declared layers.
+
+**Blocked cases.** Unchanged from the Phase 0 report: `TERM-011`/`TERM-012`
+hosted-environment rows remain owned by their target phases per `DD-018`.
+
+**Cleanup.** `cargo clean` ran after this complete local Rust validation
+cycle and removed 3,724 files (780.3 MiB).
 
 ## Commit Reports
 

@@ -49,8 +49,12 @@ Phase 0 implementation is complete. TermLeaf has a locked Rust package, the
 complete view/focus identity model, deterministic shell, shared actions,
 interrupt handling, terminal restoration, exact case/profile/gate manifests,
 and native PTY journeys for normal, error, panic, Ctrl-C, and external-interrupt
-paths. Phase 1, the plain-text reading loop, is next. Hosted platform jobs still
-record formal environment evidence and do not represent unfinished Phase 0 code.
+paths. Phase 1, the plain-text reading loop, is in progress: bounded TXT
+decoding, the logical document model, grapheme-safe layout with source
+mapping, paged and continuous navigation, five themes with session switching,
+the collapsing status line, help, and the below-minimum state already work.
+Hosted platform jobs still record formal environment evidence and do not
+represent unfinished Phase 0 code.
 
 ## Technical Direction
 

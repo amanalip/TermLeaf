@@ -27,15 +27,18 @@
 
 ## Right Now
 
-Phase 0 implementation is complete. The 336-case registry has no incomplete
-foundation case, the view/focus and action loop is explicit, unreadable paths
-fail before terminal setup, supported interrupts exit cleanly, and the native
-PTY target covers the documented shell baseline. Phase 1 is the next development
-phase. Hosted MSRV and platform jobs remain formal environment evidence.
+Phase 1 is in progress on top of the completed Phase 0 foundation. The
+plain-text path now decodes UTF-8/UTF-16 under a byte limit, the shared
+document model validates logical positions, grapheme- and cell-width-aware
+layout maps every visual row back to source ranges, and paged/continuous
+navigation moves one validated anchor. Five themes with semantic roles, the
+collapsing status line, theme selection, help, and the below-minimum state
+render through Ratatui. Remaining Phase 1 work: TOML-backed startup theme,
+PTY render journeys, hosted environment evidence, and the phase-gate exit run.
 
 ## Delivery Phases
 
-**Implementation progress:** 1 of 6 phases complete. Phase 1 is next.
+**Implementation progress:** 1 of 6 phases complete. Phase 1 is in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -49,7 +52,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
-| 1. Plain-text reading loop | Not started | Responsive TXT reader, modes, keys, status, all themes, help skeleton, errors, and anchor-preserving render/PTY evidence pass. |
+| 1. Plain-text reading loop | In progress | Core TXT decode/layout/navigation/themes/status render locally; TOML startup theme, PTY journeys, and the full gate evidence remain. |
 | 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
@@ -76,7 +79,7 @@ already inside the six phases; it does not add another phase.
 | Repository setup | Complete | The ignore rules and working documents are in place. |
 | Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
 | First-release features | Complete | The reader behavior, formats, images, annotations, themes, and platform intent are locked. |
-| Remaining product details | In progress | Set the Phase 1 key map, OS support versions, and tested release terminals. |
+| Remaining product details | In progress | Phase 1 key map is set (hybrid conventional/Vim, `gg` prefix policy); OS support versions and tested release terminals remain. |
 | Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
 | Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
@@ -91,12 +94,12 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Plain-text rendering | Not started | Put readable text on screen without surprises. |
-| Responsive layout | Not started | Wrap cleanly in paged and continuous modes while preserving the logical anchor. |
-| Navigation | Not started | Support conventional and Vim-style line, page, chapter, start, and end controls. |
+| Plain-text rendering | In progress | Document model, bounded TXT decoding, wrapping layout with source mapping, and viewport rendering work; snapshots and PTY evidence remain. |
+| Responsive layout | In progress | Width-keyed layout cache, Paper chrome collapse order, and anchor-preserving resize work; property suites and cache-stale tests remain. |
+| Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; TOC/search jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
-| Plain-text format | Not started | Build the first complete reader path with bounded decoding. |
+| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, and paragraph preservation are done; file-level limit integration tests remain. |
 | EPUB format | Not started | Add bounded ZIP preflight, rbook semantics, and XHTML conversion. |
 | Markdown format | Not started | Parse source-aware Markdown directly into the shared document model. |
 | Inline images | Not started | Decode bounded raster and SVG content through protocol, cell, and caption fallbacks. |
@@ -105,7 +108,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Open a local book | Not started | Explain bad paths, permissions, and unsupported files clearly. |
+| Open a local book | In progress | Missing, non-file, unreadable, oversized, and undecodable paths fail before terminal setup; unsupported-format messaging lands with format detection. |
 | Recent books | Not started | Reopen, remove, and clear recent entries without scanning directories. |
 | Library index | Not planned | Keep automatic indexing outside the first release. |
 | Book details | Not started | Show title, author, and structure when the file provides them. |
@@ -117,16 +120,16 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | Not started | Keep common actions quick and the full set discoverable. |
+| Keyboard controls | In progress | Hybrid conventional/Vim map with deterministic `gg` prefix ships; help lists every binding; PTY keyboard evidence remains. |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
 | Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
-| Responsive UI states | Not started | Support wide, standard, compact, narrow, and non-destructive below-minimum layouts. |
+| Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
 | Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
-| Help screen | Not started | Show commands and active key bindings without leaving the reader. |
-| Themes | Not started | Ship dark, light, high-contrast, monochrome, and a contrast-tested responsive Paper theme with true-color, 256-color, and terminal-default fallbacks. |
-| Detailed status | Not started | Show title, chapter, location, page, percentage, clock, mode, and messages. |
+| Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
+| Themes | In progress | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, and tested Paper contrast; TOML startup choice and 256-color fallbacks remain. |
+| Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, and tick-lifetime messages ship; failed-save states arrive with persistence. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
-| Error messages | Not started | Say what failed, why it matters, and what the reader can try. |
+| Error messages | In progress | Typed document errors name path, reason, and recovery before terminal setup; in-app recoverable-error view arrives later. |
 
 ## Confidence and Releases
 

@@ -26,7 +26,48 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Start the plain-text reading loop
+
+**Commit subject:** `Pending`
+
+Changes:
+
+- Add Phase 1 core dependencies from the sanctioned Core Stack:
+  `encoding_rs`, `unicode-segmentation`, `unicode-width`,
+  `unicode-linebreak`, and `thiserror`.
+- Add `src/document`: a shared logical model (canonical text, block tiling,
+  validated positions) plus the bounded plain-text path with BOM detection,
+  strict UTF-8, marked UTF-16 decoding, newline normalization, and
+  paragraph/blank-line preservation.
+- Add `src/layout`: grapheme-safe, cell-width-aware wrapping at Unicode
+  line-break opportunities, span-to-source mapping, tab/control safe
+  rendering, and viewport slicing.
+- Add `src/reader`: one validated logical anchor, paged/continuous modes,
+  line/page/start/end/section navigation with clamped boundaries, and
+  floored progress helpers.
+- Extend the key map with the hybrid conventional/Vim reader bindings and a
+  timer-free `gg` prefix policy; help renders every registered binding.
+- Add `src/ui/theme` (five semantic-role themes, tested Paper contrast,
+  `NO_COLOR` fallback), `src/ui/status` (priority collapse order, UTC clock,
+  tick-lifetime messages), and reader/theme-selection/too-small rendering.
+- Register all new tests in the case registry; mark unit-layer cases
+  Implemented and record location-only evidence for partially covered IDs.
+
+Decisions:
+
+- **DD-019 (proposed):** Phase 1 key map fixes line (`j`/`k`, arrows), page
+  (`PgUp`/`PgDn`, `Ctrl-B`/`Ctrl-F`), start/end (`Home`/`End`, `gg`/`G`),
+  section (`{`/`}`), mode (`p`/`c`), themes (`t`), help (`F1`/`?`), back
+  (`Esc`), quit (`q`/`Ctrl-C`). A lone `g` opens a prefix that any other key
+  cancels after mapping that key normally; no timers. Initial `DEC-TEST-010`
+  resolution, subject to PTY keyboard evidence.
+- **DD-020 (proposed):** Status collapse order drops clock, dynamic page,
+  title, chapter, hint, then location before the protected percent+mode pair;
+  messages replace lower-priority fields for eight key events. Initial
+  `DEC-TEST-011` resolution pending render review.
+- **DD-021 (proposed):** TXT size limit starts at 32 MiB inclusive, checked
+  on metadata and again on a guarded read. Partial `DEC-TEST-012` input;
+  config/state/query limits remain open.
 
 ## Commit History
 
@@ -619,3 +660,48 @@ for a safe native harness and persistence checkpoint policy. Kernel terminal
 attributes return to their captured values. Write-only ANSI modes return to the
 documented ordinary-shell baseline because no portable query can recover
 arbitrary preexisting state on every promised terminal.
+
+### DD-019: Fix the Phase 1 reader key map with a timer-free prefix
+
+**Date:** August 21, 2026
+
+**Status:** Proposed
+
+Reading mode binds line movement to `j`/`k` and the arrow keys, page movement
+to `PgUp`/`PgDn` and `Ctrl-B`/`Ctrl-F`, document start/end to `Home`/`End`
+and `gg`/`G`, section start/end to `{`/`}`, mode selection to `p`/`c`, theme
+selection to `t`, help to `F1`/`?`, back to `Esc`, and quit to `q`/`Ctrl-C`.
+A lone `g` opens a prefix; a second `g` completes book-start, and any other
+key cancels the prefix and is then mapped normally, so unrelated input is
+never lost. The policy uses no timer, which keeps behavior deterministic in
+tests. This is the initial `DEC-TEST-010` resolution; PTY keyboard evidence
+and later text-entry modes may still adjust it before release.
+
+### DD-020: Collapse status fields by documented priority with tick lifetime
+
+**Date:** August 21, 2026
+
+**Status:** Proposed
+
+The status line renders title, chapter, logical location, dynamic page,
+percentage, mode, UTC clock (`HH:MM`), and the help hint. When width runs
+out, fields disappear whole in reverse priority: clock, dynamic page, title,
+chapter, hint, location; percentage and mode never drop and truncation stays
+character-boundary safe. Temporary messages replace lower-priority fields for
+exactly eight delivered key events rather than wall-clock time. Percentage is
+floored so forward movement is monotonic and resize never changes it. This is
+the initial `DEC-TEST-011` resolution pending render review.
+
+### DD-021: Bound plain-text input at 32 MiB with double size checks
+
+**Date:** August 21, 2026
+
+**Status:** Proposed
+
+Plain-text books larger than 32 MiB (inclusive limit) are rejected with a
+typed error before decoding. The limit is checked against file metadata first
+and enforced again with a guarded `take(limit + 1)` read, so neither a lying
+header nor a racing writer can force an unbounded allocation. Boundary tests
+exercise below, exact, and above the limit. This partially resolves
+`DEC-TEST-012` for TXT input; configuration, state, query, note, URL, recent,
+annotation, and aggregate persisted-state limits remain open.
