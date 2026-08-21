@@ -129,6 +129,16 @@ content row whose unclamped forward step lands exactly on the current page,
 restoring prior anchors exactly whenever the forward hop fit inside the
 document, with a bounded fallback hop otherwise (`src/reader.rs`).
 
+The hosted Windows rows surfaced a ConPTY transport limitation during this
+gate run (GitHub Actions run `32535423048`): ConPTY's input pipeline parses
+the bracketed-paste markers themselves and forwards the inner bytes as
+ordinary keystrokes, so a programmatic paste cannot arrive as a Paste event
+through that transport. The marker-based journey is therefore scoped to
+platforms whose PTY layer preserves it (`#[cfg(not(windows))]`), the
+platform-independent Paste inertness stays proved by the term_007 event
+filter on every platform, and real Windows terminals belong to the release
+matrix per DD-026.
+
 **Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
 cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI. PTY cases run under
 the hermetic harness with `LANG`/`LC_ALL=C.UTF-8`; the locale case varies

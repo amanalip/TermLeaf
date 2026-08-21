@@ -582,6 +582,13 @@ fn key_006_escape_alt_ambiguity_and_ctrl_c_stay_safe_in_a_pty() -> Result<()> {
     Ok(())
 }
 
+// ConPTY's input pipeline parses the bracketed-paste markers themselves and
+// forwards the inner bytes as ordinary keystrokes (observed in CI run
+// 32535423048: 't' opened Themes and 'c' switched modes), so this transport-
+// level journey cannot run there. Paste-event inertness is proved on every
+// platform by term_007's event-filter unit cases; real Windows terminals
+// deliver markers correctly and stay covered by the release matrix.
+#[cfg(not(windows))]
 #[test]
 fn key_007_paste_events_are_inert_in_every_phase_one_mode() -> Result<()> {
     let pasted = {
