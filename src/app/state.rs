@@ -171,7 +171,7 @@ pub enum View {
     SearchEntry,
     SearchHistory,
     SearchResults,
-    TableOfContents,
+    TableOfContents { return_to: Box<View> },
     AnnotationList,
     BookmarkDialog,
     HighlightDialog,
@@ -217,6 +217,7 @@ pub struct App {
     no_color: bool,
     color_mode: ColorMode,
     theme_cursor: usize,
+    toc_cursor: usize,
     message: Option<StatusMessage>,
     reader: Option<ReaderSession>,
     content_width: u16,
@@ -289,6 +290,7 @@ impl App {
                 env_value("TERM").as_deref(),
             ),
             theme_cursor: options.theme as usize,
+            toc_cursor: 0,
             message: None,
             reader,
             content_width: MINIMUM_WIDTH,
@@ -338,7 +340,7 @@ impl App {
             View::SearchEntry => Focus::SearchField,
             View::SearchHistory => Focus::SearchHistoryItem,
             View::SearchResults => Focus::SearchResult,
-            View::TableOfContents => Focus::TableOfContentsItem,
+            View::TableOfContents { .. } => Focus::TableOfContentsItem,
             View::AnnotationList => Focus::AnnotationItem,
             View::BookmarkDialog => Focus::BookmarkNameField,
             View::HighlightDialog => Focus::HighlightColor,
@@ -366,6 +368,12 @@ impl App {
     #[must_use]
     pub const fn theme_cursor(&self) -> usize {
         self.theme_cursor
+    }
+
+    /// The selected entry while the table of contents overlay is open.
+    #[must_use]
+    pub const fn toc_cursor(&self) -> usize {
+        self.toc_cursor
     }
 
     /// Whether the session must render without colors (`NO_COLOR`).
@@ -424,9 +432,20 @@ impl App {
     ///
     /// Temporary messages tick once per delivered action, giving them a
     /// deterministic input-driven lifetime.
+    ///
+    /// # Panics
+    ///
+    /// Never in practice: the `ShowToc` arm's `expect` guards an invariant
+    /// (the Reader view always carries an open book) enforced by the only
+    /// constructor that produces that view. All other paths are total.
     pub fn update(&mut self, action: Action) {
         if matches!(self.view, View::ThemeSelection { .. }) {
             self.update_theme_selection(action);
+            self.tick_message();
+            return;
+        }
+        if matches!(self.view, View::TableOfContents { .. }) {
+            self.update_toc_selection(action);
             self.tick_message();
             return;
         }
@@ -451,6 +470,24 @@ impl App {
                     return_to: Box::new(self.view.clone()),
                 };
             }
+            Action::ShowToc if matches!(self.view, View::Reader { .. }) => {
+                let document = &self
+                    .reader
+                    .as_ref()
+                    .expect("reader view implies a book")
+                    .document;
+                let sections = document.sections().len();
+                self.toc_cursor = self
+                    .reader
+                    .as_ref()
+                    .map_or(0, |session| session.anchor.section())
+                    .min(sections.saturating_sub(1));
+                self.view = View::TableOfContents {
+                    return_to: Box::new(self.view.clone()),
+                };
+            }
+            // Without an open book there is nothing to navigate: ShowToc
+            // falls through inert like every other unmatched action.
             Action::NextLine | Action::PreviousLine if matches!(self.view, View::Reader { .. }) => {
                 let direction = match action {
                     Action::NextLine => reader::Direction::TowardEnd,
@@ -535,6 +572,58 @@ impl App {
         }
     }
 
+    /// Applies one action while the table of contents overlay is open.
+    ///
+    /// Up and Down move the section cursor, Confirm jumps the reading anchor
+    /// to the selected section start, help stays reachable, and every other
+    /// exit restores the invoking view exactly.
+    fn update_toc_selection(&mut self, action: Action) {
+        let return_to = match &self.view {
+            View::TableOfContents { return_to } => (**return_to).clone(),
+            _ => View::RecentBooks,
+        };
+        let sections = self
+            .reader
+            .as_ref()
+            .map_or(0, |session| session.document.sections().len());
+        match action {
+            Action::NextLine if sections > 0 => {
+                self.toc_cursor = (self.toc_cursor + 1).min(sections - 1);
+            }
+            Action::PreviousLine => {
+                self.toc_cursor = self.toc_cursor.saturating_sub(1);
+            }
+            Action::Confirm if sections > 0 => {
+                let target = self.toc_cursor.min(sections - 1);
+                self.view = return_to;
+                self.step(|document, layout, _| {
+                    reader::jump_section_start(layout, document, target)
+                });
+                let label = self
+                    .reader
+                    .as_ref()
+                    .and_then(|session| session.document.sections().get(target))
+                    .and_then(|section| section.title())
+                    .unwrap_or("Untitled section");
+                self.set_message(format!("Jumped: {label}"));
+            }
+            Action::Quit | Action::Back | Action::ShowToc | Action::ShowThemes => {
+                self.view = return_to;
+            }
+            // Help stays reachable from every interactive surface; returning
+            // restores the contents list exactly.
+            Action::ShowHelp => {
+                self.view = View::Help {
+                    return_to: Box::new(View::TableOfContents {
+                        return_to: Box::new(return_to),
+                    }),
+                };
+            }
+            // Reader navigation stays inert inside the overlay.
+            _ => {}
+        }
+    }
+
     fn set_mode(&mut self, mode: Mode) {
         let Some(session) = self.reader.as_mut() else {
             return;
@@ -585,6 +674,7 @@ mod tests {
             no_color: false,
             color_mode: ColorMode::TrueColor,
             theme_cursor: ThemeName::Paper as usize,
+            toc_cursor: 0,
             message: None,
             reader: None,
             content_width: MINIMUM_WIDTH,
@@ -625,7 +715,9 @@ mod tests {
             View::SearchEntry,
             View::SearchHistory,
             View::SearchResults,
-            View::TableOfContents,
+            View::TableOfContents {
+                return_to: Box::new(View::RecentBooks),
+            },
             View::AnnotationList,
             View::BookmarkDialog,
             View::HighlightDialog,
@@ -675,5 +767,89 @@ mod tests {
         assert_eq!(reader.focus(), Focus::ReadingAnchor);
         reader.update(Action::ShowHelp);
         assert_eq!(reader.focus(), Focus::Help);
+    }
+}
+
+#[cfg(test)]
+mod toc_tests {
+    use super::*;
+
+    const EPUB2: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/epub/minimal-epub2.epub"
+    );
+
+    fn reader_app() -> Result<App> {
+        App::open(StartupOptions {
+            book: Some(std::path::PathBuf::from(EPUB2)),
+            ..StartupOptions::default()
+        })
+    }
+
+    #[test]
+    fn nav_009_toc_opens_on_the_current_section_and_jumps_by_confirm() -> Result<()> {
+        let mut app = reader_app()?;
+
+        // Land inside the final section before opening the contents.
+        app.update(Action::DocumentEnd);
+        let second_start = app
+            .reader()
+            .expect("book")
+            .anchor
+            .absolute_byte(app.reader().expect("book").document());
+        assert!(second_start > 0);
+
+        app.update(Action::ShowToc);
+        assert!(matches!(app.view(), View::TableOfContents { .. }));
+        assert_eq!(app.focus(), Focus::TableOfContentsItem);
+        assert_eq!(
+            app.toc_cursor(),
+            1,
+            "the overlay opens on the current section"
+        );
+
+        app.update(Action::PreviousLine);
+        app.update(Action::Confirm);
+        assert!(
+            matches!(app.view(), View::Reader { .. }),
+            "confirm returns to reading"
+        );
+        let anchor = app.reader().expect("book").anchor;
+        assert_eq!(anchor.section(), 0, "the first section jump lands");
+        assert_eq!(
+            anchor.absolute_byte(app.reader().expect("book").document()),
+            0
+        );
+
+        let message = app.message().expect("confirmation message").text();
+        assert!(message.contains("Jumped:"), "{message}");
+        Ok(())
+    }
+
+    #[test]
+    fn nav_009_toc_back_and_help_round_trip_preserve_state() -> Result<()> {
+        let mut app = reader_app()?;
+        app.update(Action::ShowToc);
+        app.update(Action::NextLine);
+        app.update(Action::Back);
+        assert!(matches!(app.view(), View::Reader { .. }));
+
+        app.update(Action::ShowToc);
+        app.update(Action::ShowHelp);
+        assert_eq!(app.focus(), Focus::Help);
+        app.update(Action::Back);
+        assert!(
+            matches!(app.view(), View::TableOfContents { .. }),
+            "help returns into the contents list"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn nav_009_show_toc_without_a_book_is_inert() -> Result<()> {
+        let mut app = App::open(StartupOptions::default())?;
+        app.update(Action::ShowToc);
+        assert_eq!(app.view(), &View::RecentBooks);
+        Ok(())
     }
 }

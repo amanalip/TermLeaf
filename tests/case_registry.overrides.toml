@@ -712,8 +712,13 @@ last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-009]
 status = "Implemented"
-location = ["tests/render.rs::nav_009_help_round_trip_preserves_the_passage_anchor"]
-last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+location = [
+    "tests/render.rs::nav_009_help_round_trip_preserves_the_passage_anchor",
+    "src/app/state.rs::nav_009_toc_opens_on_the_current_section_and_jumps_by_confirm",
+    "src/app/state.rs::nav_009_toc_back_and_help_round_trip_preserve_state",
+    "src/app/state.rs::nav_009_show_toc_without_a_book_is_inert",
+]
+last_evidence = ["testreport.md#add-table-of-contents-navigation"]
 
 [cases.LAY-007]
 status = "Implemented"

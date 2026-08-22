@@ -43,6 +43,7 @@ pub fn render(frame: &mut Frame<'_>, app: &mut App) {
         View::Reader { .. } => reader::render(frame, body, app),
         View::RecentBooks => render_recent_books(frame, body),
         View::ThemeSelection { .. } => render_theme_selection(frame, body, app),
+        View::TableOfContents { .. } => render_toc_selection(frame, body, app),
         View::Help { .. } => render_help(frame, body),
         view => render_future_view(frame, body, view),
     }
@@ -136,6 +137,51 @@ fn render_theme_selection(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Renders the table of contents overlay with a scrolling section list.
+///
+/// The selected entry leads the window so long books keep the cursor
+/// visible; untitled sections fall back to a stable ordinal label.
+fn render_toc_selection(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let theme = active_theme(app);
+    let cursor = app.toc_cursor();
+    let Some(session) = app.reader() else {
+        return;
+    };
+    let document = session.document();
+    let sections = document.sections();
+    let visible_height = area.height.saturating_sub(2).max(1) as usize;
+    let top = (cursor + 1).saturating_sub(visible_height);
+
+    let lines: Vec<Line<'static>> = sections
+        .iter()
+        .enumerate()
+        .skip(top)
+        .take(visible_height)
+        .map(|(index, section)| {
+            let marker = if index == cursor { "> " } else { "  " };
+            let title = section
+                .title()
+                .map_or_else(|| format!("Section {}", index + 1), str::to_owned);
+            let style = if index == cursor {
+                theme.style(Role::Accent)
+            } else {
+                theme.style(Role::Text)
+            };
+            Line::from(format!("{marker}{title}")).style(style)
+        })
+        .collect();
+
+    frame.render_widget(
+        Paragraph::new(lines).block(
+            Block::default()
+                .title(" Table of contents ")
+                .borders(Borders::ALL)
+                .border_style(theme.style(Role::Accent)),
+        ),
+        area,
+    );
+}
+
 fn render_too_small(frame: &mut Frame<'_>, area: Rect) {
     let _ = area;
     // Short, complete lines: clipping stays safe at any remaining size.
@@ -155,7 +201,7 @@ fn render_future_view(frame: &mut Frame<'_>, area: Rect, view: &View) {
         View::SearchEntry => "Search",
         View::SearchHistory => "Search history",
         View::SearchResults => "Search results",
-        View::TableOfContents => "Table of contents",
+        View::TableOfContents { .. } => "Table of contents",
         View::AnnotationList => "Annotations",
         View::BookmarkDialog => "Bookmark",
         View::HighlightDialog => "Highlight",

@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 22, 2026 at 12:35 AM EDT
+**Last updated:** August 22, 2026 at 1:20 AM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,28 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+Add table-of-contents navigation, the interactive navigation half of the
+Phase 2 structured-book work:
+
+- `Action::ShowToc` joins the registry bound to both `o` and `F2`
+  (`DD-019` family: one mnemonic single key plus a conventional function
+  key); help lists both automatically.
+- The contents overlay opens only over an open book, lands its cursor on
+  the current section, scrolls long lists from a clamped window, and
+  labels untitled sections by stable ordinal.
+- Up/Down move the cursor, Confirm jumps the reading anchor to the
+  selected section start and confirms with a tick-lifetime message,
+  Escape returns, and help stays reachable with exact return stacking.
+- Reader navigation stays inert inside the overlay, so the hidden anchor
+  can never move while browsing contents.
+
+Decisions:
+
+- **DD-030:** The table of contents is an overlay view carrying only its
+  return target; the cursor is session state seeded from the current
+  reading section each time it opens. Jumping reuses the existing
+  validated section-start step so TOC jumps cannot produce anchors that
+  line/page navigation cannot reproduce.
 
 ## Commit History
 

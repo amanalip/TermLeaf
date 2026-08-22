@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 22, 2026 at 12:35 AM EDT
+**Last updated:** August 22, 2026 at 1:20 AM EDT
 
 ## Table of Contents
 
@@ -44,8 +44,10 @@ inline emphasis/strong/code/link decorations; layout renders markers,
 hanging indents, verbatim code rows, and aligned-or-linearized tables;
 Markdown arrives through pulldown-cmark under the shared byte budget with
 active content inert (`MD-001`, `MD-002`, `MD-006`, `MD-008`, `MD-009`,
-`MD-012`, `LAY-009`, `LAY-010`). Real Gutenberg books parsed successfully
-in smoke checks. Phase 1 remains complete with its frozen gate
+`MD-012`, `LAY-009`, `LAY-010`). The table of contents overlay landed: `o`/F2 opens over any book,
+jumps sections on Enter through validated steps, and preserves the
+anchor around help and back round trips (`NAV-009`). Real Gutenberg
+books parsed successfully in smoke checks. Phase 1 remains complete with its frozen gate
 passed locally and on every required hosted environment row (run
 `32535725291`). Cross-phase gate members are owned forward by DD-026; the
 next Phase 2 slices cover semantic code/tables and Markdown, while
@@ -112,7 +114,7 @@ already inside the six phases; it does not add another phase.
 | --- | --- | --- |
 | Plain-text rendering | Complete | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, PTY render journeys, and the reviewed `tests/render.rs` assertion suite pass locally and on all hosted rows. |
 | Responsive layout | Complete | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites pass on the gate rows; real-terminal visual review joins the release matrix. |
-| Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; TOC/search jumps arrive with later phases. |
+| Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; the TOC overlay jumps sections on Enter with exact return stacking; search-result jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
@@ -138,7 +140,7 @@ already inside the six phases; it does not add another phase.
 | --- | --- | --- |
 | Keyboard controls | Complete | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs on all hosted rows; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
-| Table of contents | Not started | Provide contextual side-panel or full-screen chapter navigation. |
+| Table of contents | In progress | Full-screen chapter navigation jumps sections with cursor memory and confirmation messages; contextual side-panel layout arrives later. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
 | Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
@@ -151,7 +153,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 137 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 140 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |

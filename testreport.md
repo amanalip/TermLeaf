@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 22, 2026 at 12:35 AM EDT
+**Last updated:** August 22, 2026 at 1:20 AM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,40 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Add table of contents navigation
+
+**Commit subject:** `feat: add table of contents navigation`
+
+**Revision:** This commit
+
+**Recorded:** August 22, 2026 at 1:20 AM EDT
+
+**Behavior and risks.** The contents overlay opens over any open book via
+`o` or F2, seeds its cursor on the current reading section, scrolls long
+section lists, labels untitled sections stably, jumps on Enter through the
+validated section-start step with a confirmation message, returns exactly
+via Escape, keeps help reachable with round-trip state, and never moves
+the hidden anchor while open. ShowToc without a book stays inert. Focus
+ownership maps to the existing TableOfContentsItem kind.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (140 library, 9 CLI, 15 document-I/O, 14 render, 6 property, 14 native PTY) |
+| `cargo test --doc --locked` | Pass |
+
+**Skipped coverage.** Hosted rows for this revision remain to be recorded;
+a PTY journey for the overlay joins the Phase 2 gate evidence batch.
+
+**Selected case IDs.** `NAV-009` locations extended (TOC half).
+
+**Cargo clean.** Runs after this change's complete validation cycle.
 
 ## Commit Reports
 

@@ -23,6 +23,7 @@ pub enum Action {
     SetModePaged,
     SetModeContinuous,
     ShowThemes,
+    ShowToc,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -188,6 +189,20 @@ const BINDINGS: &[Binding] = &[
         modifiers: KeyModifiers::NONE,
         label: "t",
         description: "Themes",
+    },
+    Binding {
+        action: Action::ShowToc,
+        key: KeyCode::Char('o'),
+        modifiers: KeyModifiers::NONE,
+        label: "o",
+        description: "Contents",
+    },
+    Binding {
+        action: Action::ShowToc,
+        key: KeyCode::F(2),
+        modifiers: KeyModifiers::NONE,
+        label: "F2",
+        description: "Contents",
     },
     Binding {
         action: Action::Confirm,
