@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 21, 2026 at 11:59 PM EDT
+**Last updated:** August 21, 2026 at 8:35 PM EDT
 
 ## Table of Contents
 
@@ -26,11 +26,17 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit History
+
 ### Start the structured book ingestion
 
-**Completed:** August 21, 2026 at 8:19 PM EDT (prepared for commit)
+**Completed:** August 21, 2026 at 8:19 PM EDT
 
 **Commit subject:** `feat: start structured book ingestion`
+
+**Revision:** `bed99a8`
 
 Changes:
 
@@ -84,8 +90,6 @@ Validation:
   locally; real Gutenberg EPUBs parsed with correct titles and section
   counts.
 - Hosted rows for this revision remain to be recorded on push.
-
-## Commit History
 
 ### Close the Phase 1 gate evidence
 

@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 8:19 PM EDT
+**Last updated:** August 21, 2026 at 8:35 PM EDT
 
 ## Table of Contents
 
@@ -77,11 +77,15 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit Reports
+
 ### Start the structured book ingestion
 
 **Commit subject:** `feat: start structured book ingestion`
 
-**Revision:** This commit
+**Revision:** `bed99a8`
 
 **Recorded:** August 21, 2026 at 8:19 PM EDT
 
@@ -171,10 +175,8 @@ already-Implemented `MODEL-001` (multi-section tiling) and `CLI-007`
 
 **Blocked cases.** Unchanged from the Phase 1 gate record.
 
-**Cleanup.** `cargo clean` has not run for this cycle yet; it runs after the
-complete validation pass recorded below if this entry is finalized as-is.
-
-## Commit Reports
+**Cleanup.** `cargo clean` ran after this complete local Rust validation
+cycle and removed 7,195 files (2.0 GiB).
 
 ### Complete the Phase 1 gate
 
