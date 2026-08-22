@@ -26,9 +26,17 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit History
+
 ### Add bounded raster image decoding
 
-**Intended subject:** `feat: add bounded raster image decoding`
+**Completed:** August 22, 2026 at 6:14 PM EDT
+
+**Commit subject:** `feat: add bounded raster image decoding`
+
+**Revision:** `ef32bce`
 
 Implements the decode core of the Phase 2 image slice. Choices with lasting
 consequences:
@@ -53,8 +61,6 @@ consequences:
   RUSTSEC-2024-0436, unmaintained without known vulnerability) because the
   locked OpenEXR feature pulls it through `exr -> pulp`; revisit when exr
   drops pulp.
-
-## Commit History
 
 ### Add table of contents navigation
 

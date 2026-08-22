@@ -77,7 +77,17 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-### Decode bounded images
+No changes are pending inclusion in a commit.
+
+## Commit Reports
+
+### Add bounded raster image decoding
+
+**Commit subject:** `feat: add bounded raster image decoding`
+
+**Revision:** `ef32bce`
+
+**Recorded:** August 22, 2026 at 6:14 PM EDT
 
 **Behavior and risks.** Lands the bounded raster-decode core of the Phase 2
 image slice in a new `src/document/image.rs`: the locked initial image limits
@@ -132,9 +142,7 @@ locations registered under `IMG-001`, `IMG-002`, `IMG-005`, `IMG-006`,
 `IMG-007`, `IMG-012`, `SUP-009`.
 
 **Cargo clean.** The complete local Rust validation cycle for this change
-ends with `cargo clean`.
-
-## Commit Reports
+ends with `cargo clean`, which removed 4,523 files (2.0 GiB).
 
 ### Add table of contents navigation
 

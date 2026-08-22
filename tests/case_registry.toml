@@ -1839,7 +1839,7 @@ location = ["src/document/image.rs::img_001_every_enabled_decoder_decodes_a_boun
 profiles = ["security", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Integration / security"
 
@@ -1857,7 +1857,7 @@ location = ["src/document/image.rs::img_002_animated_gif_previews_only_its_first
 profiles = ["pr-core", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -1911,7 +1911,7 @@ location = ["src/document/image.rs::img_005_default_policy_matches_the_locked_im
 profiles = ["security", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Unit / security"
 
@@ -1929,7 +1929,7 @@ location = ["src/document/image.rs::img_006_width_and_height_reject_independentl
 profiles = ["security", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Unit / security"
 
@@ -1947,7 +1947,7 @@ location = ["src/document/image.rs::img_007_pixel_and_allocation_budgets_reject_
 profiles = ["security", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Unit / security"
 
@@ -2037,7 +2037,7 @@ location = ["src/document/image.rs::img_012_truncated_corrupt_and_foreign_inputs
 profiles = ["pr-render", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Render / pr-render"
 
@@ -5425,7 +5425,7 @@ location = ["src/document/image.rs::resolution_is_extension_first_with_magic_win
 profiles = ["security", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#decode-bounded-images"]
+last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 decisions = []
 evidence_method = "Review / security"
 
