@@ -77,7 +77,17 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit Reports
+
 ### Wire image ingestion into books
+
+**Commit subject:** `feat: wire image ingestion into books`
+
+**Revision:** `22969d3`
+
+**Recorded:** August 22, 2026 at 7:25 PM EDT
 
 **Behavior and risks.** Declared images now survive ingestion in both
 structured formats. The XHTML converter turns every `<img>` into a caption
@@ -126,9 +136,7 @@ decoding, and hosted environment rows stay with their owning slices.
 under `EPUB-013`, `MD-004`.
 
 **Cargo clean.** The complete local Rust validation cycle for this change
-ends with `cargo clean`.
-
-## Commit Reports
+ends with `cargo clean`, which removed 5,719 files (2.2 GiB).
 
 ### Add bounded raster image decoding
 

@@ -26,9 +26,17 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit History
+
 ### Wire image ingestion into books
 
-**Intended subject:** `feat: wire image ingestion into books`
+**Completed:** August 22, 2026 at 7:25 PM EDT
+
+**Commit subject:** `feat: wire image ingestion into books`
+
+**Revision:** `22969d3`
 
 Choices with lasting consequences:
 
