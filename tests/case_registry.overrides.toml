@@ -878,3 +878,40 @@ location = [
     "tests/cli.rs::cli_007_epub_content_still_validates_after_the_extension_gate",
     "tests/document_io.rs::cli_007_markdown_content_still_validates_after_the_extension_gate",
 ]
+
+[cases.IMG-001]
+status = "Implemented"
+location = ["src/document/image.rs::img_001_every_enabled_decoder_decodes_a_bounded_fixture"]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.IMG-002]
+location = ["src/document/image.rs::img_002_animated_gif_previews_only_its_first_frame"]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.IMG-005]
+location = [
+    "src/document/image.rs::img_005_default_policy_matches_the_locked_image_table",
+    "src/document/image.rs::img_005_input_byte_gate_rejects_before_any_parsing",
+]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.IMG-006]
+status = "Implemented"
+location = ["src/document/image.rs::img_006_width_and_height_reject_independently_at_the_boundary"]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.IMG-007]
+status = "Implemented"
+location = ["src/document/image.rs::img_007_pixel_and_allocation_budgets_reject_exactly_at_the_boundary"]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.IMG-012]
+location = [
+    "src/document/image.rs::img_012_truncated_corrupt_and_foreign_inputs_fail_typed_without_panicking",
+    "src/document/image.rs::error_messages_name_failure_value_and_recovery",
+]
+last_evidence = ["testreport.md#decode-bounded-images"]
+
+[cases.SUP-009]
+location = ["src/document/image.rs::resolution_is_extension_first_with_magic_winning_when_present"]
+last_evidence = ["testreport.md#decode-bounded-images"]

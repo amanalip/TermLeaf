@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 22, 2026 at 1:20 AM EDT
+**Last updated:** August 22, 2026 at 6:04 PM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,33 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Add bounded raster image decoding
+
+**Intended subject:** `feat: add bounded raster image decoding`
+
+Implements the decode core of the Phase 2 image slice. Choices with lasting
+consequences:
+
+- `image` 0.25 joins the manifest with default features off and exactly the
+  locked format set enabled (PNG, JPEG, GIF, WebP, BMP, ICO, TIFF, PNM, TGA,
+  QOI, DDS, OpenEXR, Radiance HDR, Farbfeld). The plan's format table is the
+  contract; adding a decoder later requires the same dependency and license
+  review.
+- Limits live in `ImageLimits` and are enforced in policy order: input bytes
+  gate before parsing, header-only dimension reads gate before any pixel
+  allocation, pixels then a per-family allocation ceiling (4 B/px baseline;
+  PNG/TIFF 8; HDR 12; OpenEXR 16) gate before decoding. This keeps hostile
+  or corrupt files from allocating anything beyond header reads.
+- Format resolution is extension-first with content magic winning when
+  present, mirroring `DEC-TEST-001`: TGA (no magic) decodes only through its
+  declared extension; mislabeled-but-signed files follow their signature.
+- Animation previews resolve to the first frame only, matching the locked
+  "first frame" promise; SVG/SVGZ stay out of this module until the vector
+  slice lands with its restricted resolver.
+- `deny.toml` gains one documented advisory exception (`paste`,
+  RUSTSEC-2024-0436, unmaintained without known vulnerability) because the
+  locked OpenEXR feature pulls it through `exr -> pulp`; revisit when exr
+  drops pulp.
 
 ## Commit History
 

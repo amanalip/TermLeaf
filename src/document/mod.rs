@@ -7,6 +7,7 @@
 mod archive;
 mod epub;
 mod error;
+pub mod image;
 pub mod markdown;
 pub mod model;
 pub mod text;
@@ -18,6 +19,7 @@ pub use archive::{
 };
 pub use epub::EpubSnapshot;
 pub use error::{DocumentError, Format, PositionError, detect_format, sanitize_path};
+pub use image::{DecodedImage, ImageLimits, ImageResourceError};
 
 /// Loads any supported local book through its format adapter.
 ///

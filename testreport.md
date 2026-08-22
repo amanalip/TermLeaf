@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 22, 2026 at 1:20 AM EDT
+**Last updated:** August 22, 2026 at 6:04 PM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,62 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Decode bounded images
+
+**Behavior and risks.** Lands the bounded raster-decode core of the Phase 2
+image slice in a new `src/document/image.rs`: the locked initial image limits
+table becomes `ImageLimits` policy (32 MiB compressed input, 8 MiB SVG/SVGZ
+XML for the vector slice, 16,384 per-side dimensions, 64 million pixels, 256
+MiB allocation), enforced strictly in order — the input byte gate rejects
+before any parse, header-only dimension reads reject hostile geometry before
+any pixel allocation, and a conservative per-decoder-family allocation
+ceiling (RGBA8 4 B/px; PNG/TIFF 8; Radiance HDR 12; OpenEXR 16) keeps wide
+intermediate buffers inside the envelope. Only then does decoding run,
+normalizing to RGBA8 with first-frame-only animation. Format resolution is
+extension-first with magic winning when present (`DEC-TEST-001` alignment),
+so magic-less TGA decodes through its declared extension while a mislabeled
+PNG still resolves by signature. Every rejection is typed with value versus
+limit and recovery text. All fourteen enabled decoders round-trip generated
+fixtures (DDS hand-crafted from the container spec as one DXT1 block); the
+`image` crate joins at 0.25.x with exactly the locked format features.
+Risks exercised: hostile geometry and byte bombs reject without allocating,
+truncated/corrupt/foreign inputs fail typed without panicking.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass (after regenerate) |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (149 library, 9 CLI, 15 document-I/O, 14 render, 6 property, 14 native PTY) |
+| `cargo test --doc --locked` | Pass |
+| `cargo deny check` | Pass with documented advisory exception |
+
+**Dependency note.** The OpenEXR feature pulls `exr -> pulp -> paste`, which
+carries RUSTSEC-2024-0436 (unmaintained, no known vulnerability). Ignored in
+`deny.toml` with rationale and a revisit condition; licenses/bans/sources all
+pass on the new graph.
+
+**Fixtures.** No committed fixtures changed; every decoder fixture is
+generated in-test (encoders where available, specification-crafted bytes for
+DDS).
+
+**Skipped coverage.** SVG/SVGZ vector decoding, half-block cell rendering,
+worker queues/loading UI, protocol detection, and EPUB/Markdown `<img>`
+ingestion stay with their owning slices; hosted environment rows remain to be
+recorded until push. APNG first-frame evidence joins IMG-002 with its
+integration slice.
+
+**Selected case IDs.** `IMG-001`, `IMG-006`, `IMG-007` marked Implemented;
+locations registered under `IMG-001`, `IMG-002`, `IMG-005`, `IMG-006`,
+`IMG-007`, `IMG-012`, `SUP-009`.
+
+**Cargo clean.** The complete local Rust validation cycle for this change
+ends with `cargo clean`.
 
 ## Commit Reports
 

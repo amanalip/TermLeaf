@@ -1,5 +1,13 @@
 [advisories]
 yanked = "deny"
+ignore = [
+    # RUSTSEC-2024-0436: paste is unmaintained but has no known vulnerability.
+    # It arrives only through exr -> pulp (SIMD dispatch), which the locked
+    # OpenEXR decoder feature pulls in; the chain is decode-only, offline, and
+    # already bounded by the image resource limits. Revisit when exr drops
+    # pulp or the advisory gains a fix.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 confidence-threshold = 0.93

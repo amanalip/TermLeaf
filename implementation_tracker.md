@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 22, 2026 at 1:20 AM EDT
+**Last updated:** August 22, 2026 at 6:04 PM EDT
 
 ## Table of Contents
 
@@ -47,10 +47,18 @@ active content inert (`MD-001`, `MD-002`, `MD-006`, `MD-008`, `MD-009`,
 `MD-012`, `LAY-009`, `LAY-010`). The table of contents overlay landed: `o`/F2 opens over any book,
 jumps sections on Enter through validated steps, and preserves the
 anchor around help and back round trips (`NAV-009`). Real Gutenberg
-books parsed successfully in smoke checks. Phase 1 remains complete with its frozen gate
+books parsed successfully in smoke checks. The bounded raster-decode slice
+landed: `src/document/image.rs` enforces the locked initial image limits in
+policy order (input bytes, header-only dimensions, pixels, per-family
+allocation ceilings), normalizes every enabled decoder to RGBA8 with
+first-frame animation, resolves formats extension-first with magic winning,
+and rejects truncated, corrupt, oversized, and foreign inputs typed
+(`IMG-001`, `IMG-006`, `IMG-007` implemented; `IMG-002`, `IMG-005`,
+`IMG-012`, `SUP-009` locations registered). Phase 1 remains complete with its frozen gate
 passed locally and on every required hosted environment row (run
 `32535725291`). Cross-phase gate members are owned forward by DD-026; the
-next Phase 2 slices cover semantic code/tables and Markdown, while
+next Phase 2 slices wire `<img>` ingestion into EPUB/Markdown chapters and
+add half-block cell rendering behind the worker queue, while
 `SEC-009` control-document gates stay open behind named compensating
 controls (DD-028).
 
@@ -71,7 +79,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, and byte-stability instrumentation pass locally; images, TOC navigation, links activation, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
+| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, byte-stability instrumentation, and the bounded raster-decode core with typed resource errors pass locally; image UI integration (`<img>` ingestion, half-block/caption rendering), worker queues and loading/cancellation states, protocol detection, TOC side-panel layout, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -120,7 +128,7 @@ already inside the six phases; it does not add another phase.
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
 | EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, manifest fallbacks, full semantic XHTML conversion (lists, quotes, code, tables, inline roles) with a pre-parse markup-node budget, and proven byte stability across source mutations pass; link activation, images, control-document structural gates, and fuzz coverage arrive with later slices. |
 | Markdown format | In progress | Source-aware pulldown-cmark parsing maps headings, paragraphs, nested lists, quotes, fenced/indented code, rules, GFM tables, and inline roles into the shared model under the shared byte budget with raw HTML inert; language tags, link targets, source-offset fidelity, and render-profile cases arrive with their owning slices. |
-| Inline images | Not started | Decode bounded raster and SVG content through protocol, cell, and caption fallbacks. |
+| Inline images | In progress | The bounded raster-decode core passes: `ImageLimits` policy from the locked table, policy-ordered rejection (input bytes before parsing, header-only dimensions, pixels, per-family allocation ceilings), RGBA8 normalization with first-frame animation, extension-first format resolution with magic winning, typed errors for truncated/corrupt/oversized/foreign inputs, and generated-fixture round trips across all fourteen enabled decoders; `<img>` ingestion into EPUB/Markdown, half-block and caption rendering, worker queues with loading/cancellation states, SVG/SVGZ vector decoding, protocol detection, and PTY evidence arrive with their owning slices. |
 
 ## The Bookshelf
 
@@ -153,7 +161,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 140 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 149 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |
@@ -161,7 +169,7 @@ already inside the six phases; it does not add another phase.
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
-| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`); hosted and cross-platform evidence remains. |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`, plus the `image` 0.25 format graph with a documented `RUSTSEC-2024-0436` paste exception arriving through the locked OpenEXR decoder); hosted and cross-platform evidence remains. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |
