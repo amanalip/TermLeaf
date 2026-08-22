@@ -622,3 +622,43 @@ fn epub_016_source_disappears_or_swaps_after_inspection_and_parsing_still_succee
     }
     Ok(())
 }
+
+#[test]
+fn md_001_markdown_books_open_through_the_unified_loader() -> anyhow::Result<()> {
+    let source = "# Chapter Head\n\n\
+                  Body with *stress* and **force**.\n\n\
+                  - one\n- two\n";
+    let file = tempfile::Builder::new()
+        .prefix("md001")
+        .suffix(".md")
+        .tempfile()
+        .context("create temporary markdown book")?;
+    std::fs::write(file.path(), source).context("write markdown book")?;
+
+    let document = load_book(file.path())?;
+    assert_eq!(document.sections().len(), 1);
+    assert!(document.canonical().contains("Chapter Head"));
+    assert!(
+        document.canonical().contains("one\ntwo"),
+        "tight list joins"
+    );
+    Ok(())
+}
+
+#[test]
+fn cli_007_markdown_content_still_validates_after_the_extension_gate() -> anyhow::Result<()> {
+    let file = tempfile::Builder::new()
+        .prefix("not-really")
+        .suffix(".md")
+        .tempfile()
+        .context("create misleading markdown book")?;
+    std::fs::write(file.path(), [0xFF, 0xFE, 0x00, 0x01]).context("write invalid UTF-8")?;
+
+    let error =
+        termleaf::document::load_book_file(file.path(), &TextLimits::default(), &archive_limits())
+            .expect_err("invalid content rejects after the gate");
+    let message = error.to_string();
+    assert!(message.contains("could not read"), "{message}");
+    assert!(message.contains("UTF-8"), "{message}");
+    Ok(())
+}

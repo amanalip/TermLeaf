@@ -169,10 +169,10 @@ fn theme_002_startup_config_is_read_without_being_rewritten() -> Result<()> {
 
 #[test]
 fn cli_007_unsupported_extensions_reject_with_one_typed_message() -> Result<()> {
-    // Extension-first detection (DEC-TEST-001 / DD-024): `.txt` and `.epub`
-    // open through their adapters; every other extension rejects before any
-    // terminal setup, regardless of what the content looks like.
-    for name in ["notes.md", "future-book.mobi", "extensionless-book"] {
+    // Extension-first detection (DEC-TEST-001 / DD-024): `.txt`, `.md`, and
+    // `.epub` open through their adapters; every other extension rejects
+    // before any terminal setup, regardless of what the content looks like.
+    for name in ["future-book.mobi", "extensionless-book", "book.markdow"] {
         let output = run(|command, root| {
             let path = root.join(name);
             std::fs::write(&path, "perfectly valid text\n").expect("write misleading book");
@@ -183,6 +183,7 @@ fn cli_007_unsupported_extensions_reject_with_one_typed_message() -> Result<()> 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("unsupported book format"), "{stderr}");
         assert!(stderr.contains(".txt"), "{stderr}");
+        assert!(stderr.contains(".md"), "{stderr}");
         assert!(stderr.contains(".epub"), "{stderr}");
         assert!(!stderr.contains('\u{1b}'));
     }

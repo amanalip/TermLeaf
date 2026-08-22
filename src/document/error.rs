@@ -62,8 +62,8 @@ pub enum DocumentError {
 
     /// The file carries an extension no format adapter accepts yet.
     #[error(
-        "unsupported book format: '{path}'; TermLeaf currently opens plain-text '.txt' \
-         and EPUB '.epub' books"
+        "unsupported book format: '{path}'; TermLeaf currently opens plain-text '.txt', \
+         Markdown '.md', and EPUB '.epub' books"
     )]
     UnsupportedFormat {
         /// Safe display path of the rejected file.
@@ -124,8 +124,9 @@ pub enum DocumentError {
 ///
 /// `DEC-TEST-001` resolution (DD-024): detection is extension-first and
 /// case-insensitive. Phase 1 shipped `.txt`; Phase 2 extends the table with
-/// `.epub`. Content validity is still checked after the extension gate, so a
-/// `.txt` file holding binary data fails decoding with a typed reason.
+/// `.epub` and Markdown `.md`. Content validity is still checked after the
+/// extension gate, so a `.txt` file holding binary data fails decoding with
+/// a typed reason.
 #[must_use]
 pub fn detect_format(path: &std::path::Path) -> Option<Format> {
     let extension = path
@@ -135,6 +136,7 @@ pub fn detect_format(path: &std::path::Path) -> Option<Format> {
     match extension.as_deref() {
         Some("txt") => Some(Format::PlainText),
         Some("epub") => Some(Format::Epub),
+        Some("md" | "markdown") => Some(Format::Markdown),
         _ => None,
     }
 }
@@ -146,6 +148,8 @@ pub enum Format {
     PlainText,
     /// An EPUB 2 or EPUB 3 package behind the bounded archive layer.
     Epub,
+    /// A source-aware Markdown document.
+    Markdown,
 }
 
 /// Escapes control characters so hostile names cannot inject terminal
@@ -236,7 +240,7 @@ mod tests {
 
     #[test]
     fn cli_007_unsupported_or_missing_extensions_are_one_typed_rejection() {
-        for name in ["book.md", "book.dat", "book", "book.text", ".txt"] {
+        for name in ["book.dat", "book", "book.text", ".txt"] {
             let result = detect_format(std::path::Path::new(name));
             assert_eq!(result, None, "{name} has no adapter");
             let error = DocumentError::UnsupportedFormat {
@@ -245,8 +249,25 @@ mod tests {
             let message = error.to_string();
             assert!(message.contains("unsupported book format"), "{message}");
             assert!(message.contains(name), "{message}");
-            assert!(message.contains(".txt"), "names a supported format");
-            assert!(message.contains(".epub"), "names every supported format");
+        }
+        // The rejection names every supported format once.
+        let message = DocumentError::UnsupportedFormat {
+            path: "other.dat".to_owned(),
+        }
+        .to_string();
+        assert!(message.contains("plain-text '.txt'"), "{message}");
+        assert!(message.contains("'.md'"), "{message}");
+        assert!(message.contains("'.epub'"), "{message}");
+    }
+
+    #[test]
+    fn cli_007_markdown_extensions_are_accepted_case_insensitively() {
+        for name in ["notes.md", "NOTES.MD", "readme.markdown", "b.Md"] {
+            assert_eq!(
+                detect_format(std::path::Path::new(name)),
+                Some(Format::Markdown),
+                "{name} opens as Markdown"
+            );
         }
     }
 

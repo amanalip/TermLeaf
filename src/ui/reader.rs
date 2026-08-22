@@ -14,6 +14,8 @@ use ratatui::{
 
 use crate::{
     app::{App, MINIMUM_WIDTH},
+    document::InlineKind,
+    layout::viewport::RowCell,
     ui::status::{WidthClass, classify},
     ui::theme::{Role, Theme, ThemeName},
 };
@@ -105,7 +107,9 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
         .map(|row| {
             Line::from(
                 row.into_iter()
-                    .map(|text| Span::styled(text, body))
+                    .map(|cell: RowCell| {
+                        Span::styled(cell.text, decorated(body, &theme, cell.decoration))
+                    })
                     .collect::<Vec<_>>(),
             )
         })
@@ -113,6 +117,25 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
 
     let paragraph = Paragraph::new(lines).style(theme.style(Role::Surface));
     frame.render_widget(paragraph, content);
+}
+
+/// Combines the body style with one inline role.
+///
+/// Attributes carry meaning even where color does not, so every decoration
+/// keeps a distinct modifier and `NO_COLOR` sessions still differentiate
+/// roles without any foreground or background values.
+fn decorated(base: Style, theme: &Theme, decoration: Option<InlineKind>) -> Style {
+    match decoration {
+        None => base,
+        Some(InlineKind::Emphasis) => base.italic(),
+        Some(InlineKind::Strong) => base.bold(),
+        Some(InlineKind::Code) => base
+            .fg(theme.style(Role::Secondary).fg.unwrap_or_default())
+            .bold(),
+        Some(InlineKind::Link) => base
+            .fg(theme.style(Role::Link).fg.unwrap_or_default())
+            .underlined(),
+    }
 }
 
 fn active_theme(app: &App) -> Theme {

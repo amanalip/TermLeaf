@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 21, 2026 at 10:25 PM EDT
+**Last updated:** August 22, 2026 at 12:35 AM EDT
 
 ## Table of Contents
 
@@ -37,8 +37,15 @@ The follow-up boundary slice landed: chapter markup is bounded by a
 one-million-opening byte scan before the HTML5 parser allocates (typed
 `ChapterTooComplex` rejection), and the staged `EpubSnapshot` proves byte
 stability through overwrite, truncate, append, rename, delete, and
-symlink-swap journeys (`EPUB-010`, `EPUB-016`). Real Gutenberg books parsed
-successfully in smoke checks. Phase 1 remains complete with its frozen gate
+symlink-swap journeys (`EPUB-010`, `EPUB-016`). The semantic content slice
+landed: XHTML and Markdown both produce the full reading structure
+(headings, nested lists, quotes, verbatim code, separators, tables) plus
+inline emphasis/strong/code/link decorations; layout renders markers,
+hanging indents, verbatim code rows, and aligned-or-linearized tables;
+Markdown arrives through pulldown-cmark under the shared byte budget with
+active content inert (`MD-001`, `MD-002`, `MD-006`, `MD-008`, `MD-009`,
+`MD-012`, `LAY-009`, `LAY-010`). Real Gutenberg books parsed successfully
+in smoke checks. Phase 1 remains complete with its frozen gate
 passed locally and on every required hosted environment row (run
 `32535725291`). Cross-phase gate members are owned forward by DD-026; the
 next Phase 2 slices cover semantic code/tables and Markdown, while
@@ -62,7 +69,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, tolerant XHTML conversion, chapter node bounding, byte-stability instrumentation, and core security boundaries pass locally; semantic code/tables, images, TOC navigation, control-document structural gates, and fuzz evidence remain. |
+| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, and byte-stability instrumentation pass locally; images, TOC navigation, links activation, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -109,8 +116,8 @@ already inside the six phases; it does not add another phase.
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
-| EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, manifest fallbacks, tolerant XHTML conversion with a pre-parse markup-node budget, and proven byte stability across source mutations pass; links, code/tables/images, control-document structural gates, and fuzz coverage arrive with later slices. |
-| Markdown format | Not started | Parse source-aware Markdown directly into the shared document model. |
+| EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, manifest fallbacks, full semantic XHTML conversion (lists, quotes, code, tables, inline roles) with a pre-parse markup-node budget, and proven byte stability across source mutations pass; link activation, images, control-document structural gates, and fuzz coverage arrive with later slices. |
+| Markdown format | In progress | Source-aware pulldown-cmark parsing maps headings, paragraphs, nested lists, quotes, fenced/indented code, rules, GFM tables, and inline roles into the shared model under the shared byte budget with raw HTML inert; language tags, link targets, source-offset fidelity, and render-profile cases arrive with their owning slices. |
 | Inline images | Not started | Decode bounded raster and SVG content through protocol, cell, and caption fallbacks. |
 
 ## The Bookshelf
@@ -144,7 +151,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 116 library, 9 CLI, 13 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 137 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |

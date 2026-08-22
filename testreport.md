@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 10:25 PM EDT
+**Last updated:** August 22, 2026 at 12:35 AM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,71 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Complete semantic content and Markdown
+
+**Commit subject:** `feat: complete semantic content and markdown`
+
+**Revision:** This commit
+
+**Recorded:** August 22, 2026 at 12:35 AM EDT
+
+**Behavior and risks.** Completes the semantic content slices of Phase 2:
+EPUB XHTML and Markdown now both produce the full reading-relevant
+structure (headings, paragraphs, nested lists with depth and ordering,
+quotes, verbatim code, separators, tables with per-cell ranges) plus
+inline roles (emphasis, strong, inline code, links) carried as validated
+decoration spans that never move canonical positions. Layout wraps
+through role boundaries; list markers hang-indent at marker width with
+per-depth numbering restarts; code renders one verbatim row per line;
+tables align columns when natural width fits and linearize without
+dropping cells otherwise. The Markdown path is strictly bounded (shared
+32 MiB budget, metadata check then guarded read, exact inclusive
+boundaries under injected limits), decodes strict UTF-8 after BOM strip,
+and keeps raw HTML, scripts, and remote references completely inert
+(nothing executes or resolves). Malformed constructs parse
+deterministically. `.md`/`.markdown` detection is case-insensitive with
+misleading content still failing typed after the gate. Renderer styles
+each role distinctly by attribute so `NO_COLOR` sessions keep the
+distinctions.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (137 library, 9 CLI, 15 document-I/O, 14 render, 6 property, 14 native PTY) |
+| `cargo test --doc --locked` | Pass |
+| `cargo deny check` | Pass (advisories, bans, licenses, sources incl. new pulldown-cmark graph) |
+| `git diff --check` | Pass |
+
+**Fixtures.** No committed fixtures changed; Markdown journeys use
+generated temporary books.
+
+**Skipped coverage.** Hosted rows for this revision remain open until
+push. Render-profile wide/narrow evidence for the EPUB semantic fixture
+(`EPUB-012`, `MD-003`) and image placement cases stay with their owning
+slices.
+
+**Changed paths.** `src/document/model.rs`, `src/document/xhtml.rs`,
+`src/document/markdown.rs` (new), `src/document/epub.rs`,
+`src/document/error.rs`, `src/document/mod.rs`, `src/layout/mod.rs`,
+`src/layout/viewport.rs`, `src/app/state.rs`, `src/ui/reader.rs`,
+`Cargo.toml`, `Cargo.lock`, `tests/cli.rs`, `tests/document_io.rs`,
+`tests/case_registry.overrides.toml`, `tests/case_registry.toml`
+(generated), tracker documents.
+
+**Selected case IDs.** `MD-001`, `MD-002`, `MD-006`, `MD-008`, `MD-009`,
+`MD-012`, `LAY-009`, `LAY-010` Implemented; `EPUB-011` and `CLI-007`
+extended; `MD-003`, `MD-004`, `MD-005`, `MD-007`, `MD-010`, `MD-011`
+remain Planned with named remaining halves.
+
+**Cargo clean.** Runs at the end of this change's complete validation
+cycle; see the closing record.
 
 ## Commit Reports
 

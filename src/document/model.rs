@@ -36,6 +36,7 @@ impl DocumentId {
 pub struct Block {
     kind: BlockKind,
     range: Range<usize>,
+    cells: Vec<Range<usize>>,
 }
 
 impl Block {
@@ -46,7 +47,26 @@ impl Block {
     /// verifies total coverage.
     #[must_use]
     pub const fn new(kind: BlockKind, range: Range<usize>) -> Self {
-        Self { kind, range }
+        Self {
+            kind,
+            range,
+            cells: Vec::new(),
+        }
+    }
+
+    /// Creates a table block carrying its row-major cell ranges.
+    ///
+    /// Cells are byte ranges into the canonical text; their union must stay
+    /// inside `range`. Layout aligns columns from these ranges when the
+    /// terminal is wide enough and falls back to the delimited linear form
+    /// otherwise.
+    #[must_use]
+    pub const fn table(range: Range<usize>, cells: Vec<Range<usize>>) -> Self {
+        Self {
+            kind: BlockKind::Table,
+            range,
+            cells,
+        }
     }
 
     /// The semantic role of this block.
@@ -59,6 +79,21 @@ impl Block {
     #[must_use]
     pub const fn range(&self) -> &Range<usize> {
         &self.range
+    }
+
+    /// Row-major cell ranges; non-empty only for tables.
+    #[must_use]
+    pub const fn cells(&self) -> &Vec<Range<usize>> {
+        &self.cells
+    }
+
+    /// Extends the range end during assembly.
+    ///
+    /// Tight list groups share their separator newline with the previous
+    /// item, so assembly extends that item's coverage instead of inserting
+    /// a blank block. Callers must pass a byte at or after the current end.
+    pub(crate) fn extend_to(&mut self, end: usize) {
+        self.range.end = end.max(self.range.end);
     }
 }
 
@@ -74,6 +109,61 @@ pub enum BlockKind {
         /// Nesting depth starting at one.
         level: u8,
     },
+    /// One entry of an enclosing list at `depth` nesting levels.
+    ListItem {
+        /// Zero-based nesting depth of the owning list.
+        depth: u8,
+        /// Whether the nearest enclosing list is ordered.
+        ordered: bool,
+    },
+    /// One quoted passage; layout prefixes each visual row.
+    Quote,
+    /// Preformatted source text preserved verbatim, one row per line.
+    CodeBlock,
+    /// A horizontal rule rendered from its literal marker text.
+    Separator,
+    /// A table whose canonical rows join cells with a pipe delimiter.
+    Table,
+}
+
+/// Inline semantic role applied to a canonical byte range.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InlineKind {
+    /// Emphasized text; rendered italic where the terminal allows.
+    Emphasis,
+    /// Strongly emphasized text; rendered bold.
+    Strong,
+    /// Inline code; rendered distinctly without reflow assumptions.
+    Code,
+    /// Link text whose destination stays inert during reading.
+    Link,
+}
+
+/// One decorated byte range inside the canonical text.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InlineSpan {
+    range: Range<usize>,
+    kind: InlineKind,
+}
+
+impl InlineSpan {
+    /// Creates a decoration over `range`.
+    #[must_use]
+    pub const fn new(kind: InlineKind, range: Range<usize>) -> Self {
+        Self { range, kind }
+    }
+
+    /// Byte range of this decoration.
+    #[must_use]
+    pub const fn range(&self) -> &Range<usize> {
+        &self.range
+    }
+
+    /// The semantic role carried by this decoration.
+    #[must_use]
+    pub const fn kind(&self) -> InlineKind {
+        self.kind
+    }
 }
 
 /// One ordered group of blocks; TXT books use a single unnamed section.
@@ -110,6 +200,7 @@ pub struct Document {
     title: Option<String>,
     canonical: String,
     sections: Vec<Section>,
+    inline: Vec<InlineSpan>,
 }
 
 impl Document {
@@ -170,6 +261,7 @@ impl Document {
             title,
             canonical,
             sections,
+            inline: Vec::new(),
         })
     }
 
@@ -228,7 +320,48 @@ impl Document {
             title,
             canonical,
             sections: vec![Section::new(None, blocks)],
+            inline: Vec::new(),
         })
+    }
+
+    /// Attaches validated inline decorations to the document.
+    ///
+    /// Spans must be sorted by start, lie inside the canonical text on
+    /// character boundaries, and never overlap; parsers emit them in order,
+    /// so a violation is a programming defect reported as an error string.
+    ///
+    /// # Errors
+    ///
+    /// Returns a descriptive message when spans are unordered, out of
+    /// bounds, split a character, or overlap.
+    pub fn with_inline(mut self, inline: Vec<InlineSpan>) -> Result<Self, String> {
+        let mut previous_end = 0usize;
+        for span in &inline {
+            if span.range.start < previous_end {
+                return Err(format!(
+                    "inline span {}..{} overlaps or is unordered after byte {previous_end}",
+                    span.range.start, span.range.end
+                ));
+            }
+            if span.range.end > self.canonical.len() {
+                return Err(format!(
+                    "inline span ends at {} beyond canonical length {}",
+                    span.range.end,
+                    self.canonical.len()
+                ));
+            }
+            if !self.canonical.is_char_boundary(span.range.start)
+                || !self.canonical.is_char_boundary(span.range.end)
+            {
+                return Err(format!(
+                    "inline span {}..{} splits a character",
+                    span.range.start, span.range.end
+                ));
+            }
+            previous_end = span.range.end;
+        }
+        self.inline = inline;
+        Ok(self)
     }
 
     /// The stable document identity.
@@ -265,6 +398,25 @@ impl Document {
     #[must_use]
     pub fn sections(&self) -> &[Section] {
         &self.sections
+    }
+
+    /// All inline decorations, sorted and non-overlapping.
+    #[must_use]
+    pub fn inline_spans(&self) -> &[InlineSpan] {
+        &self.inline
+    }
+
+    /// The strongest decoration covering `byte`, if any.
+    ///
+    /// Producers never overlap decorations, so at most one applies; the
+    /// linear scan stays cheap because layout queries in ascending order
+    /// through [`Document::inline_spans`].
+    #[must_use]
+    pub fn inline_kind_at(&self, byte: usize) -> Option<InlineKind> {
+        self.inline
+            .iter()
+            .find(|span| span.range.contains(&byte))
+            .map(|span| span.kind)
     }
 
     /// The text of one block, borrowed from the canonical text.

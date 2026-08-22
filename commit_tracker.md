@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 21, 2026 at 10:25 PM EDT
+**Last updated:** August 22, 2026 at 12:35 AM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,49 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+Complete the semantic content layer and Markdown support, the largest
+remaining reading slices of Phase 2:
+
+- Extend the document model (`src/document/model.rs`) with list items
+  (nesting depth plus ordering flag), quotes, verbatim code blocks,
+  separators, and tables carrying row-major cell ranges; add validated
+  inline decorations (emphasis, strong, code, link) that never alter the
+  canonical text positions they decorate.
+- Teach XHTML conversion the full semantic set: em/strong/code/link
+  inline roles with innermost-wins nesting, ordered and unordered lists
+  whose nested lists become deeper sibling items, blockquotes, literal
+  preformatted code, rules, and tables with per-cell ranges. Whitespace
+  collapsing now tracks per-byte roles so decorations survive collapsing
+  exactly.
+- Add the Markdown adapter (`src/document/markdown.rs`) over
+  pulldown-cmark's bounded event stream: source-aware parsing maps
+  headings, paragraphs, lists, quotes, fenced and indented code, rules,
+  GFM tables, and inline roles into the shared model while raw HTML and
+  remote references stay completely inert. `.md`/`.markdown` join the
+  case-insensitive extension table; the shared 32 MiB budget applies
+  boundary-exactly before any parse.
+- Upgrade layout for semantics: spans subdivide at decoration boundaries;
+  list markers render with hanging indents at marker width and per-depth
+  numbering that restarts after non-list blocks; quote bars prefix every
+  row; code blocks emit one verbatim row per line with grapheme-safe hard
+  splits; tables align columns when their natural width fits and
+  linearize through ordinary wrapping when it does not, keeping every
+  cell in order either way. Inter-row newlines ride as spans so ranges
+  alone reconstruct canonical bytes exactly.
+- Carry inline roles through viewport cells to the reader renderer:
+  emphasis italic, strong bold, code distinct, links underlined, each
+  distinguishable by attribute alone in `NO_COLOR` sessions.
+
+Decisions:
+
+- **DD-029:** Inline semantics live beside the text, not inside it: the
+  canonical string and every position stay byte-stable while sorted
+  non-overlapping decoration spans name roles per range. Nested roles
+  flatten innermost-wins; link targets are deliberately not stored yet,
+  so links are maximally inert until the links slice adds navigation;
+  fenced language tags likewise wait with `MD-005`. Tables keep pipe
+  delimiters and newline rows in canonical form so search and positions
+  see plain readable lines.
 
 ## Commit History
 

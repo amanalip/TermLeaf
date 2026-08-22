@@ -92,11 +92,15 @@ impl ReaderSession {
         }
     }
 
-    /// Visible row texts for one content viewport, warming the cache.
+    /// Visible row cells for one content viewport, warming the cache.
     ///
-    /// Strings are plain spans in row order; the UI layer styles them.
+    /// Cells carry plain text plus the inline role; the UI layer styles them.
     #[must_use]
-    pub fn plan_rows(&mut self, width: u16, height: u16) -> Vec<Vec<String>> {
+    pub fn plan_rows(
+        &mut self,
+        width: u16,
+        height: u16,
+    ) -> Vec<Vec<crate::layout::viewport::RowCell>> {
         let stale = self
             .cached_layout
             .as_ref()

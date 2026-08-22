@@ -389,6 +389,72 @@ location = [
     "src/layout/viewport.rs::zero_width_documents_yield_no_rows",
 ]
 
+[cases.LAY-009]
+status = "Implemented"
+location = [
+    "src/layout/mod.rs::lay_009_aligned_tables_keep_columns_and_reconstruct_exactly",
+    "src/layout/mod.rs::lay_009_narrow_tables_linearize_without_losing_cells",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.LAY-010]
+status = "Implemented"
+location = [
+    "src/layout/mod.rs::lay_010_code_blocks_render_one_verbatim_row_per_line",
+    "src/layout/mod.rs::lay_010_overlong_code_lines_hard_split_without_join_markers",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-001]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_001_full_semantic_fixture_maps_into_the_shared_model",
+    "tests/document_io.rs::md_001_markdown_books_open_through_the_unified_loader",
+    "src/layout/mod.rs::md_001_quotes_prefix_every_visual_row",
+    "src/layout/mod.rs::md_001_decorations_survive_wrapping_across_row_boundaries",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-002]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_002_nested_lists_keep_depth_and_ordering_distinct",
+    "src/layout/mod.rs::md_002_list_items_carry_markers_with_hanging_indent",
+    "src/layout/mod.rs::md_002_ordered_lists_number_sequentially_per_list",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-005]
+location = ["src/document/markdown.rs::fenced_code_preserves_bytes_verbatim"]
+
+[cases.MD-006]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_006_inline_code_punctuation_stays_literal_between_delimiters",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-008]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_008_raw_html_and_remote_references_stay_inert",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-009]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_009_malformed_constructs_parse_deterministically_without_panicking",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-012]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_012_byte_boundaries_reject_exactly_before_any_parsing",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
 [cases.LAY-012]
 location = [
     "src/ui/mod.rs::lay_012_below_minimum_size_shows_the_safe_message_then_recovers",
@@ -773,8 +839,15 @@ last_evidence = ["testreport.md#harden-structured-ingestion-boundaries"]
 
 [cases.EPUB-011]
 status = "Implemented"
-location = ["src/document/xhtml.rs::epub_011_headings_paragraphs_and_breaks_convert_with_entities_decoded"]
-last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+location = [
+    "src/document/xhtml.rs::epub_011_headings_paragraphs_and_breaks_convert_with_entities_decoded",
+    "src/document/xhtml.rs::epub_011_inline_roles_map_emphasis_strong_code_and_links",
+    "src/document/xhtml.rs::epub_011_lists_quotes_code_separators_convert_with_structure",
+    "src/document/xhtml.rs::epub_011_tables_keep_every_cell_in_order_with_ranges",
+    "src/layout/mod.rs::epub_011_xhtml_semantics_flow_through_layout",
+    "src/layout/viewport.rs::epub_011_decorated_cells_carry_inline_roles_to_the_renderer",
+]
+last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
 [cases.EPUB-014]
 status = "Implemented"
@@ -794,7 +867,9 @@ location = [
     "src/document/error.rs::cli_007_txt_extension_is_accepted_case_insensitively",
     "src/document/error.rs::cli_007_unsupported_or_missing_extensions_are_one_typed_rejection",
     "src/document/error.rs::epub_extension_is_accepted_case_insensitively",
+    "src/document/error.rs::cli_007_markdown_extensions_are_accepted_case_insensitively",
     "tests/cli.rs::cli_007_unsupported_extensions_reject_with_one_typed_message",
     "tests/cli.rs::cli_007_txt_content_still_validates_after_the_extension_gate",
     "tests/cli.rs::cli_007_epub_content_still_validates_after_the_extension_gate",
+    "tests/document_io.rs::cli_007_markdown_content_still_validates_after_the_extension_gate",
 ]

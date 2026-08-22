@@ -1,14 +1,23 @@
 //! Viewport slicing: which laid-out rows appear on screen.
 //!
-//! Converts a layout plus an anchor into plain per-row span strings for one
-//! viewport height. Staying string-based keeps this module free of any UI
-//! dependency while giving the renderer exactly what it must paint.
+//! Converts a layout plus an anchor into per-row cells carrying visible
+//! text and its inline role. Staying string-based keeps this module free of
+//! any UI dependency while giving the renderer exactly what it must paint.
 
-use crate::document::Document;
+use crate::document::{Document, InlineKind};
 
 use super::{PageLayout, display_width};
 
-/// Builds the visible row texts for one viewport of `height` rows.
+/// One paintable piece of a row: text plus its semantic role.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RowCell {
+    /// Visible text already transformed (tabs expanded, controls escaped).
+    pub text: String,
+    /// Inline role for styling; plain when absent.
+    pub decoration: Option<InlineKind>,
+}
+
+/// Builds the visible row cells for one viewport of `height` rows.
 ///
 /// The anchor's row becomes the first visible row; when fewer rows remain,
 /// the window clamps so the final page still fills from the top.
@@ -18,7 +27,7 @@ pub fn viewport_row_texts(
     layout: &PageLayout,
     anchor_byte: usize,
     height: u16,
-) -> Vec<Vec<String>> {
+) -> Vec<Vec<RowCell>> {
     let rows = layout.rows();
     if rows.is_empty() || height == 0 {
         return Vec::new();
@@ -30,14 +39,33 @@ pub fn viewport_row_texts(
 
     let mut viewport = Vec::with_capacity(end - top);
     for row in &rows[top..end] {
-        let mut spans = Vec::with_capacity(row.spans().len());
+        let mut cells: Vec<RowCell> = Vec::with_capacity(row.spans().len());
+        if !row.prefix().is_empty() {
+            cells.push(RowCell {
+                text: row.prefix().to_owned(),
+                decoration: None,
+            });
+        }
         let mut column = 0u16;
-        for span in row.spans() {
+        for (index, span) in row.spans().iter().enumerate() {
             let visible = span.visible(document, column);
             column += display_width(&visible, column);
-            spans.push(visible);
+            if !visible.is_empty() {
+                cells.push(RowCell {
+                    text: visible,
+                    decoration: span.decoration(),
+                });
+            }
+            if let Some(pad) = row.padding().get(index)
+                && *pad > 0
+            {
+                cells.push(RowCell {
+                    text: " ".repeat(usize::from(*pad)),
+                    decoration: None,
+                });
+            }
         }
-        viewport.push(spans);
+        viewport.push(cells);
     }
     viewport
 }
@@ -45,7 +73,8 @@ pub fn viewport_row_texts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document::{DocumentId, text::document_from_text};
+    use crate::document::text::TextLimits;
+    use crate::document::{DocumentId, InlineKind, markdown, text::document_from_text};
     use crate::layout::layout_document;
 
     #[test]
@@ -57,7 +86,16 @@ mod tests {
         let anchor = document.first_position().expect("start");
 
         let rows = viewport_row_texts(&document, &layout, anchor.absolute_byte(&document), 2);
-        assert_eq!(rows, [vec!["one".to_owned()], Vec::new()]);
+        assert_eq!(
+            rows,
+            [
+                vec![RowCell {
+                    text: "one".to_owned(),
+                    decoration: None,
+                }],
+                Vec::new()
+            ]
+        );
     }
 
     #[test]
@@ -78,5 +116,34 @@ mod tests {
         let document = document_from_text(DocumentId::new("v".into()), None, "").expect("e");
         let layout = layout_document(&document, 40);
         assert!(viewport_row_texts(&document, &layout, 0, 10).is_empty());
+    }
+
+    #[test]
+    fn epub_011_decorated_cells_carry_inline_roles_to_the_renderer() {
+        let document = markdown::load_markdown_bytes(
+            "decorated.md",
+            b"plain *tilted* **heavy** `code` end\n",
+            &TextLimits::default(),
+        )
+        .expect("parses");
+        let layout = layout_document(&document, 60);
+        let rows = viewport_row_texts(&document, &layout, 0, 5);
+
+        let flat: Vec<(String, Option<InlineKind>)> = rows
+            .iter()
+            .flatten()
+            .map(|cell| (cell.text.clone(), cell.decoration))
+            .collect();
+        assert!(
+            flat.iter()
+                .any(|(text, decoration)| decoration.is_none() && text.starts_with("plain")),
+            "plain text stays undecorated: {flat:?}"
+        );
+        assert!(
+            flat.contains(&("tilted".to_owned(), Some(InlineKind::Emphasis))),
+            "emphasis reaches the renderer: {flat:?}"
+        );
+        assert!(flat.contains(&("heavy".to_owned(), Some(InlineKind::Strong))));
+        assert!(flat.contains(&("code".to_owned(), Some(InlineKind::Code))));
     }
 }

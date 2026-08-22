@@ -10,7 +10,7 @@ use std::ops::Range;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::document::{BlockKind, Document};
+use crate::document::{BlockKind, Document, InlineKind};
 
 mod width;
 
@@ -21,10 +21,12 @@ pub mod viewport;
 ///
 /// Rendering applies [`visible_text`] with the running column, so tabs,
 /// control bytes, and newline join markers transform identically here and in
-/// the UI without storing duplicated strings.
+/// the UI without storing duplicated strings. An optional decoration carries
+/// the inline semantic role that styling layers may apply.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Span {
     range: Range<usize>,
+    decoration: Option<InlineKind>,
 }
 
 impl Span {
@@ -32,6 +34,12 @@ impl Span {
     #[must_use]
     pub const fn range(&self) -> &Range<usize> {
         &self.range
+    }
+
+    /// The inline semantic role carried by this span, if any.
+    #[must_use]
+    pub const fn decoration(&self) -> Option<InlineKind> {
+        self.decoration
     }
 
     /// The exact visible string for this span starting at `column`.
@@ -45,11 +53,17 @@ impl Span {
 }
 
 /// One visual row of laid-out content.
+///
+/// `prefix` holds synthesized leading text such as list markers or quote
+/// bars; it is presentation only and never part of the canonical text or of
+/// any position. `padding` spaces align table columns after each span.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct VisualRow {
     section: usize,
     block: usize,
+    prefix: String,
     spans: Vec<Span>,
+    padding: Vec<u16>,
     cells: u16,
 }
 
@@ -67,27 +81,48 @@ impl VisualRow {
         self.block
     }
 
+    /// Synthesized leading text, such as list markers or quote bars.
+    #[must_use]
+    pub fn prefix(&self) -> &str {
+        &self.prefix
+    }
+
+    /// Padding cells inserted after each span for table alignment.
+    #[must_use]
+    pub const fn padding(&self) -> &Vec<u16> {
+        &self.padding
+    }
+
     /// Spans in left-to-right order.
     #[must_use]
     pub const fn spans(&self) -> &Vec<Span> {
         &self.spans
     }
 
-    /// Measured cell count, identical to the sum of rendered span widths.
+    /// Measured cell count, identical to the sum of rendered widths.
     #[must_use]
     pub const fn cells(&self) -> u16 {
         self.cells
     }
 
-    /// The complete visible text of this row.
+    /// The complete visible text of this row, including its prefix.
+    ///
+    /// Padding spaces after each span reproduce aligned table columns; the
+    /// result is exactly what the renderer paints.
     #[must_use]
     pub fn text(&self, document: &Document) -> String {
         let mut out = String::new();
-        let mut column = 0u16;
-        for span in &self.spans {
+        out.push_str(&self.prefix);
+        let mut column = display_width(&self.prefix, 0);
+        for (index, span) in self.spans.iter().enumerate() {
             let visible = span.visible(document, column);
             column += display_width(&visible, column);
             out.push_str(&visible);
+            if let Some(pad) = self.padding.get(index) {
+                let pad = " ".repeat(usize::from(*pad));
+                column += u16::try_from(pad.len()).unwrap_or(u16::MAX);
+                out.push_str(&pad);
+            }
         }
         out
     }
@@ -149,24 +184,87 @@ pub fn layout_document(document: &Document, width: u16) -> PageLayout {
 
 fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
     let mut rows = Vec::new();
+    // Ordered-list numbering restarts whenever a non-list block intervenes;
+    // counters are per depth so nested lists number independently.
+    let mut list_counters = [0u64; 8];
     for (section_index, section) in document.sections().iter().enumerate() {
         for (block_index, block) in section.blocks().iter().enumerate() {
             match block.kind() {
                 BlockKind::BlankLine => rows.push(VisualRow {
                     section: section_index,
                     block: block_index,
-                    spans: Vec::new(),
-                    cells: 0,
+                    ..VisualRow::default()
                 }),
-                BlockKind::Paragraph | BlockKind::Heading { .. } => {
+                BlockKind::Paragraph | BlockKind::Separator | BlockKind::Heading { .. } => {
+                    list_counters = [0u64; 8];
                     let text = document
                         .block_text(section_index, block_index)
                         .unwrap_or_default();
                     wrap_paragraph(
+                        document,
                         text,
                         block.range().start,
                         section_index,
                         block_index,
+                        width,
+                        &mut rows,
+                    );
+                }
+                BlockKind::ListItem { depth, ordered } => {
+                    let depth_index = usize::from(depth).min(list_counters.len() - 1);
+                    if ordered {
+                        list_counters[depth_index] += 1;
+                    }
+                    let marker = if ordered {
+                        format!("{}. ", list_counters[depth_index])
+                    } else {
+                        "\u{2022} ".to_owned()
+                    };
+                    let indent = " ".repeat(usize::from(display_width(&marker, 0)));
+                    let prefix = format!("{}{}", "  ".repeat(usize::from(depth)), marker);
+                    let continuation = format!("{}{}", "  ".repeat(usize::from(depth)), indent);
+                    wrap_prefixed(
+                        document,
+                        RowOwner {
+                            section: section_index,
+                            block: block_index,
+                        },
+                        block.range(),
+                        width,
+                        (&prefix, &continuation),
+                        &mut rows,
+                    );
+                }
+                BlockKind::Quote => {
+                    wrap_prefixed(
+                        document,
+                        RowOwner {
+                            section: section_index,
+                            block: block_index,
+                        },
+                        block.range(),
+                        width,
+                        ("> ", "> "),
+                        &mut rows,
+                    );
+                }
+                BlockKind::CodeBlock => {
+                    code_block_rows(
+                        document,
+                        section_index,
+                        block_index,
+                        block.range(),
+                        width,
+                        &mut rows,
+                    );
+                }
+                BlockKind::Table => {
+                    table_rows(
+                        document,
+                        section_index,
+                        block_index,
+                        block.range(),
+                        block.cells(),
                         width,
                         &mut rows,
                     );
@@ -227,6 +325,7 @@ fn push_content_atoms<'t>(atoms: &mut Vec<Atom<'t>>, content: &'t str, start: us
 }
 
 fn wrap_paragraph(
+    document: &Document,
     text: &str,
     base: usize,
     section: usize,
@@ -241,26 +340,49 @@ fn wrap_paragraph(
     };
     let mut pending_join: Option<usize> = None;
 
+    let mut flow = FlowContext {
+        owner: RowOwner { section, block },
+        width,
+        pending_join: &mut pending_join,
+        current: &mut current,
+        rows,
+    };
     for atom in paragraph_atoms(text, base) {
         match atom {
             Atom::Join { newline } => {
-                if !current.spans.is_empty() {
-                    pending_join = Some(newline);
+                if !flow.current.spans.is_empty() {
+                    *flow.pending_join = Some(newline);
                 }
             }
             Atom::Content {
                 text: piece,
                 offset,
+                ..
             } => {
-                place_content(
-                    piece,
-                    offset,
-                    RowOwner { section, block },
-                    width,
-                    &mut pending_join,
-                    &mut current,
-                    rows,
-                );
+                // Subdivide the atom at decoration boundaries so every
+                // placed span carries exactly one inline role.
+                let mut cursor = offset.start;
+                while cursor < offset.end {
+                    let run_end = match document.inline_kind_at(cursor) {
+                        Some(_) => document
+                            .inline_spans()
+                            .iter()
+                            .find(|span| span.range().contains(&cursor))
+                            .map_or(offset.end, |span| span.range().end.min(offset.end)),
+                        None => document
+                            .inline_spans()
+                            .iter()
+                            .map(|span| span.range().start)
+                            .find(|start| *start > cursor && *start < offset.end)
+                            .unwrap_or(offset.end),
+                    };
+                    flow.place(
+                        &piece[cursor - offset.start..run_end - offset.start],
+                        cursor..run_end,
+                        document.inline_kind_at(cursor),
+                    );
+                    cursor = run_end;
+                }
             }
         }
     }
@@ -275,58 +397,75 @@ struct RowOwner {
     block: usize,
 }
 
-fn place_content(
-    piece: &str,
-    offset: Range<usize>,
+/// Placement context shared by the wrapping helpers.
+struct FlowContext<'a> {
     owner: RowOwner,
     width: u16,
-    pending_join: &mut Option<usize>,
-    current: &mut VisualRow,
-    rows: &mut Vec<VisualRow>,
-) {
-    let mut start = 0usize;
-    while start < piece.len() {
-        let remaining = &piece[start..];
-        let starts_new_row = current.spans.is_empty();
-        let joins = usize::from(!starts_new_row && pending_join.is_some());
-        let need = display_width(remaining, current.cells + u16::try_from(joins).unwrap_or(1));
+    pending_join: &'a mut Option<usize>,
+    current: &'a mut VisualRow,
+    rows: &'a mut Vec<VisualRow>,
+}
 
-        if !starts_new_row && current.cells + u16::try_from(joins).unwrap_or(1) + need > width {
-            flush_row(current, rows, owner.section, owner.block);
-            *pending_join = None;
-            continue;
-        }
-        if starts_new_row {
-            *pending_join = None;
-        }
+impl FlowContext<'_> {
+    fn place(&mut self, piece: &str, offset: Range<usize>, decoration: Option<InlineKind>) {
+        let mut start = 0usize;
+        while start < piece.len() {
+            let remaining = &piece[start..];
+            let starts_new_row = self.current.spans.is_empty();
+            let joins = usize::from(!starts_new_row && self.pending_join.is_some());
+            let base = self.current.cells + u16::try_from(joins).unwrap_or(1);
+            let need = display_width(remaining, base);
 
-        if joins == 1 {
-            let newline = pending_join.take().unwrap_or_default();
-            current.spans.push(Span {
-                range: newline..newline + 1,
+            if !starts_new_row && base + need > self.width {
+                flush_row(
+                    self.current,
+                    self.rows,
+                    self.owner.section,
+                    self.owner.block,
+                );
+                *self.pending_join = None;
+                continue;
+            }
+            if starts_new_row {
+                *self.pending_join = None;
+            }
+
+            if joins == 1 {
+                let newline = self.pending_join.take().unwrap_or_default();
+                self.current.spans.push(Span {
+                    range: newline..newline + 1,
+                    decoration: None,
+                });
+                self.current.cells += 1;
+            }
+
+            let free = self.width - self.current.cells;
+            let whole = display_width(remaining, self.current.cells);
+            if whole <= free {
+                self.current.spans.push(Span {
+                    range: offset.start + start..offset.end,
+                    decoration,
+                });
+                self.current.cells += whole;
+                return;
+            }
+
+            let chunk = force_fit_chunk(remaining, free, self.current.cells);
+            let end = start + chunk.len();
+            let column = self.current.cells;
+            self.current.spans.push(Span {
+                range: offset.start + start..offset.start + end,
+                decoration,
             });
-            current.cells += 1;
+            self.current.cells += display_width(chunk, column);
+            flush_row(
+                self.current,
+                self.rows,
+                self.owner.section,
+                self.owner.block,
+            );
+            start = end;
         }
-
-        let free = width - current.cells;
-        let whole = display_width(remaining, current.cells);
-        if whole <= free {
-            current.spans.push(Span {
-                range: offset.start + start..offset.end,
-            });
-            current.cells += whole;
-            return;
-        }
-
-        let chunk = force_fit_chunk(remaining, free, current.cells);
-        let end = start + chunk.len();
-        let column = current.cells;
-        current.spans.push(Span {
-            range: offset.start + start..offset.start + end,
-        });
-        current.cells += display_width(chunk, column);
-        flush_row(current, rows, owner.section, owner.block);
-        start = end;
     }
 }
 
@@ -358,6 +497,217 @@ fn flush_row(current: &mut VisualRow, rows: &mut Vec<VisualRow>, section: usize,
         row.section = section;
         row.block = block;
         rows.push(row);
+    }
+}
+
+/// Wraps one block whose every visual row starts with a synthesized prefix.
+///
+/// List items and quotes keep their marker or bar on every row, so wrapped
+/// content stays visually grouped. Prefix bytes are presentation only: they
+/// never enter the canonical text, positions, or search. Placement runs
+/// against the width remaining under the prefix.
+fn wrap_prefixed(
+    document: &Document,
+    owner: RowOwner,
+    range: &Range<usize>,
+    width: u16,
+    prefixes: (&str, &str),
+    rows: &mut Vec<VisualRow>,
+) {
+    let head_cells = display_width(prefixes.0, 0);
+    let tail_cells = display_width(prefixes.1, 0);
+    let mut inner = Vec::new();
+    wrap_paragraph(
+        document,
+        document
+            .block_text(owner.section, owner.block)
+            .unwrap_or_default(),
+        range.start,
+        owner.section,
+        owner.block,
+        width.saturating_sub(head_cells),
+        &mut inner,
+    );
+
+    for (index, mut row) in inner.into_iter().enumerate() {
+        let (prefix, cells) = if index == 0 {
+            (prefixes.0, head_cells)
+        } else {
+            (prefixes.1, tail_cells)
+        };
+        row.prefix = String::from(prefix);
+        row.cells = row.cells.saturating_add(cells);
+        rows.push(row);
+    }
+}
+
+/// Emits one verbatim row per source line of a code block.
+///
+/// Lines never reflow and keep their original indentation; overlong lines
+/// hard-split across rows without join markers, and interior blank lines
+/// stay blank so code shape survives visually.
+fn code_block_rows(
+    document: &Document,
+    section: usize,
+    block: usize,
+    range: &Range<usize>,
+    width: u16,
+    rows: &mut Vec<VisualRow>,
+) {
+    let text = document.block_text(section, block).unwrap_or_default();
+    let mut consumed = 0usize;
+    for line in text.split('\n') {
+        let line_base = range.start + consumed;
+        consumed += line.len() + 1;
+        emit_verbatim_line(section, block, line_base, line, width, rows);
+    }
+}
+
+fn emit_verbatim_line(
+    section: usize,
+    block: usize,
+    base: usize,
+    line: &str,
+    width: u16,
+    rows: &mut Vec<VisualRow>,
+) {
+    if line.is_empty() {
+        return;
+    }
+    let mut start = 0usize;
+    while start < line.len() {
+        let remaining = &line[start..];
+        let mut row = VisualRow {
+            section,
+            block,
+            ..VisualRow::default()
+        };
+        let whole = display_width(remaining, row.cells);
+        let taken = if whole <= width {
+            remaining.len()
+        } else {
+            force_fit_chunk(remaining, width, row.cells).len()
+        };
+        row.spans.push(Span {
+            range: base + start..base + start + taken,
+            decoration: None,
+        });
+        row.cells += display_width(&remaining[..taken], row.cells);
+        rows.push(row);
+        start += taken;
+    }
+}
+
+/// Lays out one table either as aligned columns or as linearized lines.
+///
+/// Column widths come from the widest cell per column. When the aligned
+/// form fits the available width, each source row becomes one visual row:
+/// cell spans carry padding spaces that right-align every column while the
+/// canonical ` | ` delimiters still render between them. When it does not
+/// fit, the table falls back to ordinary wrapping over its delimited
+/// lines, which preserves every cell's content and order.
+fn table_rows(
+    document: &Document,
+    section: usize,
+    block: usize,
+    range: &std::ops::Range<usize>,
+    cells: &[Range<usize>],
+    width: u16,
+    rows: &mut Vec<VisualRow>,
+) {
+    let text = document.block_text(section, block).unwrap_or_default();
+    if cells.is_empty() {
+        wrap_paragraph(document, text, range.start, section, block, width, rows);
+        return;
+    }
+
+    // Group cells into source rows using the newline boundaries.
+    let mut source_rows: Vec<Vec<&Range<usize>>> = vec![Vec::new()];
+    let mut line_end = range.start + text.find('\n').map_or(text.len(), |position| position);
+    let mut cursor = range.start;
+    for cell in cells {
+        while cell.start >= line_end && cursor < range.start + text.len() {
+            cursor = line_end + 1;
+            let rest = &text[cursor - range.start..];
+            line_end = cursor + rest.find('\n').map_or(rest.len(), |position| position);
+            source_rows.push(Vec::new());
+        }
+        source_rows.last_mut().expect("seeded").push(cell);
+    }
+
+    let column_count = source_rows.first().map_or(0, Vec::len);
+    if column_count == 0 {
+        wrap_paragraph(document, text, range.start, section, block, width, rows);
+        return;
+    }
+
+    let mut column_widths = vec![0u16; column_count];
+    for row in &source_rows {
+        for (index, cell) in row.iter().enumerate() {
+            if index < column_count {
+                let measured = display_width(text.get(cell.start..cell.end).unwrap_or_default(), 0);
+                column_widths[index] = column_widths[index].max(measured);
+            }
+        }
+    }
+    let delimiters = u16::try_from(column_count.saturating_sub(1))
+        .unwrap_or(0)
+        .saturating_mul(3);
+    let natural = column_widths
+        .iter()
+        .copied()
+        .fold(0u16, u16::saturating_add)
+        .saturating_add(delimiters);
+
+    if natural > width || source_rows.iter().any(|row| row.len() != column_count) {
+        // Linearized fallback: the delimited lines wrap like prose.
+        wrap_paragraph(document, text, range.start, section, block, width, rows);
+        return;
+    }
+
+    let total_rows = source_rows.len();
+    for (row_index, row) in source_rows.iter().enumerate() {
+        let mut current = VisualRow {
+            section,
+            block,
+            ..VisualRow::default()
+        };
+        for (index, cell) in row.iter().enumerate() {
+            let cell_text = text.get(cell.start..cell.end).unwrap_or_default();
+            let cell_cells = display_width(cell_text, 0);
+            current.spans.push(Span {
+                range: cell.start..cell.end,
+                decoration: None,
+            });
+            current.cells += cell_cells;
+            if index + 1 < row.len() {
+                current
+                    .padding
+                    .push(column_widths[index].saturating_sub(cell_cells));
+                let delimiter_start = cell.end;
+                let delimiter_end = row[index + 1].start;
+                current.spans.push(Span {
+                    range: delimiter_start..delimiter_end,
+                    decoration: None,
+                });
+                current.padding.push(0);
+                current.cells += u16::try_from(delimiter_end - delimiter_start).unwrap_or(0);
+            }
+        }
+        // The newline between source rows rides at the end of its row so
+        // spans alone still reconstruct the canonical table.
+        if row_index + 1 < total_rows
+            && let Some(next_start) = source_rows[row_index + 1].first().map(|cell| cell.start)
+            && next_start > 0
+            && text.as_bytes()[next_start - 1] == b'\n'
+        {
+            current.spans.push(Span {
+                range: next_start - 1..next_start,
+                decoration: None,
+            });
+            current.cells += 1;
+        }
+        rows.push(current);
     }
 }
 
@@ -540,5 +890,208 @@ mod tests {
     fn zero_width_layout_is_empty_for_the_too_small_state() {
         let document = doc("content\n");
         assert!(layout_document(&document, 0).rows().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod semantic_tests {
+    use super::*;
+    use crate::document::{markdown, text::TextLimits};
+
+    fn md(source: &str) -> Document {
+        markdown::load_markdown_bytes("semantic.md", source.as_bytes(), &TextLimits::default())
+            .expect("fixture parses")
+    }
+
+    fn rows(document: &Document, width: u16) -> Vec<String> {
+        layout_document(document, width)
+            .rows()
+            .iter()
+            .map(|row| row.text(document))
+            .collect()
+    }
+
+    #[test]
+    fn lay_009_aligned_tables_keep_columns_and_reconstruct_exactly() {
+        let document = md("| Tree | Age |\n|---|---|\n| Oak | 300 years |\n| Fig | 9 |\n");
+        let rendered = rows(&document, 40);
+
+        assert_eq!(
+            rendered,
+            ["Tree | Age ", "Oak  | 300 years ", "Fig  | 9"],
+            "columns align through padding; inter-row newlines render as blanks"
+        );
+
+        // Reconstruction: span ranges cover every canonical table byte.
+        let layout = layout_document(&document, 40);
+        for row in layout.rows() {
+            assert!(row.cells() <= 40);
+        }
+        let joined: String = layout
+            .rows()
+            .iter()
+            .flat_map(VisualRow::spans)
+            .map(|span| &document.canonical()[span.range().clone()])
+            .collect();
+        assert_eq!(
+            joined, "Tree | Age\nOak | 300 years\nFig | 9",
+            "span bytes alone reconstruct the canonical table"
+        );
+    }
+
+    #[test]
+    fn lay_009_narrow_tables_linearize_without_losing_cells() {
+        let document = md("| Tree | Age |\n|---|---|\n| Oak | 300 years |\n");
+        let rendered = rows(&document, 12);
+        let flattened = rendered.join("\n");
+
+        // Every cell's words survive, and reading order stays row-major.
+        let mut positions = Vec::new();
+        for word in ["Tree", "Age", "Oak", "300", "years"] {
+            let found = flattened.find(word).unwrap_or_else(|| {
+                panic!("cell word '{word}' survives linearization: {flattened:?}")
+            });
+            positions.push(found);
+        }
+        let ordered = positions.windows(2).all(|pair| pair[0] <= pair[1]);
+        assert!(ordered, "cells keep their order: {positions:?}");
+        for row in layout_document(&document, 12).rows() {
+            assert!(row.cells() <= 12);
+        }
+    }
+
+    #[test]
+    fn lay_010_code_blocks_render_one_verbatim_row_per_line() {
+        let source = "```text\nfn keep() {\n    return 1;\n}\n```\n";
+        let document = md(source);
+        let rendered = rows(&document, 40);
+
+        assert_eq!(
+            rendered,
+            ["fn keep() {", "    return 1;", "}",],
+            "indentation and line shape survive exactly"
+        );
+    }
+
+    #[test]
+    fn lay_010_overlong_code_lines_hard_split_without_join_markers() {
+        let source = format!("```text\n{}\n```\n", "x".repeat(30));
+        let document = md(&source);
+        for width in [10u16, 13] {
+            let layout = layout_document(&document, width);
+            for row in layout.rows() {
+                assert!(row.cells() <= width);
+            }
+        }
+        let narrow = rows(&document, 10);
+        assert!(narrow.iter().all(|row| row.len() <= 10));
+    }
+
+    #[test]
+    fn md_002_list_items_carry_markers_with_hanging_indent() {
+        let source = "- alpha item\n- beta\n";
+        let document = md(source);
+        let rendered = rows(&document, 20);
+
+        assert_eq!(rendered, ["\u{2022} alpha item", "\u{2022} beta",]);
+
+        let wrapped_source = "- a very long list item that must wrap somewhere here\n";
+        let document = md(wrapped_source);
+        let layout = layout_document(&document, 14);
+        let wrapped: Vec<String> = layout
+            .rows()
+            .iter()
+            .map(|row| row.text(&document))
+            .collect();
+        assert!(wrapped.len() > 1, "the item wraps: {wrapped:?}");
+        assert!(wrapped[0].starts_with("\u{2022} "));
+        assert!(
+            wrapped[1..].iter().all(|row| row.starts_with("  ")),
+            "continuation indents to the marker width: {wrapped:?}"
+        );
+        for row in layout.rows() {
+            assert!(row.cells() <= 14);
+        }
+    }
+
+    #[test]
+    fn md_002_ordered_lists_number_sequentially_per_list() {
+        let source = "1. first\n2. second\n\ntext\n\n1. restarts\n";
+        let rendered = rows(&md(source), 24);
+        assert_eq!(
+            rendered,
+            ["1. first", "2. second", "", "text", "", "1. restarts"],
+            "numbering restarts after intervening content"
+        );
+    }
+
+    #[test]
+    fn md_001_quotes_prefix_every_visual_row() {
+        let source = "> a longer quoted passage that wraps across rows\n";
+        let document = md(source);
+        let rendered = rows(&document, 18);
+
+        assert_eq!(rendered.len(), 4, "{rendered:?}");
+        assert!(
+            rendered.iter().all(|row| row.starts_with("> ")),
+            "every row keeps the quote bar: {rendered:?}"
+        );
+        assert!(rendered[0].contains("a longer"));
+    }
+
+    #[test]
+    fn epub_011_xhtml_semantics_flow_through_layout() {
+        let source = "<body><ul><li>one</li><li>two</li></ul>\
+                      <pre>a  b\n   c</pre><hr/><table><tr><td>P</td><td>Q</td></tr></table></body>";
+        let blocks = crate::document::xhtml::convert_xhtml(source)
+            .expect("within budget")
+            .into_iter()
+            .map(|block| (block.kind, block.text))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            blocks,
+            [
+                (
+                    BlockKind::ListItem {
+                        depth: 0,
+                        ordered: false
+                    },
+                    "one".to_owned()
+                ),
+                (
+                    BlockKind::ListItem {
+                        depth: 0,
+                        ordered: false
+                    },
+                    "two".to_owned()
+                ),
+                (BlockKind::CodeBlock, "a  b\n   c".to_owned()),
+                (BlockKind::Separator, "* * *".to_owned()),
+                (BlockKind::Table, "P | Q".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn md_001_decorations_survive_wrapping_across_row_boundaries() {
+        let source = "plain *emphasized words spanning the wrap boundary* tail\n";
+        let document = md(source);
+        for width in [12u16, 16, 21] {
+            let layout = layout_document(&document, width);
+            let emphasized: Vec<String> = layout
+                .rows()
+                .iter()
+                .flat_map(VisualRow::spans)
+                .filter(|span| span.decoration() == Some(InlineKind::Emphasis))
+                .map(|span| span.visible(&document, 0))
+                .collect();
+            let covered: String = emphasized.concat();
+            assert_eq!(
+                covered.split_whitespace().collect::<Vec<_>>().join(" "),
+                "emphasized words spanning the wrap boundary",
+                "width {width}: decoration covers the full run"
+            );
+        }
     }
 }

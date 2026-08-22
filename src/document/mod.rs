@@ -7,6 +7,7 @@
 mod archive;
 mod epub;
 mod error;
+pub mod markdown;
 pub mod model;
 pub mod text;
 pub mod xhtml;
@@ -32,10 +33,13 @@ pub fn load_book_file(
     match detect_format(path) {
         Some(Format::PlainText) => text::load_text_file(path, text_limits),
         Some(Format::Epub) => epub::load_epub_file(path, archive_limits),
+        Some(Format::Markdown) => markdown::load_markdown_file(path, text_limits),
         None => Err(DocumentError::UnsupportedFormat {
             path: sanitize_path(&path.display().to_string()),
         }),
     }
 }
-pub use model::{Block, BlockKind, Document, DocumentId, Position, Section};
+pub use model::{
+    Block, BlockKind, Document, DocumentId, InlineKind, InlineSpan, Position, Section,
+};
 pub use text::TextLimits;

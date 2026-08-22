@@ -11,7 +11,7 @@ use std::path::Path;
 use rbook::Epub;
 
 use super::archive::open_book_archive;
-use super::model::{Block, BlockKind, Section};
+use super::model::{Block, BlockKind, InlineSpan, Section};
 use super::text::file_stem_title;
 use super::xhtml::{self, SemanticBlock, XhtmlBoundsError};
 use super::{
@@ -202,7 +202,11 @@ struct ChapterContent {
 /// Joins converted chapters into one tiled multi-section document.
 ///
 /// Consecutive blocks separate through one canonical blank line, including
-/// across chapter boundaries, so visual spacing never depends on layout.
+/// across chapter boundaries, so visual spacing never depends on layout;
+/// consecutive list items stay tight, their shared newline extending the
+/// previous item's range so lists read as grouped entries. Inline
+/// decorations and table cells shift to document-global byte ranges and
+/// attach to the finished document.
 fn assemble(
     id: DocumentId,
     title: Option<String>,
@@ -210,25 +214,53 @@ fn assemble(
 ) -> Result<Document, String> {
     let mut canonical = String::new();
     let mut sections: Vec<Section> = Vec::new();
+    let mut inline: Vec<InlineSpan> = Vec::new();
     let mut pending_separator = false;
 
     for chapter in chapters {
         if chapter.blocks.is_empty() {
             continue;
         }
-        let mut blocks = Vec::new();
-        for block in &chapter.blocks {
-            if pending_separator {
+        let mut blocks: Vec<Block> = Vec::new();
+        for semantic in &chapter.blocks {
+            let previous_kind = blocks.last().map(Block::kind);
+            let tight = pending_separator
+                && matches!(previous_kind, Some(BlockKind::ListItem { .. }))
+                && matches!(semantic.kind, BlockKind::ListItem { .. });
+            if tight {
+                // The shared newline joins the previous item's range, so no
+                // blank row separates grouped entries while tiling stays
+                // exact.
+                let separator = canonical.len();
+                canonical.push('\n');
+                if let Some(last) = blocks.last_mut() {
+                    last.extend_to(separator + 1);
+                }
+            } else if pending_separator {
                 let start = canonical.len();
                 canonical.push('\n');
                 blocks.push(Block::new(BlockKind::BlankLine, start..start + 1));
-            } else {
-                pending_separator = true;
             }
+            pending_separator = true;
+
             let start = canonical.len();
-            canonical.push_str(&block.text);
-            let end = canonical.len();
-            blocks.push(Block::new(block.kind, start..end));
+            canonical.push_str(&semantic.text);
+            for run in &semantic.inline {
+                inline.push(InlineSpan::new(
+                    run.kind,
+                    start + run.range.start..start + run.range.end,
+                ));
+            }
+            if semantic.cells.is_empty() {
+                blocks.push(Block::new(semantic.kind, start..canonical.len()));
+            } else {
+                let cells = semantic
+                    .cells
+                    .iter()
+                    .map(|range| start + range.start..start + range.end)
+                    .collect();
+                blocks.push(Block::table(start..canonical.len(), cells));
+            }
         }
         sections.push(Section::new(chapter.title.clone(), blocks));
     }
@@ -236,5 +268,5 @@ fn assemble(
     if sections.is_empty() {
         sections.push(Section::new(None, Vec::new()));
     }
-    Document::from_sections(id, title, canonical, sections)
+    Document::from_sections(id, title, canonical, sections)?.with_inline(inline)
 }
