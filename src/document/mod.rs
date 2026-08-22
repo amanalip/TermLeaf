@@ -15,6 +15,7 @@ pub use archive::{
     ArchiveError, ArchiveLimits, MemberClass, MemberInfo, NameRejection, PreflightedArchive,
     SharedBookBytes, SharedBookCursor, canonical_key, classify_member,
 };
+pub use epub::EpubSnapshot;
 pub use error::{DocumentError, Format, PositionError, detect_format, sanitize_path};
 
 /// Loads any supported local book through its format adapter.

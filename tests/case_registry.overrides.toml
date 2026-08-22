@@ -746,8 +746,10 @@ status = "Implemented"
 location = [
     "src/document/xhtml.rs::epub_005_malformed_but_recoverable_xhtml_stays_readable",
     "src/document/xhtml.rs::epub_005_hostile_nesting_depth_stays_bounded_without_panic",
+    "src/document/xhtml.rs::sec_009_node_budget_rejects_before_parser_allocation_exactly_at_the_boundary",
+    "src/document/xhtml.rs::sec_009_injected_limits_stop_hostile_chapters_before_any_tree_allocation",
 ]
-last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+last_evidence = ["testreport.md#harden-structured-ingestion-boundaries"]
 
 [cases.EPUB-006]
 status = "Implemented"
@@ -764,6 +766,11 @@ status = "Implemented"
 location = ["src/document/xhtml.rs::epub_009_scripts_and_styles_never_contribute_text"]
 last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 
+[cases.EPUB-010]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_010_mutations_after_preflight_never_reach_semantic_parsing"]
+last_evidence = ["testreport.md#harden-structured-ingestion-boundaries"]
+
 [cases.EPUB-011]
 status = "Implemented"
 location = ["src/document/xhtml.rs::epub_011_headings_paragraphs_and_breaks_convert_with_entities_decoded"]
@@ -773,6 +780,14 @@ last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 status = "Implemented"
 location = ["tests/document_io.rs::epub_014_binary_resources_stay_lazy_during_text_opening"]
 last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-016]
+status = "Implemented"
+location = [
+    "tests/document_io.rs::epub_016_source_disappears_or_swaps_after_inspection_and_parsing_still_succeeds",
+    "src/document/epub.rs",
+]
+last_evidence = ["testreport.md#harden-structured-ingestion-boundaries"]
 
 [cases.CLI-007]
 location = [

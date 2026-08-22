@@ -19,24 +19,76 @@ pub struct SemanticBlock {
     pub text: String,
 }
 
+/// Structural rejection when a chapter exceeds the markup safety budget.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum XhtmlBoundsError {
+    /// The source carries more markup openings than the node budget allows.
+    ///
+    /// The count runs over raw bytes before any tree allocation, so a hostile
+    /// or corrupt chapter stops here instead of inside the HTML5 parser.
+    #[error(
+        "chapter declares about {nodes} markup nodes beyond the {limit} node limit; \
+         the chapter may be corrupt or hostile"
+    )]
+    TooManyNodes {
+        /// Counted markup openings in the rejected source.
+        nodes: usize,
+        /// Inclusive policy limit that was exceeded.
+        limit: usize,
+    },
+}
+
 /// Recursion guard: hostile nesting deeper than this contributes nothing.
 ///
 /// Browsers cap element depth similarly; a stack overflow would crash the
 /// reader before any policy check could run.
 const MAX_XHTML_DEPTH: usize = 128;
 
+/// Markup-node safety budget from the EPUB limits table (inclusive).
+pub const MAX_XHTML_NODES: usize = 1_000_000;
+
 /// Converts one chapter's XHTML source into semantic blocks.
 ///
 /// Malformed but recoverable markup still yields its readable text; empty
-/// results are dropped so blank chapters contribute no blocks.
-#[must_use]
-pub fn convert_xhtml(source: &str) -> Vec<SemanticBlock> {
+/// results are dropped so blank chapters contribute no blocks. Structure is
+/// bounded twice: a byte scan rejects sources above the node budget before
+/// the tree builder allocates, and the walk itself caps recursion depth.
+///
+/// # Errors
+///
+/// Returns [`XhtmlBoundsError::TooManyNodes`] when the source declares more
+/// markup than [`MAX_XHTML_NODES`] allows; parsing never starts in that case.
+pub fn convert_xhtml(source: &str) -> Result<Vec<SemanticBlock>, XhtmlBoundsError> {
+    convert_xhtml_with_limits(source, MAX_XHTML_NODES)
+}
+
+/// Converts one chapter with an explicit node budget for boundary testing.
+///
+/// # Errors
+///
+/// Returns [`XhtmlBoundsError::TooManyNodes`] exactly at `max_nodes + 1`
+/// markup openings; `max_nodes` and below proceed to conversion.
+pub fn convert_xhtml_with_limits(
+    source: &str,
+    max_nodes: usize,
+) -> Result<Vec<SemanticBlock>, XhtmlBoundsError> {
+    // Every element, comment, and processing instruction consumes at least
+    // one '<', while plain text never does. The count therefore bounds the
+    // tree the builder can allocate without parsing anything.
+    let openings = source.bytes().filter(|byte| *byte == b'<').count();
+    if openings > max_nodes {
+        return Err(XhtmlBoundsError::TooManyNodes {
+            nodes: openings,
+            limit: max_nodes,
+        });
+    }
+
     let document = Html::parse_document(source);
     let root = document.tree.root();
     let mut blocks = Vec::new();
     walk(root, 0, &mut blocks);
     blocks.retain(|block| !block.text.is_empty());
-    blocks
+    Ok(blocks)
 }
 
 fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, blocks: &mut Vec<SemanticBlock>) {
@@ -157,7 +209,7 @@ mod tests {
             <h2>Section</h2>
             <p>tail</p>
         </body></html>";
-        let blocks = convert_xhtml(source);
+        let blocks = convert_xhtml(source).expect("within node budget");
 
         assert_eq!(
             blocks,
@@ -191,7 +243,7 @@ mod tests {
         let source = "<body><p>Unclosed paragraph\n   with   odd\tspacing<p>next \
                       <b>bold<i>nested</b> italic</i></p> \
                       <p>&unknownentity &#xZZ; stays literal-safe</p>";
-        let blocks = convert_xhtml(source);
+        let blocks = convert_xhtml(source).expect("within node budget");
 
         assert_eq!(
             texts(&blocks),
@@ -212,7 +264,10 @@ mod tests {
     fn epub_009_scripts_and_styles_never_contribute_text() {
         let source = "<body><script>alert('x')</script><style>p{color:red}</style>\
                       <p>visible</p></body>";
-        assert_eq!(texts(&convert_xhtml(source)), ["visible"]);
+        assert_eq!(
+            texts(&convert_xhtml(source).expect("within node budget")),
+            ["visible"]
+        );
     }
 
     #[test]
@@ -222,12 +277,51 @@ mod tests {
             "<div>".repeat(4_000),
             "</div>".repeat(4_000)
         );
-        let blocks = convert_xhtml(&deep);
+        let blocks = convert_xhtml(&deep).expect("within node budget");
         // The innermost paragraph sits far beyond the depth cap and is
         // dropped deterministically instead of overflowing the stack.
         assert!(blocks.is_empty(), "{:?}", texts(&blocks));
 
         let shallow = format!("{}<p>kept</p>{}", "<div>".repeat(8), "</div>".repeat(8));
-        assert_eq!(texts(&convert_xhtml(&shallow)), ["kept"]);
+        assert_eq!(
+            texts(&convert_xhtml(&shallow).expect("within node budget")),
+            ["kept"]
+        );
+    }
+
+    #[test]
+    fn sec_009_node_budget_rejects_before_parser_allocation_exactly_at_the_boundary() {
+        // The scan counts raw '<' bytes, so plain repetition exercises the
+        // policy without needing valid markup.
+        let at_limit = "<".repeat(MAX_XHTML_NODES);
+        convert_xhtml(&at_limit).expect("exactly the node budget still converts");
+
+        let over = "<".repeat(MAX_XHTML_NODES + 1);
+        assert_eq!(
+            convert_xhtml(&over),
+            Err(XhtmlBoundsError::TooManyNodes {
+                nodes: MAX_XHTML_NODES + 1,
+                limit: MAX_XHTML_NODES,
+            })
+        );
+    }
+
+    #[test]
+    fn sec_009_injected_limits_stop_hostile_chapters_before_any_tree_allocation() {
+        let hostile = "<p>".repeat(50);
+        assert_eq!(
+            convert_xhtml_with_limits(&hostile, 49),
+            Err(XhtmlBoundsError::TooManyNodes {
+                nodes: 50,
+                limit: 49
+            })
+        );
+
+        // At the injected boundary conversion proceeds normally.
+        let blocks = convert_xhtml_with_limits("<p>kept</p>", 2).expect("at budget");
+        assert_eq!(texts(&blocks), ["kept"]);
+
+        // The default policy matches the documented EPUB limits table.
+        assert_eq!(MAX_XHTML_NODES, 1_000_000);
     }
 }

@@ -161,6 +161,15 @@ struct TempEpub(tempfile::NamedTempFile);
 
 impl TempEpub {
     fn new(name: &str, members: &[(&str, &str)]) -> anyhow::Result<Self> {
+        let owned: Vec<(&str, String)> = members
+            .iter()
+            .map(|(path, body)| (*path, (*body).to_owned()))
+            .collect();
+        Self::new_from_strings(name, &owned)
+    }
+
+    /// Same archive writer with owned member bodies for dynamic content.
+    fn new_from_strings(name: &str, members: &[(&str, String)]) -> anyhow::Result<Self> {
         let file = tempfile::Builder::new()
             .prefix(name)
             .suffix(".epub")
@@ -447,5 +456,169 @@ fn epub_014_binary_resources_stay_lazy_during_text_opening() -> anyhow::Result<(
     assert_eq!(document.title(), "Lazy Resources Fixture");
     assert_eq!(document.sections().len(), 1);
     assert!(document.canonical().contains("text extraction only"));
+    Ok(())
+}
+
+impl TempEpub {
+    /// Replaces the whole file content after the archive was written.
+    fn overwrite(&self, bytes: &[u8]) -> anyhow::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(self.path())
+            .context("reopen epub for rewrite")?;
+        file.write_all(bytes).context("overwrite epub bytes")?;
+        file.sync_all().context("sync overwritten epub")?;
+        Ok(())
+    }
+
+    /// Cuts the file down to `len` bytes without touching its bytes before.
+    fn truncate_to(&self, len: u64) -> anyhow::Result<()> {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(self.path())
+            .context("reopen epub for truncation")?;
+        file.set_len(len).context("truncate epub")?;
+        file.sync_all().context("sync truncated epub")?;
+        Ok(())
+    }
+
+    /// Appends raw bytes beyond the original end of file.
+    fn append(&self, bytes: &[u8]) -> anyhow::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(self.path())
+            .context("reopen epub for append")?;
+        file.write_all(bytes).context("append epub bytes")?;
+        file.sync_all().context("sync appended epub")?;
+        Ok(())
+    }
+}
+
+const STABLE_CHAPTER: &str = "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>\
+                              <p>the original inspected passage</p></body></html>";
+
+fn stable_edition_members(title: &str) -> Vec<(&'static str, String)> {
+    let opf = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>{title}</dc:title>
+    <dc:language>en</dc:language>
+    <dc:identifier id="bookid">urn:uuid:stability</dc:identifier>
+  </metadata>
+  <manifest><item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/></manifest>
+  <spine><itemref idref="c1"/></spine>
+</package>
+"#
+    );
+    vec![
+        ("mimetype", "application/epub+zip".to_owned()),
+        ("META-INF/container.xml", CONTAINER.to_owned()),
+        ("OEBPS/content.opf", opf),
+        ("OEBPS/c1.xhtml", STABLE_CHAPTER.to_owned()),
+    ]
+}
+
+#[test]
+fn epub_010_mutations_after_preflight_never_reach_semantic_parsing() -> anyhow::Result<()> {
+    // A second, structurally valid book used as hostile replacement content.
+    let tampered = TempEpub::new_from_strings(
+        "epub010-tampered",
+        &stable_edition_members("Tampered Edition"),
+    )?;
+    let tampered_bytes = std::fs::read(tampered.path()).context("read replacement bytes")?;
+
+    let book =
+        TempEpub::new_from_strings("epub010-stable", &stable_edition_members("Stable Edition"))?;
+    let snapshot = termleaf::document::EpubSnapshot::open(book.path(), &archive_limits())
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+
+    // Replace the source with a different complete book after inspection.
+    book.overwrite(&tampered_bytes)?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    assert_eq!(
+        document.title(),
+        "Stable Edition",
+        "replacement bytes never reach semantic parsing"
+    );
+    assert!(
+        document
+            .canonical()
+            .contains("the original inspected passage")
+    );
+
+    // Truncation and appended garbage are equally invisible to the builder.
+    book.truncate_to(0)?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    assert_eq!(document.title(), "Stable Edition");
+
+    book.append(b"\x00\x01hostile tail")?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    assert_eq!(document.sections().len(), 1);
+    assert!(
+        document
+            .canonical()
+            .contains("the original inspected passage")
+    );
+    Ok(())
+}
+
+#[test]
+fn epub_016_source_disappears_or_swaps_after_inspection_and_parsing_still_succeeds()
+-> anyhow::Result<()> {
+    let decoy =
+        TempEpub::new_from_strings("epub016-decoy", &stable_edition_members("Decoy Edition"))?;
+
+    let book = TempEpub::new_from_strings(
+        "epub016-vanishing",
+        &stable_edition_members("Vanishing Edition"),
+    )?;
+    let original_path = book.path().to_path_buf();
+    let snapshot = termleaf::document::EpubSnapshot::open(book.path(), &archive_limits())
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+
+    // Rename the inspected source away, then delete it outright.
+    let moved_aside = original_path.with_extension("moved.epub");
+    std::fs::rename(&original_path, &moved_aside).context("rename inspected source")?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    assert_eq!(document.title(), "Vanishing Edition");
+    assert!(
+        document
+            .canonical()
+            .contains("the original inspected passage")
+    );
+
+    std::fs::remove_file(&moved_aside).context("delete inspected source")?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    assert_eq!(document.title(), "Vanishing Edition");
+
+    // With the path recreated as a symlink to a different book, the builder
+    // still reports only the originally inspected bytes (Unix: unprivileged
+    // symlink creation is unavailable on Windows).
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(decoy.path(), &original_path)
+            .context("swap source for a decoy symlink")?;
+        let document = snapshot
+            .build()
+            .map_err(|error| anyhow::anyhow!("{error}"))?;
+        assert_eq!(
+            document.title(),
+            "Vanishing Edition",
+            "a swapped path cannot change what was already inspected"
+        );
+        assert!(!document.canonical().contains("decoy"));
+    }
     Ok(())
 }

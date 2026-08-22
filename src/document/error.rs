@@ -90,6 +90,25 @@ pub enum DocumentError {
         detail: String,
     },
 
+    /// One chapter's markup structure exceeds the safety budget.
+    ///
+    /// The count happens on raw bytes before any HTML5 tree allocation, so
+    /// hostile or corrupt chapters stop here instead of consuming memory.
+    #[error(
+        "'{path}' holds chapter '{member}' declaring about {nodes} markup nodes beyond \
+         the {limit} node limit; the chapter may be corrupt or hostile"
+    )]
+    ChapterTooComplex {
+        /// Safe display path of the rejected book.
+        path: String,
+        /// Canonical archive key of the rejected chapter.
+        member: String,
+        /// Counted markup openings in the chapter source.
+        nodes: usize,
+        /// Inclusive policy limit that was exceeded.
+        limit: usize,
+    },
+
     /// The book declares itself pre-paginated (fixed layout).
     #[error(
         "'{path}' uses fixed layout, which TermLeaf cannot reflow; choose a reflowable \

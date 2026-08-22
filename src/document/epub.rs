@@ -13,7 +13,7 @@ use rbook::Epub;
 use super::archive::open_book_archive;
 use super::model::{Block, BlockKind, Section};
 use super::text::file_stem_title;
-use super::xhtml::{self, SemanticBlock};
+use super::xhtml::{self, SemanticBlock, XhtmlBoundsError};
 use super::{
     ArchiveLimits, Document, DocumentError, DocumentId, PreflightedArchive, canonical_key,
     sanitize_path,
@@ -26,9 +26,43 @@ use super::{
 /// Returns every [`DocumentError`] variant the archive preflight or the
 /// package parser can produce; nothing reaches the terminal when this fails.
 pub fn load_epub_file(path: &Path, limits: &ArchiveLimits) -> Result<Document, DocumentError> {
-    let display = sanitize_path(&path.display().to_string());
-    let snapshot = open_book_archive(path, limits).map_err(DocumentError::from)?;
-    build_document(&display, &snapshot)
+    EpubSnapshot::open(path, limits)?.build()
+}
+
+/// One EPUB source read exactly once and fully inspected.
+///
+/// Opening runs every archive boundary check; [`EpubSnapshot::build`] then
+/// resolves package semantics over those same immutable bytes. The source
+/// file is closed before `open` returns, so no later step ever touches the
+/// path again (`EPUB-010`/`EPUB-016` byte stability).
+#[derive(Debug)]
+pub struct EpubSnapshot {
+    display: String,
+    archive: PreflightedArchive,
+}
+
+impl EpubSnapshot {
+    /// Stage one: reads the whole source once and preflights the archive.
+    ///
+    /// # Errors
+    ///
+    /// Returns every archive policy rejection before any semantic parsing;
+    /// nothing reaches the terminal when this fails.
+    pub fn open(path: &Path, limits: &ArchiveLimits) -> Result<Self, DocumentError> {
+        let display = sanitize_path(&path.display().to_string());
+        let archive = open_book_archive(path, limits).map_err(DocumentError::from)?;
+        Ok(Self { display, archive })
+    }
+
+    /// Stage two: builds the logical document from inspected bytes alone.
+    ///
+    /// # Errors
+    ///
+    /// Returns the typed package failures; by construction these never
+    /// depend on the current on-disk state of the source file.
+    pub fn build(&self) -> Result<Document, DocumentError> {
+        build_document(&self.display, &self.archive)
+    }
 }
 
 fn build_document(display: &str, snapshot: &PreflightedArchive) -> Result<Document, DocumentError> {
@@ -93,10 +127,15 @@ fn build_document(display: &str, snapshot: &PreflightedArchive) -> Result<Docume
             .iter()
             .find(|(label_key, _)| *label_key == key)
             .map(|(_, label)| label.clone());
-        chapters.push(ChapterContent {
-            title,
-            blocks: xhtml::convert_xhtml(source),
-        });
+        let blocks = xhtml::convert_xhtml(source).map_err(
+            |XhtmlBoundsError::TooManyNodes { nodes, limit }| DocumentError::ChapterTooComplex {
+                path: display.to_owned(),
+                member: sanitize_path(&key),
+                nodes,
+                limit,
+            },
+        )?;
+        chapters.push(ChapterContent { title, blocks });
     }
 
     let title = epub

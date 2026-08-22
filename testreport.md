@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 8:35 PM EDT
+**Last updated:** August 21, 2026 at 10:10 PM EDT
 
 ## Table of Contents
 
@@ -78,6 +78,76 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 ## Pending Commit
 
 No changes are pending inclusion in a commit.
+
+## Pending Commit
+
+### Harden structured ingestion boundaries
+
+**Commit subject:** `feat: harden structured ingestion boundaries`
+
+**Revision:** This commit
+
+**Recorded:** August 21, 2026 at 10:10 PM EDT
+
+**Behavior and risks.** Closes the two P0 security slices named by the
+tracker after manifest fallbacks. Structural bounding: XHTML chapters now
+carry an explicit markup-node budget aligned with the EPUB limits table;
+the scan counts `<` openings on raw bytes before the HTML5 tree builder
+allocates anything, so hostile or corrupt chapters stop with the new typed
+`ChapterTooComplex` error naming the book path, archive member, observed
+count, and limit instead of consuming parser memory. Boundary Method
+evidence holds exactly at the policy edge (one million openings converts,
+one million and one rejects) and under injected smaller budgets, including
+proof that the default constant matches the documented table. Byte
+stability (`DD-027` follow-through): ingestion now exposes the two stages
+as a public `EpubSnapshot`, whose `open` reads and preflights the source
+once and closes the file handle, and whose `build` resolves package
+semantics over only the inspected immutable bytes. Integration journeys
+overwrite the source with a second complete book, truncate it to zero,
+append garbage, rename it away, delete it outright, and (on Unix) swap the
+path for a symlink to a decoy edition between the two stages; every journey
+still returns the originally inspected title and passage, proving no step
+re-opens or re-reads an unchecked path. Scope note: the structural budget
+applies where TermLeaf parses directly (chapters); control documents keep
+their 16 MiB actual-byte preflight bound plus `rbook`'s non-recursive pull
+parser as compensating controls while `SEC-009` remains open for direct
+control-document gates. Real-book behavior is unchanged: all previously
+passing suites, including the Gutenberg smoke checks in the earlier report,
+still pass without fixture changes.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (116 library, 9 CLI, 13 document-I/O, 14 render, 6 property, 14 native PTY) |
+| `cargo test --doc --locked` | Pass |
+| `cargo deny check` | Pass (advisories, bans, licenses, sources) |
+| `git diff --check` | Pass |
+
+**Fixtures.** Committed FX-EPUB2/FX-EPUB3 unchanged; temporary books are
+generated per test and removed with the test process. No new fixtures.
+
+**Skipped coverage.** Hosted CI rows for this revision remain open until
+push; Windows symlink-swap runs only on Unix rows because unprivileged
+symlink creation differs there, while rename/delete halves run everywhere.
+
+**Changed paths.** `src/document/xhtml.rs`, `src/document/epub.rs`,
+`src/document/error.rs`, `src/document/mod.rs`,
+`tests/document_io.rs`, `tests/case_registry.overrides.toml`,
+`tests/case_registry.toml` (generated), tracker documents.
+
+**Selected case IDs.** `EPUB-005` (extended locations), `EPUB-010`
+(Implemented), `EPUB-016` (Implemented); `SEC-009` remains Planned with
+chapter-side progress noted in the tracker.
+
+**Cargo clean.** Deferred until the complete local Rust validation cycle
+for this change finishes; see the closing entry of this report.
 
 ## Commit Reports
 

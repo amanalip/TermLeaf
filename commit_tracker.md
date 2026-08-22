@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 21, 2026 at 8:35 PM EDT
+**Last updated:** August 21, 2026 at 10:10 PM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,44 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+Harden the structured ingestion boundaries, closing the XML-bounding and
+byte-stability slices named by the implementation tracker:
+
+- Add a markup-node budget to XHTML conversion (`src/document/xhtml.rs`):
+  a byte scan counts `<` openings before the HTML5 tree builder allocates,
+  the inclusive policy limit is one million openings per chapter matching
+  the EPUB limits table, and an injectable-limit variant gives exact
+  Boundary Method evidence (at the limit converts, one past rejects)
+  without multi-megabyte test inputs. Rejection is the new typed
+  `DocumentError::ChapterTooComplex`, naming path, member, count, and
+  limit; the existing recursion cap still bounds the walk itself.
+- Split EPUB ingestion into a public staged `EpubSnapshot`
+  (`src/document/epub.rs`): `open` reads the source once, preflights every
+  archive boundary, and closes the handle; `build` resolves package,
+  spine, navigation, and chapter semantics over only the inspected
+  immutable bytes. The one-call `load_epub_file` path composes both stages.
+- Prove byte stability with integration journeys (`tests/document_io.rs`):
+  after inspection the source is overwritten with a different complete
+  book, truncated to zero bytes, appended with garbage, renamed away,
+  deleted outright, and on Unix swapped for a decoy symlink; each build
+  still returns the originally inspected title and passage (`EPUB-010`,
+  `EPUB-016`). Rename/delete halves run on every platform because the
+  source handle is closed before `open` returns.
+- Extend `EPUB-005` locations with the node-budget tests; leave `SEC-009`
+  open with its chapter-side half landed and compensating controls named.
+
+Decisions:
+
+- **DD-028:** Chapter structure is bounded by counting `<` openings on raw
+  bytes rather than DOM nodes: every element, comment, and processing
+  instruction consumes at least one opening while plain text never does,
+  so the count bounds tree growth without parsing anything. The budget is
+  inclusive at exactly one million. Control documents (container, OPF,
+  NCX, nav) keep their existing actual-byte preflight limits plus
+  `rbook`'s non-recursive pull parser as compensating controls; extending
+  structural gates over them would require re-resolving package paths
+  TermLeaf deliberately delegates, so it waits for an explicit decision
+  under `SEC-009`.
 
 ## Commit History
 
