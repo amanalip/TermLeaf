@@ -26,8 +26,19 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-Complete the semantic content layer and Markdown support, the largest
-remaining reading slices of Phase 2:
+No changes are pending inclusion in a commit.
+
+## Commit History
+
+### Complete semantic content and Markdown
+
+**Completed:** August 22, 2026 at 12:40 AM EDT
+
+**Commit subject:** `feat: complete semantic content and markdown`
+
+**Revision:** `3ae3ae6`
+
+Changes:
 
 - Extend the document model (`src/document/model.rs`) with list items
   (nesting depth plus ordering flag), quotes, verbatim code blocks,
@@ -70,7 +81,13 @@ Decisions:
   delimiters and newline rows in canonical form so search and positions
   see plain readable lines.
 
-## Commit History
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 137 library
+  plus 9 CLI plus 15 document-I/O plus 14 render plus 6 property plus 14
+  native PTY Rust tests, doctests, cargo-deny, and diff checks passed
+  locally.
+- Hosted rows for this revision remain to be recorded on push.
 
 ### Harden the structured ingestion boundaries
 

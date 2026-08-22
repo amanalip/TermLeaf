@@ -77,11 +77,15 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit Reports
+
 ### Complete semantic content and Markdown
 
 **Commit subject:** `feat: complete semantic content and markdown`
 
-**Revision:** This commit
+**Revision:** `3ae3ae6`
 
 **Recorded:** August 22, 2026 at 12:35 AM EDT
 
@@ -140,10 +144,10 @@ slices.
 extended; `MD-003`, `MD-004`, `MD-005`, `MD-007`, `MD-010`, `MD-011`
 remain Planned with named remaining halves.
 
-**Cargo clean.** Runs at the end of this change's complete validation
-cycle; see the closing record.
+**Cargo clean.** The complete local Rust validation cycle for this change
+ends with `cargo clean`, which removed 4,614 files (1.4 GiB).
 
-## Commit Reports
+
 
 ### Harden structured ingestion boundaries
 
