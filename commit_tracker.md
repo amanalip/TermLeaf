@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 21, 2026 at 10:10 PM EDT
+**Last updated:** August 21, 2026 at 10:25 PM EDT
 
 ## Table of Contents
 
@@ -26,8 +26,19 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-Harden the structured ingestion boundaries, closing the XML-bounding and
-byte-stability slices named by the implementation tracker:
+No changes are pending inclusion in a commit.
+
+## Commit History
+
+### Harden the structured ingestion boundaries
+
+**Completed:** August 21, 2026 at 10:22 PM EDT
+
+**Commit subject:** `feat: harden structured ingestion boundaries`
+
+**Revision:** `437ea4c`
+
+Changes:
 
 - Add a markup-node budget to XHTML conversion (`src/document/xhtml.rs`):
   a byte scan counts `<` openings before the HTML5 tree builder allocates,
@@ -65,7 +76,13 @@ Decisions:
   TermLeaf deliberately delegates, so it waits for an explicit decision
   under `SEC-009`.
 
-## Commit History
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 116 library
+  plus 9 CLI plus 13 document-I/O plus 14 render plus 6 property plus 14
+  native PTY Rust tests, doctests, cargo-deny, and diff checks passed
+  locally; `cargo clean` removed 4,052 files (1.2 GiB).
+- Hosted rows for this revision remain to be recorded on push.
 
 ### Start the structured book ingestion
 

@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 10:10 PM EDT
+**Last updated:** August 21, 2026 at 10:25 PM EDT
 
 ## Table of Contents
 
@@ -79,13 +79,13 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 No changes are pending inclusion in a commit.
 
-## Pending Commit
+## Commit Reports
 
 ### Harden structured ingestion boundaries
 
 **Commit subject:** `feat: harden structured ingestion boundaries`
 
-**Revision:** This commit
+**Revision:** `437ea4c`
 
 **Recorded:** August 21, 2026 at 10:10 PM EDT
 
@@ -146,10 +146,8 @@ symlink creation differs there, while rename/delete halves run everywhere.
 (Implemented), `EPUB-016` (Implemented); `SEC-009` remains Planned with
 chapter-side progress noted in the tracker.
 
-**Cargo clean.** Deferred until the complete local Rust validation cycle
-for this change finishes; see the closing entry of this report.
-
-## Commit Reports
+**Cargo clean.** The complete local Rust validation cycle for this change
+ends with `cargo clean`, which removed 4,052 files (1.2 GiB).
 
 ### Start the structured book ingestion
 
