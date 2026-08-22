@@ -77,11 +77,15 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+No changes are pending inclusion in a commit.
+
+## Commit Reports
+
 ### Add table of contents navigation
 
 **Commit subject:** `feat: add table of contents navigation`
 
-**Revision:** This commit
+**Revision:** `9d09e27`
 
 **Recorded:** August 22, 2026 at 1:20 AM EDT
 
@@ -110,9 +114,10 @@ a PTY journey for the overlay joins the Phase 2 gate evidence batch.
 
 **Selected case IDs.** `NAV-009` locations extended (TOC half).
 
-**Cargo clean.** Runs after this change's complete validation cycle.
+**Cargo clean.** The complete local Rust validation cycle for this change
+ends with `cargo clean`, which removed 4,742 files (1.4 GiB).
 
-## Commit Reports
+
 
 ### Complete semantic content and Markdown
 

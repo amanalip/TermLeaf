@@ -26,8 +26,19 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-Add table-of-contents navigation, the interactive navigation half of the
-Phase 2 structured-book work:
+No changes are pending inclusion in a commit.
+
+## Commit History
+
+### Add table of contents navigation
+
+**Completed:** August 22, 2026 at 1:25 AM EDT
+
+**Commit subject:** `feat: add table of contents navigation`
+
+**Revision:** `9d09e27`
+
+Changes:
 
 - `Action::ShowToc` joins the registry bound to both `o` and `F2`
   (`DD-019` family: one mnemonic single key plus a conventional function
@@ -49,7 +60,13 @@ Decisions:
   validated section-start step so TOC jumps cannot produce anchors that
   line/page navigation cannot reproduce.
 
-## Commit History
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 140 library
+  plus 9 CLI plus 15 document-I/O plus 14 render plus 6 property plus 14
+  native PTY Rust tests, doctests, cargo-deny, and diff checks passed
+  locally.
+- Hosted rows for this revision remain to be recorded on push.
 
 ### Complete semantic content and Markdown
 
