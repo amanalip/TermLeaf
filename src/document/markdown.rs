@@ -13,7 +13,9 @@ use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use super::{
     error::{DocumentError, sanitize_path},
-    model::{Block, BlockKind, Document, DocumentId, InlineKind, InlineSpan},
+    model::{
+        Block, BlockKind, Document, DocumentId, ImageRef, ImageResource, InlineKind, InlineSpan,
+    },
     text::{TextLimits, file_stem_title},
 };
 
@@ -293,6 +295,12 @@ struct ParserState {
     inline_stack: Vec<Option<InlineKind>>,
     list_stack: Vec<bool>,
     table: Option<TableBuffer>,
+    /// Declared image destinations plus the kind of block each placeholder
+    /// split, awaiting their collected alt text.
+    image_stack: Vec<(String, Option<BlockKind>)>,
+    /// When set, text events feed the alt-text capture instead of the open
+    /// block; tables keep the legacy plain-text behavior instead.
+    alt_capture: Option<String>,
 }
 
 impl ParserState {
@@ -366,8 +374,19 @@ impl ParserState {
             Tag::Emphasis => self.inline_stack.push(Some(InlineKind::Emphasis)),
             Tag::Strong => self.inline_stack.push(Some(InlineKind::Strong)),
             Tag::Link { .. } => self.inline_stack.push(Some(InlineKind::Link)),
-            // Image alt text survives as plain reading text.
-            Tag::Image { .. } => self.inline_stack.push(None),
+            // Images split the open flow and capture their alt text; inside
+            // table cells the alt text stays part of the cell instead.
+            Tag::Image { dest_url, .. } => {
+                if self.table.is_some() {
+                    self.inline_stack.push(None);
+                } else {
+                    let reopened = self.pending.as_ref().map(|block| block.kind);
+                    self.flush();
+                    self.image_stack
+                        .push((dest_url.as_ref().to_owned(), reopened));
+                    self.alt_capture = Some(String::new());
+                }
+            }
             _ => {}
         }
     }
@@ -403,11 +422,43 @@ impl ParserState {
                 self.flush();
                 self.commit_table();
             }
-            TagEnd::Emphasis | TagEnd::Strong | TagEnd::Link | TagEnd::Image => {
+            TagEnd::Emphasis | TagEnd::Strong | TagEnd::Link => {
                 self.inline_stack.pop();
+            }
+            TagEnd::Image => {
+                if self.table.is_some() {
+                    self.inline_stack.pop();
+                } else if let Some((dest, reopened)) = self.image_stack.pop() {
+                    let alt = self.alt_capture.take().map(|text| {
+                        let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                        if collapsed.is_empty() {
+                            None
+                        } else {
+                            Some(collapsed)
+                        }
+                    });
+                    self.emit_image(&dest, alt.flatten());
+                    // Flow resumes in the kind of block the placeholder
+                    // split, so trailing words are never dropped.
+                    if let Some(kind) = reopened {
+                        self.pending = Some(PendingBlock::new(kind, false));
+                    }
+                }
             }
             _ => {}
         }
+    }
+
+    /// Commits one image placeholder block with its caption line.
+    fn emit_image(&mut self, dest: &str, alt: Option<String>) {
+        let info = ImageRef::new(dest, alt);
+        self.out.separate(BlockKind::Image);
+        let start = self.out.canonical.len();
+        self.out.canonical.push_str(&info.caption());
+        self.out.blocks.push(Block::image(
+            start..self.out.canonical.len(),
+            markdown_image_resource(dest),
+        ));
     }
 
     fn commit_table(&mut self) {
@@ -451,6 +502,8 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
         inline_stack: Vec::new(),
         list_stack: Vec::new(),
         table: None,
+        image_stack: Vec::new(),
+        alt_capture: None,
     };
 
     for event in parser {
@@ -458,26 +511,38 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
             Event::Start(tag) => state.start(&tag),
             Event::End(tag) => state.end(tag),
             Event::Text(text) => {
-                let kind = state.current_kind();
-                if let Some(buffer) = state.table.as_mut() {
-                    buffer.current_cell.push_str(&text);
-                } else if let Some(block) = state.pending.as_mut() {
-                    block.push_text(&text, kind);
+                if let Some(capture) = state.alt_capture.as_mut() {
+                    capture.push_str(&text);
+                } else {
+                    let kind = state.current_kind();
+                    if let Some(buffer) = state.table.as_mut() {
+                        buffer.current_cell.push_str(&text);
+                    } else if let Some(block) = state.pending.as_mut() {
+                        block.push_text(&text, kind);
+                    }
                 }
             }
             Event::Code(code) => {
-                if let Some(block) = state.pending.as_mut() {
+                if let Some(capture) = state.alt_capture.as_mut() {
+                    capture.push_str(&code);
+                } else if let Some(block) = state.pending.as_mut() {
                     block.push_text(&code, Some(InlineKind::Code));
                 }
             }
             Event::SoftBreak => {
-                let kind = state.current_kind();
-                if let Some(block) = state.pending.as_mut() {
-                    block.push_char(' ', kind);
+                if let Some(capture) = state.alt_capture.as_mut() {
+                    capture.push(' ');
+                } else {
+                    let kind = state.current_kind();
+                    if let Some(block) = state.pending.as_mut() {
+                        block.push_char(' ', kind);
+                    }
                 }
             }
             Event::HardBreak => {
-                if let Some(block) = state.pending.as_mut() {
+                if let Some(capture) = state.alt_capture.as_mut() {
+                    capture.push(' ');
+                } else if let Some(block) = state.pending.as_mut() {
                     block.push_str_raw("\n", None);
                 }
             }
@@ -518,6 +583,25 @@ fn heading_level(level: HeadingLevel) -> u8 {
         HeadingLevel::H4 => 4,
         HeadingLevel::H5 => 5,
         HeadingLevel::H6 => 6,
+    }
+}
+
+/// Classifies one Markdown image destination under the lazy-resource policy.
+///
+/// Plain relative paths stay fetchable references into the book's own
+/// neighborhood (their byte length is unknown until a decode pass opens
+/// them); absolute, parent-escaping, and scheme-prefixed targets become
+/// blocked resources that must never be fetched.
+fn markdown_image_resource(dest: &str) -> ImageResource {
+    let path = dest.split(['#', '?']).next().unwrap_or_default();
+    let fetchable = !path.is_empty()
+        && !path.starts_with(['/', '\\'])
+        && !path.contains(':')
+        && path.split(['/', '\\']).all(|segment| segment != "..");
+    if fetchable {
+        ImageResource::member(path, None)
+    } else {
+        ImageResource::blocked()
     }
 }
 
@@ -695,5 +779,104 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    fn image_blocks(document: &Document) -> Vec<&Block> {
+        document.sections()[0]
+            .blocks()
+            .iter()
+            .filter(|block| block.kind() == BlockKind::Image)
+            .collect()
+    }
+
+    #[test]
+    fn md_004_standalone_images_become_caption_blocks_with_local_references() {
+        let source = "intro line\n\n![a red square](images/red.png)\n\nafter\n";
+        let document =
+            parse_markdown(DocumentId::new("md004".to_owned()), None, source).expect("parses");
+
+        assert_eq!(
+            document.canonical(),
+            "intro line\n[image: a red square]\nafter"
+        );
+        let images = image_blocks(&document);
+        assert_eq!(images.len(), 1);
+        let resource = images[0].resource().expect("image resource");
+        assert_eq!(resource.reference(), Some("images/red.png"));
+        assert_eq!(resource.byte_len(), None);
+        assert!(resource.is_fetchable());
+    }
+
+    #[test]
+    fn md_004_mid_paragraph_images_split_flow_like_xhtml() {
+        let source = "before ![first](one.png) middle ![](two.png) tail\n";
+        let document =
+            parse_markdown(DocumentId::new("md004b".to_owned()), None, source).expect("parses");
+
+        let rendered: Vec<(BlockKind, String)> = document.sections()[0]
+            .blocks()
+            .iter()
+            .enumerate()
+            .map(|(index, block)| {
+                (
+                    block.kind(),
+                    document.block_text(0, index).unwrap_or_default().to_owned(),
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            rendered,
+            vec![
+                (BlockKind::Paragraph, "before".to_owned()),
+                (BlockKind::BlankLine, "\n".to_owned()),
+                (BlockKind::Image, "[image: first]".to_owned()),
+                (BlockKind::BlankLine, "\n".to_owned()),
+                (BlockKind::Paragraph, "middle".to_owned()),
+                (BlockKind::BlankLine, "\n".to_owned()),
+                (BlockKind::Image, "[image]".to_owned()),
+                (BlockKind::BlankLine, "\n".to_owned()),
+                (BlockKind::Paragraph, "tail".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn md_004_remote_escaping_and_absolute_targets_never_stay_fetchable() {
+        for dest in [
+            "http://host/x.png",
+            "https://host/x.png",
+            "data:image/png;base64,AAAA",
+            "/etc/passwd",
+            "../outside.png",
+            "a/../../escape.png",
+        ] {
+            let source = format!("![alt text]({dest})\n");
+            let document = parse_markdown(DocumentId::new(format!("md004-{dest}")), None, &source)
+                .expect("parses");
+            let images = image_blocks(&document);
+            assert_eq!(images.len(), 1, "{dest}");
+            let resource = images[0].resource().expect("resource present");
+            assert!(!resource.is_fetchable(), "{dest} must stay blocked");
+            assert_eq!(resource.reference(), None, "{dest}");
+        }
+
+        // The caption keeps the alt text either way.
+        let source = "![alt words](http://host/x.png)\n";
+        let document =
+            parse_markdown(DocumentId::new("md004-alt".to_owned()), None, source).expect("parses");
+        assert_eq!(document.block_text(0, 0), Some("[image: alt words]"));
+    }
+
+    #[test]
+    fn md_008_raw_html_images_stay_completely_inert() {
+        let source = "<img src=\"http://host/x.png\" alt=\"remote\">\n";
+        let document =
+            parse_markdown(DocumentId::new("md008b".to_owned()), None, source).expect("parses");
+        assert!(
+            image_blocks(&document).is_empty(),
+            "raw HTML never becomes a resource reference"
+        );
+        assert!(!document.canonical().contains("http"));
     }
 }

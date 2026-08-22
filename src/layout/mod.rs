@@ -195,7 +195,13 @@ fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
                     block: block_index,
                     ..VisualRow::default()
                 }),
-                BlockKind::Paragraph | BlockKind::Separator | BlockKind::Heading { .. } => {
+                BlockKind::Paragraph
+                | BlockKind::Separator
+                | BlockKind::Heading { .. }
+                | BlockKind::Image => {
+                    // Image blocks wrap their caption line like prose; the
+                    // frame and pixel placement arrive with the rendering
+                    // slice.
                     list_counters = [0u64; 8];
                     let text = document
                         .block_text(section_index, block_index)
@@ -1092,6 +1098,32 @@ mod semantic_tests {
                 "emphasized words spanning the wrap boundary",
                 "width {width}: decoration covers the full run"
             );
+        }
+    }
+
+    #[test]
+    fn epub_013_image_captions_wrap_within_every_width() {
+        let source = concat!(
+            "before\n\n![a long alternative text that must wrap ",
+            "somewhere across rows](pic.png)\n\nafter\n"
+        );
+        let document = md(source);
+        for width in [10u16, 14, 22] {
+            let layout = layout_document(&document, width);
+            for row in layout.rows() {
+                assert!(
+                    row.cells() <= width,
+                    "width {width}: {:?}",
+                    row.text(&document)
+                );
+            }
+            let rendered = rows(&document, width);
+            assert!(
+                rendered.iter().any(|row| row.starts_with("[image:")),
+                "width {width}: the caption renders"
+            );
+            assert_eq!(rendered[0], "before");
+            assert_eq!(*rendered.last().expect("rows"), "after");
         }
     }
 }

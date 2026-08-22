@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 22, 2026 at 6:04 PM EDT
+**Last updated:** August 22, 2026 at 7:14 PM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,56 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Wire image ingestion into books
+
+**Behavior and risks.** Declared images now survive ingestion in both
+structured formats. The XHTML converter turns every `<img>` into a caption
+placeholder: mid-flow images split the enclosing paragraph, heading, quote,
+or list item into text-image-text blocks (whitespace-only stretches drop,
+decorations re-base exactly), element-level `<img>` surfaces too, and no
+declared image silently vanishes. Markdown `![alt](dest)` follows the same
+shape through the event stream — the split block reopens with its original
+kind so trailing words are never dropped — while raw-HTML `<img>` stays
+completely inert. Captions tile into canonical text as `[image: alt]` or
+`[image]`, so positions and search keep working. EPUB assembly resolves each
+declared source against its chapter directory over the same inspected
+archive: fragments/queries strip, percent escapes decode strictly, scheme
+prefixes (`http:`, `data:`, `javascript:`) reject, dot segments merge without
+escaping the package root, and only members present in the preflighted
+archive resolve to lazy `ImageResource::member(key, declared_size)`
+references; everything else becomes an unfetchable resource whose caption
+still renders. Markdown destinations classify under the same policy for
+loose relative paths. Layout wraps caption rows within every width. The
+document model never holds pixels — decode stays lazy behind the reference.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass (after regenerate) |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (161 library, 9 CLI, 16 document-I/O, 14 render, 6 property, 14 native PTY) |
+| `cargo test --doc --locked` | Pass |
+| `cargo deny check` | Pass |
+
+**Fixtures.** No committed fixtures changed; the integration journey
+generates an EPUB containing one programmatic 2x2 red PNG member plus
+hostile-target variants in temporary files.
+
+**Skipped coverage.** Pixel rendering (half-block/caption frames), worker
+queues and loading/cancellation states, protocol detection, SVG/SVGZ vector
+decoding, and hosted environment rows stay with their owning slices.
+`EPUB-013` remains Planned until render-profile evidence lands.
+
+**Selected case IDs.** `MD-004` marked Implemented; locations registered
+under `EPUB-013`, `MD-004`.
+
+**Cargo clean.** The complete local Rust validation cycle for this change
+ends with `cargo clean`.
 
 ## Commit Reports
 

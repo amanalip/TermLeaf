@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 22, 2026 at 6:04 PM EDT
+**Last updated:** August 22, 2026 at 7:14 PM EDT
 
 ## Table of Contents
 
@@ -54,7 +54,14 @@ allocation ceilings), normalizes every enabled decoder to RGBA8 with
 first-frame animation, resolves formats extension-first with magic winning,
 and rejects truncated, corrupt, oversized, and foreign inputs typed
 (`IMG-001`, `IMG-006`, `IMG-007` implemented; `IMG-002`, `IMG-005`,
-`IMG-012`, `SUP-009` locations registered). Phase 1 remains complete with its frozen gate
+`IMG-012`, `SUP-009` locations registered). The image ingestion slice
+landed: XHTML `<img>` and Markdown `![alt](dest)` both become caption
+placeholder blocks that split mid-flow without dropping surrounding text,
+EPUB sources resolve chapter-relatively over the inspected archive into
+lazy member references (strict percent decoding, scheme rejection,
+non-escaping dot merging, existence checks) while external, escaping, or
+missing targets stay unfetchable with captions intact (`MD-004`
+implemented; `EPUB-013` locations registered). Phase 1 remains complete with its frozen gate
 passed locally and on every required hosted environment row (run
 `32535725291`). Cross-phase gate members are owned forward by DD-026; the
 next Phase 2 slices wire `<img>` ingestion into EPUB/Markdown chapters and
@@ -79,7 +86,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, byte-stability instrumentation, and the bounded raster-decode core with typed resource errors pass locally; image UI integration (`<img>` ingestion, half-block/caption rendering), worker queues and loading/cancellation states, protocol detection, TOC side-panel layout, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
+| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, byte-stability instrumentation, the bounded raster-decode core with typed resource errors, and caption-block image ingestion with archive-bounded lazy resolution pass locally; image rendering (half-block/caption frames), worker queues and loading/cancellation states, protocol detection, TOC side-panel layout, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -128,7 +135,7 @@ already inside the six phases; it does not add another phase.
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
 | EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, manifest fallbacks, full semantic XHTML conversion (lists, quotes, code, tables, inline roles) with a pre-parse markup-node budget, and proven byte stability across source mutations pass; link activation, images, control-document structural gates, and fuzz coverage arrive with later slices. |
 | Markdown format | In progress | Source-aware pulldown-cmark parsing maps headings, paragraphs, nested lists, quotes, fenced/indented code, rules, GFM tables, and inline roles into the shared model under the shared byte budget with raw HTML inert; language tags, link targets, source-offset fidelity, and render-profile cases arrive with their owning slices. |
-| Inline images | In progress | The bounded raster-decode core passes: `ImageLimits` policy from the locked table, policy-ordered rejection (input bytes before parsing, header-only dimensions, pixels, per-family allocation ceilings), RGBA8 normalization with first-frame animation, extension-first format resolution with magic winning, typed errors for truncated/corrupt/oversized/foreign inputs, and generated-fixture round trips across all fourteen enabled decoders; `<img>` ingestion into EPUB/Markdown, half-block and caption rendering, worker queues with loading/cancellation states, SVG/SVGZ vector decoding, protocol detection, and PTY evidence arrive with their owning slices. |
+| Inline images | In progress | The bounded raster-decode core passes: `ImageLimits` policy from the locked table, policy-ordered rejection (input bytes before parsing, header-only dimensions, pixels, per-family allocation ceilings), RGBA8 normalization with first-frame animation, extension-first format resolution with magic winning, typed errors for truncated/corrupt/oversized/foreign inputs, and generated-fixture round trips across all fourteen enabled decoders. Image ingestion passes: XHTML `<img>` and Markdown images become caption placeholder blocks that split mid-flow, EPUB sources resolve chapter-relatively into lazy member references while hostile targets stay unfetchable. Caption frames, half-block pixel rendering, worker queues with loading/cancellation states, SVG/SVGZ vector decoding, protocol detection, and PTY evidence arrive with their owning slices. |
 
 ## The Bookshelf
 

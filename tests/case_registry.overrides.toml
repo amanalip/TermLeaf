@@ -915,3 +915,27 @@ last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 [cases.SUP-009]
 location = ["src/document/image.rs::resolution_is_extension_first_with_magic_winning_when_present"]
 last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
+
+[cases.MD-004]
+status = "Implemented"
+location = [
+    "src/document/markdown.rs::md_004_standalone_images_become_caption_blocks_with_local_references",
+    "src/document/markdown.rs::md_004_mid_paragraph_images_split_flow_like_xhtml",
+    "src/document/markdown.rs::md_004_remote_escaping_and_absolute_targets_never_stay_fetchable",
+    "src/document/markdown.rs::md_008_raw_html_images_stay_completely_inert",
+]
+last_evidence = ["testreport.md#wire-image-ingestion-into-books"]
+
+[cases.EPUB-013]
+location = [
+    "src/document/xhtml.rs::epub_013_image_between_paragraphs_becomes_one_caption_block",
+    "src/document/xhtml.rs::epub_013_mid_paragraph_images_split_flow_and_keep_decorations",
+    "src/document/xhtml.rs::epub_013_element_level_and_list_item_images_still_surface",
+    "src/document/epub.rs::relative_sources_merge_against_the_chapter_directory",
+    "src/document/epub.rs::dot_segments_merge_without_escaping_the_package_root",
+    "src/document/epub.rs::schemes_fragments_and_queries_strip_or_reject",
+    "src/document/epub.rs::percent_escapes_decode_strictly_or_reject",
+    "tests/document_io.rs::epub_013_embedded_images_resolve_to_lazy_member_resources",
+    "src/layout/mod.rs::epub_013_image_captions_wrap_within_every_width",
+]
+last_evidence = ["testreport.md#wire-image-ingestion-into-books"]

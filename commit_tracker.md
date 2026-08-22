@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 22, 2026 at 6:04 PM EDT
+**Last updated:** August 22, 2026 at 7:14 PM EDT
 
 ## Table of Contents
 
@@ -26,7 +26,29 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Wire image ingestion into books
+
+**Intended subject:** `feat: wire image ingestion into books`
+
+Choices with lasting consequences:
+
+- Images enter the document model as caption placeholder blocks
+  (`BlockKind::Image`) whose canonical text is exactly `[image: alt]` or
+  `[image]`; the model never holds pixels. Decoding stays lazy behind a new
+  `ImageResource` reference (container member key plus declared size, or an
+  unfetchable marker), so hostile books cannot force decode work by merely
+  being opened.
+- Mid-flow images split the enclosing flow in both XHTML and Markdown, and
+  the Markdown split reopens the original block kind so trailing words are
+  never dropped. Raw-HTML `<img>` remains completely inert.
+- EPUB resolution is chapter-relative and archive-bounded: strict percent
+  decoding, scheme rejection, dot-segment merging that cannot escape the
+  package root, and existence checks against the preflighted archive only.
+  Unresolvable targets stay visible as captions but are marked unfetchable.
+- Markdown destinations classify under the same policy: plain relative
+  paths keep fetchable references (byte length unknown until read);
+  absolute, parent-escaping, colon-bearing (scheme or drive), and escaping
+  targets block.
 
 ## Commit History
 

@@ -37,6 +37,7 @@ pub struct Block {
     kind: BlockKind,
     range: Range<usize>,
     cells: Vec<Range<usize>>,
+    resource: Option<ImageResource>,
 }
 
 impl Block {
@@ -51,6 +52,7 @@ impl Block {
             kind,
             range,
             cells: Vec::new(),
+            resource: None,
         }
     }
 
@@ -66,6 +68,22 @@ impl Block {
             kind: BlockKind::Table,
             range,
             cells,
+            resource: None,
+        }
+    }
+
+    /// Creates an image placeholder block over its caption line.
+    ///
+    /// The canonical text covered by `range` is exactly the caption; the
+    /// lazy [`ImageResource`] records how a later decode pass reaches the
+    /// pixels without ever holding them here.
+    #[must_use]
+    pub const fn image(range: Range<usize>, resource: ImageResource) -> Self {
+        Self {
+            kind: BlockKind::Image,
+            range,
+            cells: Vec::new(),
+            resource: Some(resource),
         }
     }
 
@@ -85,6 +103,12 @@ impl Block {
     #[must_use]
     pub const fn cells(&self) -> &Vec<Range<usize>> {
         &self.cells
+    }
+
+    /// The lazy backing resource; present only for image blocks.
+    #[must_use]
+    pub const fn resource(&self) -> Option<&ImageResource> {
+        self.resource.as_ref()
     }
 
     /// Extends the range end during assembly.
@@ -124,6 +148,9 @@ pub enum BlockKind {
     Separator,
     /// A table whose canonical rows join cells with a pipe delimiter.
     Table,
+    /// An embedded image; canonical text holds only its caption line and the
+    /// pixels stay lazy behind the block's resource reference.
+    Image,
 }
 
 /// Inline semantic role applied to a canonical byte range.
@@ -163,6 +190,106 @@ impl InlineSpan {
     #[must_use]
     pub const fn kind(&self) -> InlineKind {
         self.kind
+    }
+}
+
+/// Parser-level description of one embedded image placeholder.
+///
+/// Parsers record the source reference and alternative text exactly as the
+/// book declares them; resolution against a container happens later, so
+/// hostile or external targets never influence parsing itself.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImageRef {
+    src: String,
+    alt: Option<String>,
+}
+
+impl ImageRef {
+    /// Creates a placeholder description from declared attributes.
+    #[must_use]
+    pub fn new(src: impl Into<String>, alt: Option<String>) -> Self {
+        Self {
+            src: src.into(),
+            alt,
+        }
+    }
+
+    /// The source reference exactly as declared.
+    #[must_use]
+    pub fn src(&self) -> &str {
+        &self.src
+    }
+
+    /// The alternative text when the book supplies one.
+    #[must_use]
+    pub fn alt(&self) -> Option<&str> {
+        self.alt.as_deref()
+    }
+
+    /// The canonical caption line for this placeholder.
+    ///
+    /// The line is the block's whole canonical text, so captions tile like
+    /// any other block content and stay addressable by reading positions.
+    #[must_use]
+    pub fn caption(&self) -> String {
+        match self.alt() {
+            Some(alt) if !alt.trim().is_empty() => format!("[image: {}]", alt.trim()),
+            _ => "[image]".to_owned(),
+        }
+    }
+}
+
+/// Lazy backing reference for one resolved image block.
+///
+/// The document never holds decoded pixels: `reference` names the container
+/// member a later decode pass reads under [`crate::document::ImageLimits`],
+/// and it stays `None` for external or unresolvable targets that must never
+/// be fetched.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImageResource {
+    reference: Option<String>,
+    byte_len: Option<u64>,
+}
+
+impl ImageResource {
+    /// Creates a resource pointing at one resolvable container member.
+    ///
+    /// The byte length is known for archive members and unknown for loose
+    /// file references.
+    #[must_use]
+    pub fn member(reference: impl Into<String>, byte_len: Option<u64>) -> Self {
+        Self {
+            reference: Some(reference.into()),
+            byte_len,
+        }
+    }
+
+    /// Creates an unresolved resource that must never be fetched.
+    #[must_use]
+    pub const fn blocked() -> Self {
+        Self {
+            reference: None,
+            byte_len: None,
+        }
+    }
+
+    /// The canonical container member key, when the image resolves inside
+    /// the book.
+    #[must_use]
+    pub fn reference(&self) -> Option<&str> {
+        self.reference.as_deref()
+    }
+
+    /// The container-reported byte length, when known.
+    #[must_use]
+    pub const fn byte_len(&self) -> Option<u64> {
+        self.byte_len
+    }
+
+    /// Whether a decode pass may read this resource at all.
+    #[must_use]
+    pub const fn is_fetchable(&self) -> bool {
+        self.reference.is_some()
     }
 }
 

@@ -42,6 +42,7 @@ pub fn load_book_file(
     }
 }
 pub use model::{
-    Block, BlockKind, Document, DocumentId, InlineKind, InlineSpan, Position, Section,
+    Block, BlockKind, Document, DocumentId, ImageRef, ImageResource, InlineKind, InlineSpan,
+    Position, Section,
 };
 pub use text::TextLimits;

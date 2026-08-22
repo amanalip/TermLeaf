@@ -11,7 +11,7 @@ use std::ops::Range;
 
 use scraper::{Html, Node};
 
-use super::model::{BlockKind, InlineKind};
+use super::model::{BlockKind, ImageRef, InlineKind};
 
 /// One converted logical block with its display text.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -24,6 +24,8 @@ pub struct SemanticBlock {
     pub inline: Vec<SemanticInline>,
     /// Row-major cell ranges within `text`; non-empty only for tables.
     pub cells: Vec<Range<usize>>,
+    /// Declared image placeholder; present exactly for image blocks.
+    pub image: Option<ImageRef>,
 }
 
 impl SemanticBlock {
@@ -33,6 +35,7 @@ impl SemanticBlock {
             text,
             inline: Vec::new(),
             cells: Vec::new(),
+            image: None,
         }
     }
 }
@@ -45,6 +48,16 @@ pub struct SemanticInline {
     /// The role the terminal may render with attributes or color.
     pub kind: InlineKind,
 }
+
+/// One embedded image encountered inside flowing content.
+///
+/// Flow splitting turns each entry into its own image block; the range is
+/// the sentinel's span inside the pre-split collapsed text and exists only
+/// during conversion.
+type EmbeddedImage = (Range<usize>, ImageRef);
+
+/// Sentinel marking an embedded image inside collapsed text.
+const IMAGE_SENTINEL: char = '\u{FFFC}';
 
 /// Structural rejection when a chapter exceeds the markup safety budget.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
@@ -129,17 +142,15 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, blocks: &mut Vec<Semant
                 return;
             }
             if let Some(level) = heading_level(name) {
-                push_decorated(
-                    blocks,
-                    BlockKind::Heading { level },
-                    collapse_inline(&node, depth),
-                );
+                let (text, inline, images) = collapse_inline(&node, depth);
+                push_flow(blocks, BlockKind::Heading { level }, text, inline, images);
                 // Heading containers never recurse; their subtree was
                 // already consumed as decorated inline content.
                 return;
             }
             if name == "p" {
-                push_decorated(blocks, BlockKind::Paragraph, collapse_inline(&node, depth));
+                let (text, inline, images) = collapse_inline(&node, depth);
+                push_flow(blocks, BlockKind::Paragraph, text, inline, images);
                 return;
             }
             if name == "ul" || name == "ol" {
@@ -155,7 +166,12 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, blocks: &mut Vec<Semant
                 return;
             }
             if name == "blockquote" {
-                push_decorated(blocks, BlockKind::Quote, collapse_inline(&node, depth));
+                let (text, inline, images) = collapse_inline(&node, depth);
+                push_flow(blocks, BlockKind::Quote, text, inline, images);
+                return;
+            }
+            if name == "img" {
+                embed_image_element(&node, blocks);
                 return;
             }
             if name == "pre" {
@@ -191,20 +207,77 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, blocks: &mut Vec<Semant
 }
 
 /// Pushes one block built from a decorated collapse when it has content.
-fn push_decorated(
+///
+/// Embedded images split the enclosing flow: surrounding text keeps the
+/// enclosing kind while each placeholder becomes its own image block whose
+/// canonical text is exactly its caption line.
+fn push_flow(
     blocks: &mut Vec<SemanticBlock>,
     kind: BlockKind,
-    collapsed: (String, Vec<SemanticInline>),
+    text: String,
+    inline: Vec<SemanticInline>,
+    images: Vec<EmbeddedImage>,
 ) {
-    let (text, inline) = collapsed;
-    if !text.is_empty() {
-        blocks.push(SemanticBlock {
-            kind,
-            text,
-            inline,
-            cells: Vec::new(),
-        });
+    if images.is_empty() {
+        if !text.is_empty() {
+            blocks.push(SemanticBlock {
+                kind,
+                text,
+                inline,
+                cells: Vec::new(),
+                image: None,
+            });
+        }
+        return;
     }
+
+    let mut cursor = 0usize;
+    for (range, info) in images {
+        emit_flow_piece(blocks, kind, &text, &inline, cursor..range.start);
+        blocks.push(SemanticBlock {
+            kind: BlockKind::Image,
+            text: info.caption(),
+            inline: Vec::new(),
+            cells: Vec::new(),
+            image: Some(info),
+        });
+        cursor = range.end;
+    }
+    emit_flow_piece(blocks, kind, &text, &inline, cursor..text.len());
+}
+
+/// Emits one image-free stretch of a split flow, dropping whitespace-only
+/// stretches and re-basing decorations onto the trimmed piece.
+fn emit_flow_piece(
+    blocks: &mut Vec<SemanticBlock>,
+    kind: BlockKind,
+    full: &str,
+    inline: &[SemanticInline],
+    window: Range<usize>,
+) {
+    let piece = full.get(window.clone()).unwrap_or_default();
+    let lead = piece.len() - piece.trim_start().len();
+    let trail = piece.len() - piece.trim_end().len();
+    let start = window.start + lead;
+    let end = window.end.saturating_sub(trail);
+    if start >= end {
+        return;
+    }
+    let shifted = inline
+        .iter()
+        .filter(|run| run.range.start >= start && run.range.end <= end)
+        .map(|run| SemanticInline {
+            range: run.range.start - start..run.range.end - start,
+            kind: run.kind,
+        })
+        .collect();
+    blocks.push(SemanticBlock {
+        kind,
+        text: full[start..end].to_owned(),
+        inline: shifted,
+        cells: Vec::new(),
+        image: None,
+    });
 }
 
 /// Emits one list item plus any nested lists as deeper sibling items.
@@ -223,14 +296,16 @@ fn push_list_item(
     let mut builder = InlineBuilder::default();
     builder.break_line();
     collect_inline(node, depth + 1, None, true, &mut builder);
-    let (text, kinds) = builder.finish();
-    push_decorated(
+    let (text, kinds, images) = builder.finish();
+    push_flow(
         blocks,
         BlockKind::ListItem {
             depth: list_depth,
             ordered,
         },
-        (text, runs_from_kinds(&kinds)),
+        text,
+        runs_from_kinds(&kinds),
+        images,
     );
 
     for (list_node, nested_ordered) in nested_lists(*node, depth + 1) {
@@ -321,6 +396,7 @@ fn convert_table(node: &ego_tree::NodeRef<'_, Node>, depth: usize) -> Option<Sem
         text,
         inline: Vec::new(),
         cells: ranges,
+        image: None,
     })
 }
 
@@ -397,21 +473,43 @@ fn heading_level(name: &str) -> Option<u8> {
     Some(level)
 }
 
+/// Emits one image block for an element-level `<img>`.
+///
+/// Images sitting directly in block flow (not inside a paragraph or item)
+/// still become caption-bearing placeholders so no declared image vanishes.
+fn embed_image_element(node: &ego_tree::NodeRef<'_, Node>, blocks: &mut Vec<SemanticBlock>) {
+    let Node::Element(element) = node.value() else {
+        return;
+    };
+    let info = ImageRef::new(
+        element.attr("src").unwrap_or_default(),
+        element.attr("alt").map(str::to_owned),
+    );
+    blocks.push(SemanticBlock {
+        kind: BlockKind::Image,
+        text: info.caption(),
+        inline: Vec::new(),
+        cells: Vec::new(),
+        image: Some(info),
+    });
+}
+
 /// Collects visible inline text under `node` with its semantic roles.
 ///
 /// Line-break elements become logical newlines between collapsed segments;
 /// every other descendant contributes decoded, whitespace-collapsed text.
-/// The returned kinds vector holds one entry per output byte so decoration
-/// ranges survive collapsing exactly.
+/// Embedded `<img>` elements become sentinel markers carrying their declared
+/// source and alternative text. The returned kinds vector holds one entry
+/// per output byte so decoration ranges survive collapsing exactly.
 fn collapse_inline(
     node: &ego_tree::NodeRef<'_, Node>,
     depth: usize,
-) -> (String, Vec<SemanticInline>) {
+) -> (String, Vec<SemanticInline>, Vec<EmbeddedImage>) {
     let mut builder = InlineBuilder::default();
     builder.break_line();
     collect_inline(node, depth, None, false, &mut builder);
-    let (text, kinds) = builder.finish();
-    (text, runs_from_kinds(&kinds))
+    let (text, kinds, images) = builder.finish();
+    (text, runs_from_kinds(&kinds), images)
 }
 
 /// One entry per byte of collapsed text: the active inline role.
@@ -422,6 +520,9 @@ type ByteKinds = Vec<Option<InlineKind>>;
 struct InlineBuilder {
     segments: Vec<String>,
     kinds: Vec<ByteKinds>,
+    /// Declared images per segment as byte offsets within that segment;
+    /// `finish` shifts them into final-text coordinates.
+    images: Vec<Vec<(usize, ImageRef)>>,
     pending_space: bool,
     /// Role active when the pending whitespace appeared, so a collapsed
     /// separator inherits its own enclosing context rather than the next
@@ -433,6 +534,7 @@ impl InlineBuilder {
     fn break_line(&mut self) {
         self.segments.push(String::new());
         self.kinds.push(Vec::new());
+        self.images.push(Vec::new());
         self.pending_space = false;
         self.pending_kind = None;
     }
@@ -460,11 +562,39 @@ impl InlineBuilder {
         }
     }
 
-    /// Joins non-empty segments with newlines and returns byte-level roles.
-    fn finish(self) -> (String, ByteKinds) {
+    /// Embeds one image placeholder at the current position.
+    ///
+    /// The sentinel occupies real bytes so surrounding decoration ranges
+    /// stay stable through splitting; flow emission replaces it with a
+    /// caption-bearing image block.
+    fn embed_image(&mut self, src: &str, alt: Option<String>) {
+        let offset = self.segments.last_mut().expect("seeded").len();
+        self.segments
+            .last_mut()
+            .expect("seeded")
+            .push(IMAGE_SENTINEL);
+        self.kinds
+            .last_mut()
+            .expect("seeded")
+            .extend(std::iter::repeat_n(None, IMAGE_SENTINEL.len_utf8()));
+        self.images
+            .last_mut()
+            .expect("seeded")
+            .push((offset, ImageRef::new(src, alt)));
+    }
+
+    /// Joins non-empty segments with newlines; image offsets shift into the
+    /// joined coordinates.
+    fn finish(self) -> (String, ByteKinds, Vec<EmbeddedImage>) {
         let mut text = String::new();
         let mut kinds = ByteKinds::new();
-        for (segment, mut segment_kinds) in self.segments.into_iter().zip(self.kinds) {
+        let mut embedded = Vec::new();
+        let mut segment_iter = self.segments.into_iter();
+        let mut kind_iter = self.kinds.into_iter();
+        let mut image_iter = self.images.into_iter();
+        while let (Some(segment), Some(mut segment_kinds), Some(segment_images)) =
+            (segment_iter.next(), kind_iter.next(), image_iter.next())
+        {
             if segment.is_empty() {
                 continue;
             }
@@ -472,10 +602,17 @@ impl InlineBuilder {
                 text.push('\n');
                 kinds.push(None);
             }
+            let base = text.len();
+            for (offset, info) in segment_images {
+                embedded.push((
+                    base + offset..base + offset + IMAGE_SENTINEL.len_utf8(),
+                    info,
+                ));
+            }
             text.push_str(&segment);
             kinds.append(&mut segment_kinds);
         }
-        (text, kinds)
+        (text, kinds, embedded)
     }
 }
 
@@ -523,6 +660,13 @@ fn collect_inline(
             }
             if name == "br" {
                 builder.break_line();
+                return;
+            }
+            if name == "img" {
+                builder.embed_image(
+                    element.attr("src").unwrap_or_default(),
+                    element.attr("alt").map(str::to_owned),
+                );
                 return;
             }
             if skip_lists && matches!(name, "ul" | "ol" | "table") {
@@ -786,5 +930,96 @@ mod tests {
 
         // The default policy matches the documented EPUB limits table.
         assert_eq!(MAX_XHTML_NODES, 1_000_000);
+    }
+
+    #[test]
+    fn epub_013_image_between_paragraphs_becomes_one_caption_block() {
+        let source = r#"<body>
+            <p>before the plate</p>
+            <p><img src="images/plate.png" alt="a red square"/></p>
+            <p>after the plate</p>
+        </body>"#;
+        let blocks = convert_xhtml(source).expect("within node budget");
+
+        assert_eq!(
+            texts(&blocks),
+            [
+                "before the plate",
+                "[image: a red square]",
+                "after the plate"
+            ]
+        );
+        let kinds: Vec<BlockKind> = blocks.iter().map(|block| block.kind).collect();
+        assert_eq!(
+            kinds,
+            [BlockKind::Paragraph, BlockKind::Image, BlockKind::Paragraph,]
+        );
+        assert_eq!(
+            blocks[1].image.as_ref().expect("declared").src(),
+            "images/plate.png"
+        );
+        assert_eq!(
+            blocks[1].image.as_ref().and_then(ImageRef::alt),
+            Some("a red square")
+        );
+    }
+
+    #[test]
+    fn epub_013_mid_paragraph_images_split_flow_and_keep_decorations() {
+        let source = concat!(
+            r#"<body><p>lead <em>shiny</em> <img src="one.png" alt="first"/> middle "#,
+            r#"<img src="two.png"/> tail</p></body>"#
+        );
+        let blocks = convert_xhtml(source).expect("within node budget");
+
+        assert_eq!(
+            texts(&blocks),
+            ["lead shiny", "[image: first]", "middle", "[image]", "tail"]
+        );
+        let kinds: Vec<BlockKind> = blocks.iter().map(|block| block.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                BlockKind::Paragraph,
+                BlockKind::Image,
+                BlockKind::Paragraph,
+                BlockKind::Image,
+                BlockKind::Paragraph,
+            ]
+        );
+
+        // The emphasis decoration stays on its own text after the split.
+        let emphasized: Vec<&str> = blocks[0]
+            .inline
+            .iter()
+            .filter(|run| run.kind == InlineKind::Emphasis)
+            .map(|run| &blocks[0].text[run.range.clone()])
+            .collect();
+        assert_eq!(emphasized, ["shiny"]);
+        for block in &blocks {
+            if block.kind == BlockKind::Image {
+                assert!(block.inline.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn epub_013_element_level_and_list_item_images_still_surface() {
+        let element_level = r#"<body><img src="cover.png" alt="cover art"/><p>body</p></body>"#;
+        let blocks = convert_xhtml(element_level).expect("within node budget");
+        assert_eq!(texts(&blocks), ["[image: cover art]", "body"]);
+        assert_eq!(blocks[0].kind, BlockKind::Image);
+
+        let in_item = r#"<body><ul><li>note <img src="i.png" alt="tiny"/> more</li></ul></body>"#;
+        let blocks = convert_xhtml(in_item).expect("within node budget");
+        assert_eq!(texts(&blocks), ["note", "[image: tiny]", "more"]);
+        assert_eq!(
+            blocks[0].kind,
+            BlockKind::ListItem {
+                depth: 0,
+                ordered: false
+            }
+        );
+        assert_eq!(blocks[1].kind, BlockKind::Image);
     }
 }

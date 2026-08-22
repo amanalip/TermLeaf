@@ -170,6 +170,15 @@ impl TempEpub {
 
     /// Same archive writer with owned member bodies for dynamic content.
     fn new_from_strings(name: &str, members: &[(&str, String)]) -> anyhow::Result<Self> {
+        let owned: Vec<(&str, Vec<u8>)> = members
+            .iter()
+            .map(|(path, body)| (*path, body.clone().into_bytes()))
+            .collect();
+        Self::new_from_bytes(name, &owned)
+    }
+
+    /// Archive writer accepting raw bytes for binary members such as images.
+    fn new_from_bytes(name: &str, members: &[(&str, Vec<u8>)]) -> anyhow::Result<Self> {
         let file = tempfile::Builder::new()
             .prefix(name)
             .suffix(".epub")
@@ -183,7 +192,7 @@ impl TempEpub {
             writer
                 .start_file(*path, options)
                 .with_context(|| format!("start {path}"))?;
-            writer.write_all(body.as_bytes()).context("member body")?;
+            writer.write_all(body).context("member body")?;
         }
         writer.finish().context("finish epub")?;
         file.as_file().sync_data().ok();
@@ -660,5 +669,123 @@ fn cli_007_markdown_content_still_validates_after_the_extension_gate() -> anyhow
     let message = error.to_string();
     assert!(message.contains("could not read"), "{message}");
     assert!(message.contains("UTF-8"), "{message}");
+    Ok(())
+}
+
+/// Builds one small EPUB whose chapter body is supplied verbatim.
+fn epub_with_chapter(
+    name: &str,
+    title: &str,
+    chapter: &str,
+    png: &[u8],
+) -> anyhow::Result<TempEpub> {
+    let opf = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>{title}</dc:title>
+    <dc:language>en</dc:language>
+    <dc:identifier id="bookid">urn:uuid:{title}</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="c1" href="text/c1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="img1" href="images/red.png" media-type="image/png"/>
+  </manifest>
+  <spine><itemref idref="c1"/></spine>
+</package>
+"#
+    );
+    TempEpub::new_from_bytes(
+        name,
+        &[
+            ("mimetype", b"application/epub+zip".to_vec()),
+            ("META-INF/container.xml", CONTAINER.as_bytes().to_vec()),
+            ("OEBPS/content.opf", opf.as_bytes().to_vec()),
+            ("OEBPS/text/c1.xhtml", chapter.as_bytes().to_vec()),
+            ("OEBPS/images/red.png", png.to_vec()),
+        ],
+    )
+}
+
+#[test]
+fn epub_013_embedded_images_resolve_to_lazy_member_resources() -> anyhow::Result<()> {
+    use termleaf::document::model::BlockKind;
+
+    // One uniform red 2x2 PNG generated through the enabled decoder stack.
+    let png = {
+        let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            2,
+            2,
+            image::Rgba([255, 0, 0, 255]),
+        ));
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image
+            .write_to(&mut cursor, image::ImageFormat::Png)
+            .context("encode fixture png")?;
+        cursor.into_inner()
+    };
+
+    let chapter = concat!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>"#,
+        r#"<p>before the plate</p>"#,
+        r#"<p><img src="../images/red.png" alt="a red square"/></p>"#,
+        r#"<p>after the plate</p>"#,
+        r#"</body></html>"#
+    );
+    let book = epub_with_chapter("epub013-illustrated", "Illustrated Fixture", chapter, &png)?;
+
+    let document = load_book(book.path())?;
+    assert_eq!(document.sections().len(), 1);
+
+    let images: Vec<_> = document.sections()[0]
+        .blocks()
+        .iter()
+        .filter(|block| block.kind() == BlockKind::Image)
+        .collect();
+    assert_eq!(images.len(), 1, "exactly one declared image converts");
+
+    let block = images[0];
+    let caption = document
+        .block_text(0, 2)
+        .context("image block carries its caption")?;
+    assert_eq!(caption, "[image: a red square]");
+    assert!(
+        document.canonical().contains(caption),
+        "captions tile into the canonical text"
+    );
+
+    let resource = block.resource().context("image resource present")?;
+    assert_eq!(resource.reference(), Some("OEBPS/images/red.png"));
+    assert_eq!(resource.byte_len(), Some(png.len() as u64));
+    assert!(resource.is_fetchable());
+
+    // Hostile and external targets stay inside the book but never resolve.
+    for hostile_src in [
+        "http://host/evil.png",
+        "../../outside.png",
+        "/abs.png",
+        "missing/plate.png",
+    ] {
+        let src = format!(
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>\
+             <img src=\"{hostile_src}\" alt=\"hostile\"/></body></html>"
+        );
+        let book = epub_with_chapter("epub013-hostile", "Hostile Fixture", &src, &png)?;
+        let document = load_book(book.path())?;
+        let images: Vec<_> = document.sections()[0]
+            .blocks()
+            .iter()
+            .filter(|block| block.kind() == BlockKind::Image)
+            .collect();
+        assert_eq!(images.len(), 1, "{hostile_src}");
+        let resource = images[0].resource().context("resource present")?;
+        assert!(!resource.is_fetchable(), "{hostile_src} must not resolve");
+        assert_eq!(resource.reference(), None);
+        assert_eq!(
+            document.block_text(0, 0),
+            Some("[image: hostile]"),
+            "{hostile_src}: the caption still renders"
+        );
+    }
     Ok(())
 }
