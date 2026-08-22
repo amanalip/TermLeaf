@@ -26,7 +26,64 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Start the structured book ingestion
+
+**Completed:** August 21, 2026 at 8:19 PM EDT (prepared for commit)
+
+**Commit subject:** `feat: start structured book ingestion`
+
+Changes:
+
+- Add the bounded ZIP preflight layer (`DD-008`,
+  `src/document/archive.rs`): one host-independent canonical key per member
+  (backslash unification, dot-segment resolution, trailing dot/space
+  stripping, parent/NUL/colon rejection), inclusive limits for compressed
+  size, member count, advertised expansion, control resources, chapters,
+  and compression ratio with a small-file exception; typed rejections for
+  encrypted flags, symlinks, unsupported methods, overlapping regions,
+  dishonest metadata, truncation/corruption, and CRC failures; actual
+  decompressed bytes counted for every control and chapter resource while
+  images and fonts stay lazy.
+- Add `rbook`-backed EPUB semantics (`src/document/epub.rs`): package,
+  metadata, spine, manifest fallbacks, and navigation resolve over the same
+  inspected bytes through a shared immutable byte handle; linear-only spine
+  order builds multi-section documents; TOC labels name chapter sections;
+  encryption.xml presence and fixed-layout metadata receive specific typed
+  messages before any chapter decodes.
+- Add tolerant XHTML conversion (`src/document/xhtml.rs`) behind the HTML5
+  tree builder (`scraper`): headings h1-h6, paragraphs, list items as
+  paragraphs, `<br>` breaks, entity decoding, script/style/head exclusion,
+  and a deterministic recursion cap against hostile nesting.
+- Extend the document model to multiple sections
+  (`Document::from_sections`) with cross-section tiling validation and a
+  `Heading { level }` block kind; layout rows now carry section-qualified
+  block ownership so wrapping spans every section correctly.
+- Wire `.epub` into extension-first detection and the unified loader;
+  misleading EPUB content fails with typed archive/package errors after
+  the gate while `.txt` behavior stays unchanged.
+- Ship deterministic committed fixtures FX-EPUB2/FX-EPUB3 via
+  `tools/make_epub_fixtures.py` with recorded SHA-256 provenance.
+- Resolve DEC-TEST-003 policy concretely in code: ratio = declared vs
+  compressed×100 above 64 KiB uncompressed, inclusive boundaries, zero-byte
+  entries exempt, aggregate expansion enforced separately.
+
+Decisions:
+
+- **DD-027:** The preflight reads the whole source into memory once under
+  the compressed-size boundary and shares it immutably between the archive
+  checks and `rbook`, guaranteeing inspected-byte stability (EPUB-010/016
+  groundwork) without re-opening the file. Chapter bytes always flow
+  through TermLeaf's bounded reader rather than `rbook`'s unbounded
+  resource helpers.
+
+Validation:
+
+- Formatting, Clippy with warnings denied, registry freshness, 114 library
+  plus 9 CLI plus 11 document-I/O plus 14 render plus 6 property plus 14
+  native PTY Rust tests, doctests, cargo-deny, and diff checks passed
+  locally; real Gutenberg EPUBs parsed with correct titles and section
+  counts.
+- Hosted rows for this revision remain to be recorded on push.
 
 ## Commit History
 

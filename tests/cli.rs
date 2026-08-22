@@ -169,9 +169,10 @@ fn theme_002_startup_config_is_read_without_being_rewritten() -> Result<()> {
 
 #[test]
 fn cli_007_unsupported_extensions_reject_with_one_typed_message() -> Result<()> {
-    // Extension-first detection (DEC-TEST-001 / DD-024): only `.txt` opens
-    // in Phase 1, regardless of what the content looks like.
-    for name in ["future-book.epub", "notes.md", "extensionless-book"] {
+    // Extension-first detection (DEC-TEST-001 / DD-024): `.txt` and `.epub`
+    // open through their adapters; every other extension rejects before any
+    // terminal setup, regardless of what the content looks like.
+    for name in ["notes.md", "future-book.mobi", "extensionless-book"] {
         let output = run(|command, root| {
             let path = root.join(name);
             std::fs::write(&path, "perfectly valid text\n").expect("write misleading book");
@@ -182,8 +183,28 @@ fn cli_007_unsupported_extensions_reject_with_one_typed_message() -> Result<()> 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("unsupported book format"), "{stderr}");
         assert!(stderr.contains(".txt"), "{stderr}");
+        assert!(stderr.contains(".epub"), "{stderr}");
         assert!(!stderr.contains('\u{1b}'));
     }
+    Ok(())
+}
+
+#[test]
+fn cli_007_epub_content_still_validates_after_the_extension_gate() -> Result<()> {
+    let output = run(|command, root| {
+        let path = root.join("not-really.epub");
+        std::fs::write(&path, "plain text wearing an epub name\n").expect("write misleading book");
+        command.arg(path);
+    })?;
+
+    // An .epub extension reaches the EPUB adapter, so the failure is the
+    // typed archive error rather than a format rejection.
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("EPUB archive"), "{stderr}");
+    assert!(stderr.contains("damaged"), "{stderr}");
+    assert!(!stderr.contains("unsupported book format"), "{stderr}");
+    assert!(!stderr.contains('\u{1b}'));
     Ok(())
 }
 

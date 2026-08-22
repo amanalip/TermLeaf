@@ -62,23 +62,23 @@ generator = ""
 
 [[fixture]]
 id = "FX-EPUB2"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/epub/minimal-epub2.epub"
 source = "TermLeaf-authored synthetic fixture"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "fa15e4b3867ff80784c214ce73ff3467077569cffc0915a078362ebdc9f5a44c"
+generator = "tools/make_epub_fixtures.py"
 
 [[fixture]]
 id = "FX-EPUB3"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/epub/minimal-epub3.epub"
 source = "TermLeaf-authored synthetic fixture"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "5b0864436c894203ede28cc98246ae77ff53e6b9eab9dfa4216118afd33c7658"
+generator = "tools/make_epub_fixtures.py"
 
 [[fixture]]
 id = "FX-EPUB-MALFORMED"

@@ -62,13 +62,18 @@ impl Block {
     }
 }
 
-/// Semantic kinds Phase 1 produces; later formats extend this enum.
+/// Semantic kinds the format adapters produce.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BlockKind {
     /// One reflowed run of non-blank source lines.
     Paragraph,
     /// One deliberate empty line preserved from the source.
     BlankLine,
+    /// A section heading; `level` is 1 for the most important heading.
+    Heading {
+        /// Nesting depth starting at one.
+        level: u8,
+    },
 }
 
 /// One ordered group of blocks; TXT books use a single unnamed section.
@@ -108,6 +113,66 @@ pub struct Document {
 }
 
 impl Document {
+    /// Assembles a multi-section document from blocks that cover `canonical`.
+    ///
+    /// Section block ranges must exactly tile the canonical text in order
+    /// across the whole document, on character boundaries. Parsers construct
+    /// that tiling from their own output, so a mismatch is a programming
+    /// defect rather than reader input; it is reported as an error string.
+    ///
+    /// # Errors
+    ///
+    /// Returns a descriptive message when ranges are not contiguous across
+    /// sections, exceed the canonical text, split a character, or leave
+    /// bytes uncovered.
+    pub fn from_sections(
+        id: DocumentId,
+        title: Option<String>,
+        canonical: String,
+        sections: Vec<Section>,
+    ) -> Result<Self, String> {
+        let mut expected = 0usize;
+        for section in &sections {
+            for block in section.blocks() {
+                if block.range.start != expected || block.range.end < block.range.start {
+                    return Err(format!(
+                        "block range {}..{} does not continue coverage at byte {expected}",
+                        block.range.start, block.range.end
+                    ));
+                }
+                if block.range.end > canonical.len() {
+                    return Err(format!(
+                        "block range ends at {} beyond canonical length {}",
+                        block.range.end,
+                        canonical.len()
+                    ));
+                }
+                if !canonical.is_char_boundary(block.range.start)
+                    || !canonical.is_char_boundary(block.range.end)
+                {
+                    return Err(format!(
+                        "block range {}..{} splits a character",
+                        block.range.start, block.range.end
+                    ));
+                }
+                expected = block.range.end;
+            }
+        }
+        if expected != canonical.len() {
+            return Err(format!(
+                "blocks cover {expected} of {} canonical bytes",
+                canonical.len()
+            ));
+        }
+
+        Ok(Self {
+            id,
+            title,
+            canonical,
+            sections,
+        })
+    }
+
     /// Assembles a one-section document from blocks that cover `canonical`.
     ///
     /// Block ranges must exactly tile the canonical text on character
@@ -442,5 +507,50 @@ mod tests {
 
         let message = result.expect_err("gap and overflow are rejected");
         assert!(message.contains("does not continue coverage"));
+    }
+
+    #[test]
+    fn model_001_multi_section_documents_tile_across_sections() {
+        // Canonical spans two chapters; each section owns a contiguous half.
+        let canonical = "Title One\nbody one\nTitle Two\nbody two\n".to_owned();
+        let sections = vec![
+            Section::new(
+                Some("One".to_owned()),
+                vec![
+                    Block::new(BlockKind::Heading { level: 1 }, 0..10),
+                    Block::new(BlockKind::Paragraph, 10..19),
+                ],
+            ),
+            Section::new(
+                Some("Two".to_owned()),
+                vec![
+                    Block::new(BlockKind::Heading { level: 1 }, 19..29),
+                    Block::new(BlockKind::Paragraph, 29..38),
+                ],
+            ),
+        ];
+        let document = Document::from_sections(
+            DocumentId::new("multi".to_owned()),
+            None,
+            canonical.clone(),
+            sections,
+        )
+        .expect("tiling sections assemble");
+
+        assert_eq!(document.sections().len(), 2);
+        assert_eq!(document.sections()[0].title(), Some("One"));
+        assert_eq!(document.block_text(1, 0), Some("Title Two\n"));
+        let position = document.position(1, 0, 0).expect("section two starts");
+        assert_eq!(position.absolute_byte(&document), 19);
+
+        // Coverage gaps across the section boundary are programming defects.
+        let broken = vec![
+            Section::new(None, vec![Block::new(BlockKind::Paragraph, 0..4)]),
+            Section::new(None, vec![Block::new(BlockKind::Paragraph, 6..8)]),
+        ];
+        let error =
+            Document::from_sections(DocumentId::new("x".to_owned()), None, canonical, broken)
+                .expect_err("gaps reject");
+        assert!(error.contains("does not continue coverage"));
     }
 }

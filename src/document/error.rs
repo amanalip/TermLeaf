@@ -3,6 +3,8 @@
 //! Reader-facing messages state what failed, why, and one recovery action,
 //! without debug chains or unrelated private data.
 
+use super::archive::ArchiveError;
+
 /// Failures that can occur while decoding or bounding a source document.
 #[derive(Debug, thiserror::Error)]
 pub enum DocumentError {
@@ -60,10 +62,40 @@ pub enum DocumentError {
 
     /// The file carries an extension no format adapter accepts yet.
     #[error(
-        "unsupported book format: '{path}'; TermLeaf currently opens plain-text '.txt' books; \
-         rename the file if it is plain text"
+        "unsupported book format: '{path}'; TermLeaf currently opens plain-text '.txt' \
+         and EPUB '.epub' books"
     )]
     UnsupportedFormat {
+        /// Safe display path of the rejected file.
+        path: String,
+    },
+
+    /// An archive-level policy rejection occurred before semantic parsing.
+    #[error(transparent)]
+    Archive(
+        /// The typed archive failure carrying its own path and recovery.
+        #[from]
+        ArchiveError,
+    ),
+
+    /// The archive opened but the EPUB package itself is unusable.
+    #[error(
+        "could not open '{path}' as an EPUB book: {detail}; the file may be damaged or \
+         not an EPUB"
+    )]
+    InvalidPackage {
+        /// Safe display path of the rejected file.
+        path: String,
+        /// Short package-level explanation without raw dumps.
+        detail: String,
+    },
+
+    /// The book declares itself pre-paginated (fixed layout).
+    #[error(
+        "'{path}' uses fixed layout, which TermLeaf cannot reflow; choose a reflowable \
+         EPUB edition"
+    )]
+    UnsupportedFixedLayout {
         /// Safe display path of the rejected file.
         path: String,
     },
@@ -72,11 +104,9 @@ pub enum DocumentError {
 /// Resolves one path to its supported book format.
 ///
 /// `DEC-TEST-001` resolution (DD-024): detection is extension-first and
-/// case-insensitive. Phase 1 ships exactly one adapter, so only `.txt`
-/// opens; Markdown and EPUB extend this table in their own delivery phases
-/// instead of sniffing content ahead of their parsers. Content validity is
-/// still checked after the extension gate, so a `.txt` file holding binary
-/// data fails decoding with a typed reason.
+/// case-insensitive. Phase 1 shipped `.txt`; Phase 2 extends the table with
+/// `.epub`. Content validity is still checked after the extension gate, so a
+/// `.txt` file holding binary data fails decoding with a typed reason.
 #[must_use]
 pub fn detect_format(path: &std::path::Path) -> Option<Format> {
     let extension = path
@@ -85,6 +115,7 @@ pub fn detect_format(path: &std::path::Path) -> Option<Format> {
         .map(str::to_ascii_lowercase);
     match extension.as_deref() {
         Some("txt") => Some(Format::PlainText),
+        Some("epub") => Some(Format::Epub),
         _ => None,
     }
 }
@@ -94,6 +125,8 @@ pub fn detect_format(path: &std::path::Path) -> Option<Format> {
 pub enum Format {
     /// Local plain text.
     PlainText,
+    /// An EPUB 2 or EPUB 3 package behind the bounded archive layer.
+    Epub,
 }
 
 /// Escapes control characters so hostile names cannot inject terminal
@@ -184,26 +217,27 @@ mod tests {
 
     #[test]
     fn cli_007_unsupported_or_missing_extensions_are_one_typed_rejection() {
-        for name in [
-            "book.epub",
-            "book.md",
-            "book.dat",
-            "book",
-            "book.text",
-            ".txt",
-        ] {
+        for name in ["book.md", "book.dat", "book", "book.text", ".txt"] {
             let result = detect_format(std::path::Path::new(name));
-            assert_eq!(result, None, "{name} has no Phase 1 adapter");
+            assert_eq!(result, None, "{name} has no adapter");
             let error = DocumentError::UnsupportedFormat {
                 path: name.to_owned(),
             };
             let message = error.to_string();
             assert!(message.contains("unsupported book format"), "{message}");
             assert!(message.contains(name), "{message}");
-            assert!(message.contains(".txt"), "names the supported format");
-            assert!(
-                message.contains("rename the file"),
-                "offers one recovery action"
+            assert!(message.contains(".txt"), "names a supported format");
+            assert!(message.contains(".epub"), "names every supported format");
+        }
+    }
+
+    #[test]
+    fn epub_extension_is_accepted_case_insensitively() {
+        for name in ["book.epub", "BOOK.EPUB", "b.Epub"] {
+            assert_eq!(
+                detect_format(std::path::Path::new(name)),
+                Some(Format::Epub),
+                "{name} opens as EPUB"
             );
         }
     }

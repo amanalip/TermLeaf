@@ -249,19 +249,21 @@ impl App {
             Some(path) => {
                 Self::validate_path(&path)?;
                 let display = crate::document::sanitize_path(&path.display().to_string());
-                let limits = crate::document::TextLimits::default();
-                let document = crate::document::text::load_text_file(&path, &limits).map_err(
-                    |error| -> anyhow::Error {
-                        match error {
-                            DocumentError::Read { source, .. } => anyhow::Error::new(source)
-                                .context(format!("could not read '{display}'")),
-                            // Typed document errors already name the path,
-                            // reason, and recovery; an extra layer would
-                            // only bury them.
-                            typed => anyhow::Error::new(typed),
-                        }
-                    },
-                )?;
+                let text_limits = crate::document::TextLimits::default();
+                let archive_limits = crate::document::ArchiveLimits::default();
+                let document =
+                    crate::document::load_book_file(&path, &text_limits, &archive_limits).map_err(
+                        |error| -> anyhow::Error {
+                            match error {
+                                DocumentError::Read { source, .. } => anyhow::Error::new(source)
+                                    .context(format!("could not read '{display}'")),
+                                // Typed document errors already name the path,
+                                // reason, and recovery; an extra layer would
+                                // only bury them.
+                                typed => anyhow::Error::new(typed),
+                            }
+                        },
+                    )?;
                 let file = File::open(&path)
                     .with_context(|| format!("could not hold '{display}' open"))?;
                 let book = OpenBook {

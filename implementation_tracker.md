@@ -27,23 +27,22 @@
 
 ## Right Now
 
-Phase 1 is complete. The plain-text reading loop passed its frozen
-phase-gate-1 manifest locally and on every required hosted environment row
-(run `32535725291`: Rust checks and native PTY on ubuntu-24.04, macos-15,
-and windows-2025, plus dependency policy and the 1.88 MSRV job). The gate
-run closed the full reader key matrix, paste inertness, resize transients,
-the deterministic property suite, extension-first format detection
-(DD-025), the Paper capability matrix and collapse order, status collapse
-stepping, help from every Phase 1 surface, and locale/right-to-left/ambiguous-width
-evidence. The properties also fixed a real defect: previous page now
-inverts next page exactly whenever its forward hop fits unclamped.
-Cross-phase gate members are owned forward by DD-026 with procedures in
-`manual_procedures.md`; their GUI-terminal executions join the release
-matrix. Phase 2 begins with bounded ZIP preflight and `rbook` semantics.
+Phase 2 is in progress. The bounded ZIP preflight and `rbook` semantics
+slice landed: hostile archives (unsafe names, symlinks, encryption,
+unsupported methods, overlaps, truncation, CRC lies, ratio bombs) fail with
+typed policy errors inside inclusive resource limits, minimal EPUB 2 and
+EPUB 3 fixtures open with spine order, metadata, and TOC-derived chapter
+titles, and tolerant XHTML conversion feeds a multi-section document model.
+Real Gutenberg books parsed successfully in smoke checks. Phase 1 remains
+complete with its frozen gate passed locally and on every required hosted
+environment row (run `32535725291`). Cross-phase gate members are owned
+forward by DD-026; the next Phase 2 slices cover manifest fallbacks, XML
+depth/node bounding, byte-stability instrumentation, semantic code/tables,
+and Markdown.
 
 ## Delivery Phases
 
-**Implementation progress:** 2 of 6 phases complete. Phase 2 is not started.
+**Implementation progress:** 2 of 6 phases complete. Phase 2 is in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -58,7 +57,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | Not started | Safe Markdown/EPUB semantics, TOC, code/tables, images, loading/cancellation, security boundaries, and fuzz evidence pass. |
+| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, tolerant XHTML conversion, and core security boundaries pass locally; manifest fallbacks, XML node bounding, byte-stability instrumentation, code/tables, images, TOC navigation, and fuzz evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -105,7 +104,7 @@ already inside the six phases; it does not add another phase.
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
-| EPUB format | Not started | Add bounded ZIP preflight, rbook semantics, and XHTML conversion. |
+| EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, and tolerant XHTML conversion pass; manifest fallbacks, links, byte-stability hooks, code/tables/images, and fuzz coverage arrive with later slices. |
 | Markdown format | Not started | Parse source-aware Markdown directly into the shared document model. |
 | Inline images | Not started | Decode bounded raster and SVG content through protocol, cell, and caption fallbacks. |
 
@@ -113,7 +112,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Open a local book | In progress | Extension-first detection (DD-024/`DEC-TEST-001`) accepts case-insensitive `.txt` and rejects other or missing extensions pre-terminal; missing, non-file, unreadable, oversized, undecodable, and misleading-content paths fail before terminal setup. |
+| Open a local book | In progress | Extension-first detection (DD-024/`DEC-TEST-001`) accepts case-insensitive `.txt` and `.epub` and rejects other or missing extensions pre-terminal; TXT content decodes strictly and EPUB content passes the bounded archive layer before parsing; missing, non-file, unreadable, oversized, undecodable, and misleading-content paths fail before terminal setup. |
 | Recent books | Not started | Reopen, remove, and clear recent entries without scanning directories. |
 | Library index | Not planned | Keep automatic indexing outside the first release. |
 | Book details | Not started | Show title, author, and structure when the file provides them. |
@@ -140,7 +139,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, and PTY suites run — 97 library, 8 CLI, 4 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, and archive-security suites run — 114 library, 9 CLI, 11 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |
@@ -148,7 +147,7 @@ already inside the six phases; it does not add another phase.
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
-| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 1 dependencies (including `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`); hosted and cross-platform evidence remains. |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`); hosted and cross-platform evidence remains. |
 | Packaging | Not started | Choose channels that fit the supported platforms. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |

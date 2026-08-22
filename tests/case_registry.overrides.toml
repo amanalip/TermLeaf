@@ -336,11 +336,6 @@ last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 [cases.TXT-009]
 location = ["src/document/text.rs::txt_009_extremely_long_line_parses_with_progress_and_no_panic"]
 
-[cases.MODEL-001]
-location = [
-    "src/document/model.rs::from_single_section_rejects_non_tiling_ranges_without_panic",
-]
-
 [cases.MODEL-003]
 location = ["src/document/model.rs::model_003_positions_resolve_at_every_valid_block_boundary"]
 
@@ -520,16 +515,6 @@ status = "Implemented"
 location = ["tests/document_io.rs::cli_003_existing_supported_path_opens_one_immutable_source"]
 last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
-[cases.CLI-007]
-status = "Implemented"
-location = [
-    "src/document/error.rs::cli_007_txt_extension_is_accepted_case_insensitively",
-    "src/document/error.rs::cli_007_unsupported_or_missing_extensions_are_one_typed_rejection",
-    "tests/cli.rs::cli_007_unsupported_extensions_reject_with_one_typed_message",
-    "tests/cli.rs::cli_007_txt_content_still_validates_after_the_extension_gate",
-]
-last_evidence = ["testreport.md#complete-the-phase-1-gate"]
-
 [cases.TXT-010]
 status = "Implemented"
 location = ["tests/document_io.rs::txt_010_read_only_source_survives_navigation_and_exit"]
@@ -673,3 +658,128 @@ last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 status = "Implemented"
 location = ["tests/render.rs::lay_013_unicode_placement_claims_match_support_limits"]
 last_evidence = ["testreport.md#complete-the-phase-1-gate"]
+
+[cases.MODEL-001]
+status = "Implemented"
+location = [
+    "src/document/model.rs::from_single_section_rejects_non_tiling_ranges_without_panic",
+    "src/document/model.rs::model_001_multi_section_documents_tile_across_sections",
+]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-001]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_001_unsafe_or_ambiguous_member_names_reject_with_typed_reasons"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-002]
+status = "Implemented"
+location = [
+    "src/document/archive.rs::sec_002_symlink_encrypted_and_unsupported_entries_match_policy_errors",
+    "src/document/archive.rs::sec_002_overlapping_data_regions_reject_before_semantic_parsing",
+]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-003]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_003_compressed_file_boundary_is_inclusive"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-004]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_004_member_count_boundary_is_inclusive"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-005]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_005_advertised_expansion_boundary_is_inclusive_per_entry_and_aggregate"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-006]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_006_control_members_fail_before_semantic_parsing_at_the_boundary"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-007]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_007_chapter_boundary_yields_one_exact_typed_result"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-008]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_008_ratio_formula_zero_byte_and_small_file_rules_hold_without_overflow"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-010]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_010_truncated_corrupt_and_crc_broken_archives_stay_typed"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.SEC-011]
+status = "Implemented"
+location = ["src/document/archive.rs::sec_011_host_dependent_spellings_reduce_to_one_canonical_key"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-001]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_001_minimal_epub2_follows_spine_order_with_metadata_and_ncx"]
+fixtures = []
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-002]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_002_minimal_epub3_nav_document_drives_the_same_reading_order"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-003]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_003_nonlinear_spine_resources_stay_out_of_the_reading_order"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-004]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_004_missing_or_untrustworthy_metadata_falls_back_to_the_filename"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-005]
+status = "Implemented"
+location = [
+    "src/document/xhtml.rs::epub_005_malformed_but_recoverable_xhtml_stays_readable",
+    "src/document/xhtml.rs::epub_005_hostile_nesting_depth_stays_bounded_without_panic",
+]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-006]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_006_encrypted_content_rejects_before_any_resource_decoding"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-007]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_007_fixed_layout_books_receive_a_specific_unsupported_message"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-009]
+status = "Implemented"
+location = ["src/document/xhtml.rs::epub_009_scripts_and_styles_never_contribute_text"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-011]
+status = "Implemented"
+location = ["src/document/xhtml.rs::epub_011_headings_paragraphs_and_breaks_convert_with_entities_decoded"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.EPUB-014]
+status = "Implemented"
+location = ["tests/document_io.rs::epub_014_binary_resources_stay_lazy_during_text_opening"]
+last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
+
+[cases.CLI-007]
+location = [
+    "src/document/error.rs::cli_007_txt_extension_is_accepted_case_insensitively",
+    "src/document/error.rs::cli_007_unsupported_or_missing_extensions_are_one_typed_rejection",
+    "src/document/error.rs::epub_extension_is_accepted_case_insensitively",
+    "tests/cli.rs::cli_007_unsupported_extensions_reject_with_one_typed_message",
+    "tests/cli.rs::cli_007_txt_content_still_validates_after_the_extension_gate",
+    "tests/cli.rs::cli_007_epub_content_still_validates_after_the_extension_gate",
+]

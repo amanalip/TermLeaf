@@ -47,13 +47,21 @@ impl Span {
 /// One visual row of laid-out content.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct VisualRow {
+    section: usize,
     block: usize,
     spans: Vec<Span>,
     cells: u16,
 }
 
 impl VisualRow {
-    /// Owning block ordinal; blank rows reference their blank-line block.
+    /// Owning section ordinal; every format produces at least one section.
+    #[must_use]
+    pub const fn section(&self) -> usize {
+        self.section
+    }
+
+    /// Owning block ordinal within its section; blank rows reference their
+    /// blank-line block.
     #[must_use]
     pub const fn block(&self) -> usize {
         self.block
@@ -141,17 +149,27 @@ pub fn layout_document(document: &Document, width: u16) -> PageLayout {
 
 fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
     let mut rows = Vec::new();
-    for section in document.sections() {
+    for (section_index, section) in document.sections().iter().enumerate() {
         for (block_index, block) in section.blocks().iter().enumerate() {
             match block.kind() {
                 BlockKind::BlankLine => rows.push(VisualRow {
+                    section: section_index,
                     block: block_index,
                     spans: Vec::new(),
                     cells: 0,
                 }),
-                BlockKind::Paragraph => {
-                    let text = document.block_text(0, block_index).unwrap_or_default();
-                    wrap_paragraph(text, block.range().start, block_index, width, &mut rows);
+                BlockKind::Paragraph | BlockKind::Heading { .. } => {
+                    let text = document
+                        .block_text(section_index, block_index)
+                        .unwrap_or_default();
+                    wrap_paragraph(
+                        text,
+                        block.range().start,
+                        section_index,
+                        block_index,
+                        width,
+                        &mut rows,
+                    );
                 }
             }
         }
@@ -208,8 +226,16 @@ fn push_content_atoms<'t>(atoms: &mut Vec<Atom<'t>>, content: &'t str, start: us
     }
 }
 
-fn wrap_paragraph(text: &str, base: usize, block: usize, width: u16, rows: &mut Vec<VisualRow>) {
+fn wrap_paragraph(
+    text: &str,
+    base: usize,
+    section: usize,
+    block: usize,
+    width: u16,
+    rows: &mut Vec<VisualRow>,
+) {
     let mut current = VisualRow {
+        section,
         block,
         ..VisualRow::default()
     };
@@ -229,7 +255,7 @@ fn wrap_paragraph(text: &str, base: usize, block: usize, width: u16, rows: &mut 
                 place_content(
                     piece,
                     offset,
-                    block,
+                    RowOwner { section, block },
                     width,
                     &mut pending_join,
                     &mut current,
@@ -239,13 +265,20 @@ fn wrap_paragraph(text: &str, base: usize, block: usize, width: u16, rows: &mut 
         }
     }
 
-    flush_row(&mut current, rows, block);
+    flush_row(&mut current, rows, section, block);
+}
+
+/// Owning logical location of a row under construction.
+#[derive(Clone, Copy)]
+struct RowOwner {
+    section: usize,
+    block: usize,
 }
 
 fn place_content(
     piece: &str,
     offset: Range<usize>,
-    block: usize,
+    owner: RowOwner,
     width: u16,
     pending_join: &mut Option<usize>,
     current: &mut VisualRow,
@@ -259,7 +292,7 @@ fn place_content(
         let need = display_width(remaining, current.cells + u16::try_from(joins).unwrap_or(1));
 
         if !starts_new_row && current.cells + u16::try_from(joins).unwrap_or(1) + need > width {
-            flush_row(current, rows, block);
+            flush_row(current, rows, owner.section, owner.block);
             *pending_join = None;
             continue;
         }
@@ -292,7 +325,7 @@ fn place_content(
             range: offset.start + start..offset.start + end,
         });
         current.cells += display_width(chunk, column);
-        flush_row(current, rows, block);
+        flush_row(current, rows, owner.section, owner.block);
         start = end;
     }
 }
@@ -319,9 +352,10 @@ fn force_fit_chunk(remaining: &str, free: u16, column: u16) -> &str {
     &remaining[..end_bytes]
 }
 
-fn flush_row(current: &mut VisualRow, rows: &mut Vec<VisualRow>, block: usize) {
+fn flush_row(current: &mut VisualRow, rows: &mut Vec<VisualRow>, section: usize, block: usize) {
     if !current.spans.is_empty() {
         let mut row = std::mem::take(current);
+        row.section = section;
         row.block = block;
         rows.push(row);
     }

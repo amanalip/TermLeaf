@@ -11,6 +11,8 @@ allow = [
     "BSD-3-Clause",
     # option-ext, pulled in by directories, is file-level MPL-2.0.
     "MPL-2.0",
+    # scraper (HTML5 parsing) is ISC.
+    "ISC",
     "Unicode-3.0",
     "Zlib",
 ]

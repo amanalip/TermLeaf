@@ -317,6 +317,12 @@ pub fn load_text_bytes(
     })
 }
 
+/// The display title derived from a path's file stem.
+#[must_use]
+pub fn file_stem_title(path: &str) -> String {
+    title_for(path)
+}
+
 fn title_for(path: &str) -> String {
     Path::new(path)
         .file_stem()

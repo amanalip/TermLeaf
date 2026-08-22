@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 21, 2026 at 7:20 PM EDT
+**Last updated:** August 21, 2026 at 8:19 PM EDT
 
 ## Table of Contents
 
@@ -77,7 +77,102 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Start the structured book ingestion
+
+**Commit subject:** `feat: start structured book ingestion`
+
+**Revision:** This commit
+
+**Recorded:** August 21, 2026 at 8:19 PM EDT
+
+**Behavior and risks.** Opens Phase 2 with the bounded ZIP preflight and
+`rbook` semantics named by the tracker. New behavior exercised: the archive
+layer (`DD-008`) rejects absolute/UNC/parent-escaping/NUL/colon member names
+and duplicate canonical keys before semantic parsing; symlink entries,
+encrypted flags, unsupported compression methods, overlapping compressed
+regions, truncated/corrupt central directories, and CRC failures each fail
+with one typed policy error; inclusive boundaries hold exactly at the
+256 MiB compressed size, 10,000 members, 512 MiB advertised expansion,
+16 MiB control resources (container/OPF/NCX), 32 MiB XHTML chapters, and
+the 100:1 ratio rule above the 64 KiB small-file exception including
+zero-byte handling and saturating arithmetic; control and chapter resources
+prove their actual decompressed bytes against declared sizes while images
+and fonts stay lazy; `.epub` joins the extension table case-insensitively
+(`DEC-TEST-001`) with misleading content still failing after the gate.
+On top of the boundary layer: minimal EPUB 2 (NCX) and EPUB 3 (nav)
+fixtures open with correct titles, linear spine order, TOC-derived chapter
+titles, and heading/paragraph structure; nonlinear spine items stay outside
+the reading order; missing titles fall back to the file stem; encrypted and
+fixed-layout books receive their specific messages; malformed XHTML
+recovers readably through the HTML5 tree builder with scripts/styles
+dropped, entities decoded, `<br>` breaks preserved, and hostile nesting
+depth bounded deterministically; multi-section documents tile the canonical
+text across sections and layout rows now carry section-qualified block
+ownership. A real-book smoke check parsed all three local Gutenberg EPUBs
+(Alice: 14 sections; Frankenstein: 30; Pride and Prejudice: 15) with
+correct metadata titles.
+
+**Environment.** Arch Linux (kernel 6.x, x86-64), rustc/cargo 1.97.1,
+cargo-deny 0.20.2; MSRV target unchanged at 1.88 in CI.
+
+**Commands and results.**
+
+| Command | Result |
+| --- | --- |
+| `python3 tools/make_epub_fixtures.py` | Passed: deterministic FX-EPUB2/FX-EPUB3 written with recorded SHA-256 values |
+| `cargo run --example real_books_smoke` (scratch, removed) | Passed: three Gutenberg EPUBs parsed with expected titles and section counts |
+| `python3 tools/case_registry.py generate` | Passed: manifests regenerated for new locations |
+| `python3 tools/case_registry.py check` | Passed: bidirectional validation clean after overrides |
+| `cargo fmt --check` | Passed: no diff |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed: no warnings |
+| `cargo test --locked` | Passed: 114 library, 9 CLI, 11 document-I/O, 14 render, 6 property, and 14 native PTY tests, 0 failed |
+| `cargo test --doc --locked` | Passed: 0 doctests |
+| `cargo deny check` | Passed: advisories, bans, licenses (added ISC for scraper), sources |
+
+**Fixtures.** Committed `FX-EPUB2` and `FX-EPUB3`, generated deterministically
+by `tools/make_epub_fixtures.py`
+(FX-EPUB2 sha256 `fa15e4b3867ff80784c214ce73ff3467077569cffc0915a078362ebdc9f5a44c`,
+FX-EPUB3 sha256 `5b0864436c894203ede28cc98246ae77ff53e6b9eab9dfa4216118afd33c7658`).
+Synthetic in-test archives cover hostile names, crafted headers, overlaps,
+encryption flags, truncation, corruption, and CRC lies via a byte-level
+builder plus the `zip` writer. Real-book smoke used the previously recorded
+local Gutenberg corpus only.
+
+**Selected exact IDs.** Implemented this change: `SEC-001`, `SEC-002`,
+`SEC-003`, `SEC-004`, `SEC-005`, `SEC-006`, `SEC-007`, `SEC-008`, `SEC-010`,
+`SEC-011`, `EPUB-001`, `EPUB-002`, `EPUB-003` (linear/nonlinear spine half),
+`EPUB-004`, `EPUB-005`, `EPUB-006`, `EPUB-007`, `EPUB-009`, `EPUB-011`
+(headings/paragraphs/breaks half), `EPUB-014`. Evidence extended for
+already-Implemented `MODEL-001` (multi-section tiling) and `CLI-007`
+(EPUB extension acceptance plus post-gate content validation).
+
+**Skipped or unavailable, with forward ownership.**
+
+| Check | Reason and removal condition |
+| --- | --- |
+| `EPUB-003` fallback-manifest half | `DEC-TEST-015` fixture work lands with the next EPUB slice; the linear/nonlinear half passes today. |
+| `EPUB-008`, `EPUB-010`, `EPUB-012`, `EPUB-013`, `EPUB-015`, `EPUB-016` | Links, byte-stability instrumentation, wide/narrow semantic render journeys, image placement, and filesystem side-effect audits arrive with later Phase 2 slices. |
+| `EPUB-009` full remote/network matrix | Script/style inertness passes; DTD/entity and remote-media variants join the security-profile slice with FUZZ targets. |
+| `SEC-009` XML depth/nodes per control document | Requires the XML parser boundary slice that precedes OPF/NCX semantic checks in-repo; archive-level bounding is in place. |
+| `MD-*`, `IMG-*`, `CON-*`, `FUZZ-*`, hosted rows for this revision | Owning features or CI execution land later in Phase 2. |
+
+**Changed paths and classified areas.** `Cargo.toml`/`Cargo.lock`
+(dependencies: `zip` 8.6 shared with rbook, `rbook` 0.7.10, `scraper`
+0.27, `ego-tree`; dev-only `zip` writer access),
+`src/document/archive.rs` (new bounded preflight), `src/document/epub.rs`
+(new package semantics), `src/document/xhtml.rs` (new tolerant converter),
+`src/document/model.rs` (multi-section model, headings),
+`src/document/error.rs` (typed EPUB errors, `.epub` detection),
+`src/document/mod.rs` (unified loader dispatch), `src/app/state.rs`
+(load dispatch), `src/layout/mod.rs` (section-qualified rows),
+`tests/document_io.rs`, `tests/cli.rs` (integration evidence),
+`tests/case_registry.overrides.toml` plus regenerated manifests,
+`tests/fixtures.toml`, `tools/make_epub_fixtures.py` (fixtures).
+
+**Blocked cases.** Unchanged from the Phase 1 gate record.
+
+**Cleanup.** `cargo clean` has not run for this cycle yet; it runs after the
+complete validation pass recorded below if this entry is finalized as-is.
 
 ## Commit Reports
 
