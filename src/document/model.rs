@@ -38,6 +38,9 @@ pub struct Block {
     range: Range<usize>,
     cells: Vec<Range<usize>>,
     resource: Option<ImageResource>,
+    source_range: Option<Range<usize>>,
+    syntax_range: Option<Range<usize>>,
+    code_language: Option<String>,
 }
 
 impl Block {
@@ -53,6 +56,9 @@ impl Block {
             range,
             cells: Vec::new(),
             resource: None,
+            source_range: None,
+            syntax_range: None,
+            code_language: None,
         }
     }
 
@@ -69,6 +75,9 @@ impl Block {
             range,
             cells,
             resource: None,
+            source_range: None,
+            syntax_range: None,
+            code_language: None,
         }
     }
 
@@ -84,6 +93,9 @@ impl Block {
             range,
             cells: Vec::new(),
             resource: Some(resource),
+            source_range: None,
+            syntax_range: None,
+            code_language: None,
         }
     }
 
@@ -109,6 +121,36 @@ impl Block {
     #[must_use]
     pub const fn resource(&self) -> Option<&ImageResource> {
         self.resource.as_ref()
+    }
+
+    /// Byte range occupied by this block in the parser's original source.
+    #[must_use]
+    pub const fn source_range(&self) -> Option<&Range<usize>> {
+        self.source_range.as_ref()
+    }
+
+    /// Full parser construct, including delimiters and metadata when present.
+    #[must_use]
+    pub const fn syntax_range(&self) -> Option<&Range<usize>> {
+        self.syntax_range.as_ref()
+    }
+
+    /// Fenced code language as declared by the source, when present.
+    #[must_use]
+    pub fn code_language(&self) -> Option<&str> {
+        self.code_language.as_deref()
+    }
+
+    pub(crate) fn set_source(&mut self, range: Option<Range<usize>>) {
+        self.source_range = range;
+    }
+
+    pub(crate) fn set_syntax(&mut self, range: Option<Range<usize>>) {
+        self.syntax_range = range;
+    }
+
+    pub(crate) fn set_code_language(&mut self, language: Option<String>) {
+        self.code_language = language;
     }
 
     /// Extends the range end during assembly.
@@ -171,13 +213,42 @@ pub enum InlineKind {
 pub struct InlineSpan {
     range: Range<usize>,
     kind: InlineKind,
+    destination: Option<String>,
+    source_range: Option<Range<usize>>,
+    syntax_range: Option<Range<usize>>,
+    target: Option<Position>,
 }
 
 impl InlineSpan {
     /// Creates a decoration over `range`.
     #[must_use]
     pub const fn new(kind: InlineKind, range: Range<usize>) -> Self {
-        Self { range, kind }
+        Self {
+            range,
+            kind,
+            destination: None,
+            source_range: None,
+            syntax_range: None,
+            target: None,
+        }
+    }
+
+    /// Creates a source-aware decoration, retaining an inert link destination.
+    #[must_use]
+    pub fn with_metadata(
+        kind: InlineKind,
+        range: Range<usize>,
+        destination: Option<String>,
+        source_range: Option<Range<usize>>,
+    ) -> Self {
+        Self {
+            range,
+            kind,
+            destination,
+            source_range,
+            syntax_range: None,
+            target: None,
+        }
     }
 
     /// Byte range of this decoration.
@@ -190,6 +261,89 @@ impl InlineSpan {
     #[must_use]
     pub const fn kind(&self) -> InlineKind {
         self.kind
+    }
+
+    /// Destination exactly as declared by the source; it is never fetched.
+    #[must_use]
+    pub fn destination(&self) -> Option<&str> {
+        self.destination.as_deref()
+    }
+
+    /// Byte range occupied by this span in the parser's original source.
+    #[must_use]
+    pub const fn source_range(&self) -> Option<&Range<usize>> {
+        self.source_range.as_ref()
+    }
+
+    /// Full parser construct, including link delimiters and destination.
+    #[must_use]
+    pub const fn syntax_range(&self) -> Option<&Range<usize>> {
+        self.syntax_range.as_ref()
+    }
+
+    /// Resolved in-document destination, when the format adapter found one.
+    #[must_use]
+    pub const fn target(&self) -> Option<Position> {
+        self.target
+    }
+
+    pub(crate) const fn set_target(&mut self, target: Option<Position>) {
+        self.target = target;
+    }
+
+    pub(crate) fn set_syntax_range(&mut self, range: Option<Range<usize>>) {
+        self.syntax_range = range;
+    }
+}
+
+/// One exact correspondence between canonical visible bytes and source bytes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceMapping {
+    canonical: Range<usize>,
+    source: Range<usize>,
+}
+
+impl SourceMapping {
+    #[must_use]
+    pub const fn new(canonical: Range<usize>, source: Range<usize>) -> Self {
+        Self { canonical, source }
+    }
+
+    #[must_use]
+    pub const fn canonical_range(&self) -> &Range<usize> {
+        &self.canonical
+    }
+
+    #[must_use]
+    pub const fn source_range(&self) -> &Range<usize> {
+        &self.source
+    }
+}
+
+/// One ordered table-of-contents destination.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NavigationPoint {
+    title: String,
+    position: Position,
+}
+
+impl NavigationPoint {
+    #[must_use]
+    pub fn new(title: impl Into<String>, position: Position) -> Self {
+        Self {
+            title: title.into(),
+            position,
+        }
+    }
+
+    #[must_use]
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    #[must_use]
+    pub const fn position(&self) -> Position {
+        self.position
     }
 }
 
@@ -328,6 +482,8 @@ pub struct Document {
     canonical: String,
     sections: Vec<Section>,
     inline: Vec<InlineSpan>,
+    navigation: Vec<NavigationPoint>,
+    source_mappings: Vec<SourceMapping>,
 }
 
 impl Document {
@@ -383,12 +539,15 @@ impl Document {
             ));
         }
 
+        let navigation = fallback_navigation(&sections);
         Ok(Self {
             id,
             title,
             canonical,
             sections,
             inline: Vec::new(),
+            navigation,
+            source_mappings: Vec::new(),
         })
     }
 
@@ -442,12 +601,16 @@ impl Document {
             ));
         }
 
+        let sections = vec![Section::new(None, blocks)];
+        let navigation = fallback_navigation(&sections);
         Ok(Self {
             id,
             title,
             canonical,
-            sections: vec![Section::new(None, blocks)],
+            sections,
             inline: Vec::new(),
+            navigation,
+            source_mappings: Vec::new(),
         })
     }
 
@@ -491,6 +654,20 @@ impl Document {
         Ok(self)
     }
 
+    /// Attaches ordered, already validated in-document navigation points.
+    #[must_use]
+    pub fn with_navigation(mut self, navigation: Vec<NavigationPoint>) -> Self {
+        self.navigation = navigation;
+        self
+    }
+
+    /// Attaches exact correspondences to the parser's original bytes.
+    #[must_use]
+    pub fn with_source_mappings(mut self, mappings: Vec<SourceMapping>) -> Self {
+        self.source_mappings = mappings;
+        self
+    }
+
     /// The stable document identity.
     #[must_use]
     pub fn id(&self) -> &DocumentId {
@@ -531,6 +708,38 @@ impl Document {
     #[must_use]
     pub fn inline_spans(&self) -> &[InlineSpan] {
         &self.inline
+    }
+
+    /// Ordered format-supplied or section-based fallback destinations.
+    #[must_use]
+    pub fn navigation_points(&self) -> &[NavigationPoint] {
+        &self.navigation
+    }
+
+    /// Exact canonical-to-source segments in canonical reading order.
+    #[must_use]
+    pub fn source_mappings(&self) -> &[SourceMapping] {
+        &self.source_mappings
+    }
+
+    fn section_start_byte(&self, section: usize) -> usize {
+        self.sections
+            .get(section)
+            .and_then(|section| section.blocks.first())
+            .map_or_else(
+                || {
+                    self.sections
+                        .get(..section)
+                        .and_then(|sections| {
+                            sections
+                                .iter()
+                                .rev()
+                                .find_map(|section| section.blocks.last())
+                        })
+                        .map_or(0, |block| block.range.end)
+                },
+                |block| block.range.start,
+            )
     }
 
     /// The strongest decoration covering `byte`, if any.
@@ -622,11 +831,11 @@ impl Document {
     }
 }
 
-/// A validated logical reading position.
+/// A logical reading position.
 ///
-/// Construction goes through [`Document::position`]; instances therefore
-/// always reference an existing block boundary and can never point outside
-/// the document or into the middle of a character.
+/// Ordinary construction goes through [`Document::position`]. Section
+/// navigation may additionally address the start of an empty section, which
+/// resolves to that section's canonical boundary without inventing content.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     section: usize,
@@ -664,17 +873,46 @@ impl Position {
 
     /// Resolves this position to an absolute byte in the canonical text.
     ///
-    /// The referenced block must come from the same document the position was
-    /// validated against; mismatched documents are a programming defect, so a
-    /// missing block resolves clamped instead of panicking.
+    /// Empty-section anchors resolve to that section's canonical boundary.
+    /// Other missing blocks and mismatched documents resolve clamped instead
+    /// of panicking.
     #[must_use]
     pub fn absolute_byte(&self, document: &Document) -> usize {
         document
             .sections()
             .get(self.section)
             .and_then(|section| section.blocks().get(self.block))
-            .map_or(self.offset, |block| block.range.start + self.offset)
+            .map_or_else(
+                || {
+                    document
+                        .section_start_byte(self.section)
+                        .saturating_add(self.offset)
+                        .min(document.len())
+                },
+                |block| block.range.start + self.offset,
+            )
     }
+}
+
+fn fallback_navigation(sections: &[Section]) -> Vec<NavigationPoint> {
+    sections
+        .iter()
+        .enumerate()
+        .map(|(section, content)| {
+            let title = content
+                .title()
+                .filter(|title| !title.trim().is_empty())
+                .map_or_else(|| format!("Section {}", section + 1), str::to_owned);
+            NavigationPoint::new(
+                title,
+                Position {
+                    section,
+                    block: 0,
+                    offset: 0,
+                },
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -831,5 +1069,33 @@ mod tests {
             Document::from_sections(DocumentId::new("x".to_owned()), None, canonical, broken)
                 .expect_err("gaps reject");
         assert!(error.contains("does not continue coverage"));
+    }
+
+    #[test]
+    fn section_navigation_fallbacks_have_stable_titles_and_exact_starts() {
+        let document = Document::from_sections(
+            DocumentId::new("fallbacks".to_owned()),
+            None,
+            "one".to_owned(),
+            vec![
+                Section::new(
+                    Some("Named".to_owned()),
+                    vec![Block::new(BlockKind::Paragraph, 0..3)],
+                ),
+                Section::new(Some("  ".to_owned()), Vec::new()),
+                Section::new(None, Vec::new()),
+            ],
+        )
+        .expect("empty sections preserve tiling");
+
+        let points = document.navigation_points();
+        assert_eq!(points.len(), 3);
+        assert_eq!(points[0].title(), "Named");
+        assert_eq!(points[1].title(), "Section 2");
+        assert_eq!(points[2].title(), "Section 3");
+        for (index, point) in points.iter().enumerate() {
+            assert_eq!(point.position().section(), index);
+            assert_eq!(point.position().absolute_byte(&document), [0, 3, 3][index]);
+        }
     }
 }

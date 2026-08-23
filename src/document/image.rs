@@ -125,6 +125,10 @@ pub enum ImageResourceError {
         /// Short decoder explanation without raw byte dumps.
         detail: String,
     },
+
+    /// The input was SVG or SVGZ and the bounded vector pipeline rejected it.
+    #[error(transparent)]
+    Vector(#[from] super::vector::VectorImageError),
 }
 
 /// One successfully bounded decoded frame as normalized RGBA8.
@@ -136,6 +140,14 @@ pub struct DecodedImage {
 }
 
 impl DecodedImage {
+    pub(super) const fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
+        Self {
+            width,
+            height,
+            rgba,
+        }
+    }
+
     /// Image width in pixels.
     #[must_use]
     pub const fn width(&self) -> u32 {
@@ -225,6 +237,16 @@ pub fn decode_bounded_with_limits(
         });
     }
 
+    if super::vector::sniff_vector_format(bytes).is_some() {
+        return super::vector::decode_vector_bounded_with_limits(
+            bytes,
+            limits,
+            &super::vector::VectorLimits::default(),
+            None,
+        )
+        .map_err(Into::into);
+    }
+
     let format = resolve_format(bytes, declared)?;
 
     let (width, height) = ImageReader::with_format(Cursor::new(bytes), format)
@@ -264,11 +286,7 @@ pub fn decode_bounded_with_limits(
         })?;
     let rgba = decoded.to_rgba8().into_raw();
 
-    Ok(DecodedImage {
-        width,
-        height,
-        rgba,
-    })
+    Ok(DecodedImage::new(width, height, rgba))
 }
 
 /// Conservative ceiling on transient per-pixel bytes per decoder family.

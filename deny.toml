@@ -15,6 +15,8 @@ allow = [
     "Apache-2.0",
     "GPL-3.0-only",
     "MIT",
+    # arrayref, used by resvg's bounded rasterizer, is BSD-2-Clause.
+    "BSD-2-Clause",
     # encoding_rs ships its WHATWG mapping tables under BSD-3-Clause.
     "BSD-3-Clause",
     # option-ext, pulled in by directories, is file-level MPL-2.0.

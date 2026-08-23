@@ -18,6 +18,7 @@ use zip::CompressionMethod;
 use zip::read::ZipArchive;
 
 use super::sanitize_path;
+use super::structured::{XmlLimits, XmlStructureError, validate_xml_structure};
 
 /// Inclusive archive policy limits; application choices rather than EPUB spec
 /// limits. They mirror the initial safety table and only become configurable
@@ -40,6 +41,8 @@ pub struct ArchiveLimits {
     /// Entries whose uncompressed size stays within this bound bypass the
     /// ratio check because their absolute cost is bounded anyway.
     pub small_file_exception: u64,
+    /// Pre-parse structure limits for XML control documents and nav candidates.
+    pub xml: XmlLimits,
 }
 
 impl Default for ArchiveLimits {
@@ -52,6 +55,7 @@ impl Default for ArchiveLimits {
             max_chapter_member: 32 * 1024 * 1024,
             max_compression_ratio: 100,
             small_file_exception: 64 * 1024,
+            xml: XmlLimits::default(),
         }
     }
 }
@@ -112,6 +116,16 @@ pub fn classify_member(key: &str) -> MemberClass {
         "xhtml" | "html" | "htm" => MemberClass::Chapter,
         _ => MemberClass::Other,
     }
+}
+
+/// Adds one advertised member size inside an inclusive archive budget.
+///
+/// `None` represents either arithmetic overflow or a total above the limit;
+/// callers must reject both rather than allowing saturation to turn an
+/// unrepresentable expansion into an accepted `u64::MAX` total.
+#[must_use]
+pub fn checked_expansion_total(current: u64, member: u64, limit: u64) -> Option<u64> {
+    current.checked_add(member).filter(|total| *total <= limit)
 }
 
 /// Rejection reasons for unsafe or ambiguous member names.
@@ -376,6 +390,21 @@ pub enum ArchiveError {
         /// Sanitized member name of the second overlapping entry.
         member: String,
     },
+
+    /// An XML control document failed its pre-parse structural gate.
+    #[error(
+        "structured document '{member}' in '{path}' is not safe to parse: {source}; the \
+         book may be hostile or damaged"
+    )]
+    UnsafeXmlStructure {
+        /// Safe display path of the rejected file.
+        path: String,
+        /// Sanitized canonical member key.
+        member: String,
+        /// Exact structural policy rejection.
+        #[source]
+        source: XmlStructureError,
+    },
 }
 
 fn method_name(method: CompressionMethod) -> String {
@@ -420,7 +449,7 @@ impl MemberInfo {
 /// The inspected bytes stay immutable in memory, so semantic parsing sees
 /// exactly the content the checks approved; readers never re-open the file
 /// from disk.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PreflightedArchive {
     bytes: Arc<Vec<u8>>,
     display_path: String,
@@ -505,6 +534,7 @@ impl PreflightedArchive {
         }
         let (members, by_key) = scan_members(&bytes, display_path, limits)?;
         verify_actual_sizes(&bytes, display_path, limits, &members)?;
+        verify_xml_structures(&bytes, display_path, limits, &members)?;
 
         Ok(Self {
             bytes: Arc::new(bytes),
@@ -538,11 +568,30 @@ impl PreflightedArchive {
     /// [`ArchiveError::Malformed`] when the entry disappears or stops
     /// matching the preflight pass.
     pub fn read_member(&self, key: &str) -> Result<Vec<u8>, ArchiveError> {
+        let limit = self
+            .member(key)
+            .map_or(self.limits.max_advertised_expansion, |info| {
+                info.class.limit(&self.limits)
+            });
+        self.read_member_bounded(key, limit)
+    }
+
+    /// Reads one member without allowing it to exceed the caller's tighter
+    /// resource limit or its preflight class limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same typed failures as [`Self::read_member`].
+    pub fn read_member_bounded(
+        &self,
+        key: &str,
+        caller_limit: u64,
+    ) -> Result<Vec<u8>, ArchiveError> {
         let info = self.member(key).ok_or_else(|| ArchiveError::Malformed {
             path: self.display_path.clone(),
             detail: format!("resource '{}' vanished after preflight", sanitize_path(key)),
         })?;
-        let limit = info.class.limit(&self.limits);
+        let limit = info.class.limit(&self.limits).min(caller_limit);
         let mut archive = open_archive(&self.bytes, &self.display_path)?;
         let mut entry = archive
             .by_index(info.index)
@@ -704,15 +753,17 @@ fn scan_members(
             });
         }
 
-        advertised_total = advertised_total.saturating_add(declared);
-        if advertised_total > limits.max_advertised_expansion {
+        let Some(next_total) =
+            checked_expansion_total(advertised_total, declared, limits.max_advertised_expansion)
+        else {
             return Err(ArchiveError::AdvertisedExpansionTooLarge {
                 path: display_path.to_owned(),
                 member: sanitize_path(&key),
-                total: advertised_total,
+                total: advertised_total.saturating_add(declared),
                 limit: limits.max_advertised_expansion,
             });
-        }
+        };
+        advertised_total = next_total;
 
         if by_key.contains_key(&key) {
             return Err(ArchiveError::AmbiguousMemberName {
@@ -810,6 +861,48 @@ fn verify_actual_sizes(
     Ok(())
 }
 
+/// Gates every known control document and every HTML nav candidate before the
+/// package parser can inspect semantics. EPUB 3 nav paths are arbitrary, so
+/// all XHTML/HTML/HTM members take the same cheap structural scan.
+fn verify_xml_structures(
+    bytes: &[u8],
+    display_path: &str,
+    limits: &ArchiveLimits,
+    members: &[MemberInfo],
+) -> Result<(), ArchiveError> {
+    let mut archive = open_archive(bytes, display_path)?;
+    for info in members {
+        if info.class == MemberClass::Other {
+            continue;
+        }
+
+        let mut entry = archive
+            .by_index(info.index)
+            .map_err(|error| ArchiveError::Malformed {
+                path: display_path.to_owned(),
+                detail: malformed_detail(error),
+            })?;
+        let mut source = Vec::with_capacity(usize::try_from(info.declared_size).unwrap_or(0));
+        entry
+            .read_to_end(&mut source)
+            .map_err(|error| ArchiveError::Malformed {
+                path: display_path.to_owned(),
+                detail: format!(
+                    "could not decompress '{}': {error}",
+                    sanitize_path(&info.key)
+                ),
+            })?;
+        validate_xml_structure(&source, limits.xml).map_err(|source| {
+            ArchiveError::UnsafeXmlStructure {
+                path: display_path.to_owned(),
+                member: sanitize_path(&info.key),
+                source,
+            }
+        })?;
+    }
+    Ok(())
+}
+
 /// Reads a local book file once and runs the full preflight pipeline.
 ///
 /// The compressed-size boundary applies to metadata before allocation and to
@@ -877,6 +970,7 @@ mod tests {
             max_chapter_member: 96,
             max_compression_ratio: 100,
             small_file_exception: 32,
+            xml: XmlLimits::default(),
         }
     }
 

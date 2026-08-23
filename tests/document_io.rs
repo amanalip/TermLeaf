@@ -789,3 +789,28 @@ fn epub_013_embedded_images_resolve_to_lazy_member_resources() -> anyhow::Result
     }
     Ok(())
 }
+
+#[test]
+fn img_013_epub_lazy_provider_keeps_inspected_image_bytes_after_path_swap() -> anyhow::Result<()> {
+    let original_png = b"original encoded image bytes";
+    let chapter = r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><img src="../images/red.png" alt="stable"/></body></html>"#;
+    let book = epub_with_chapter("img013-stable", "Stable Image", chapter, original_png)?;
+    let snapshot = termleaf::document::EpubSnapshot::open(book.path(), &archive_limits())
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    let document = snapshot
+        .build()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    let resource = document.sections()[0].blocks()[0]
+        .resource()
+        .context("lazy image resource")?;
+    let provider = snapshot.resource_provider();
+
+    std::fs::write(book.path(), b"replacement bytes").context("replace source path")?;
+
+    assert_eq!(
+        provider.read_bounded(resource, 1024)?,
+        original_png,
+        "lazy reads use the immutable preflight buffer, never the path"
+    );
+    Ok(())
+}

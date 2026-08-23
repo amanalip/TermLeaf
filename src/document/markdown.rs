@@ -9,12 +9,13 @@
 
 use std::{fs::File, io::Read, ops::Range, path::Path};
 
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use super::{
     error::{DocumentError, sanitize_path},
     model::{
         Block, BlockKind, Document, DocumentId, ImageRef, ImageResource, InlineKind, InlineSpan,
+        SourceMapping,
     },
     text::{TextLimits, file_stem_title},
 };
@@ -103,10 +104,14 @@ struct PendingBlock {
     kind: BlockKind,
     text: String,
     /// Per-byte inline role parallel to `text`.
-    kinds: Vec<Option<InlineKind>>,
+    marks: Vec<Option<InlineMark>>,
+    sources: Vec<Option<Range<usize>>>,
+    syntax_range: Option<Range<usize>>,
+    code_language: Option<String>,
     /// Whitespace collapsing state.
     pending_space: bool,
-    pending_kind: Option<InlineKind>,
+    pending_mark: Option<InlineMark>,
+    pending_source: Option<Range<usize>>,
     /// A paragraph boundary landed inside this block; the next content
     /// inserts the joining newline lazily so trailing separators never
     /// accumulate.
@@ -120,9 +125,13 @@ impl PendingBlock {
         Self {
             kind,
             text: String::new(),
-            kinds: Vec::new(),
+            marks: Vec::new(),
+            sources: Vec::new(),
+            syntax_range: None,
+            code_language: None,
             pending_space: false,
-            pending_kind: None,
+            pending_mark: None,
+            pending_source: None,
             needs_join: false,
             literal,
         }
@@ -133,42 +142,142 @@ impl PendingBlock {
     }
 
     /// Appends decoded text verbatim, one role entry per byte.
-    fn push_str_raw(&mut self, raw: &str, kind: Option<InlineKind>) {
+    fn push_str_raw(&mut self, raw: &str, mark: Option<InlineMark>, source: Option<Range<usize>>) {
         self.text.push_str(raw);
-        self.kinds.extend(std::iter::repeat_n(kind, raw.len()));
+        self.marks.extend(std::iter::repeat_n(mark, raw.len()));
+        self.sources.extend(std::iter::repeat_n(source, raw.len()));
     }
 
     /// Appends one character under the collapsing rules.
-    fn push_char(&mut self, character: char, kind: Option<InlineKind>) {
+    fn push_char(
+        &mut self,
+        character: char,
+        mark: Option<InlineMark>,
+        source: Option<Range<usize>>,
+    ) {
         if self.literal {
             let mut buffer = [0u8; 4];
             let encoded = character.encode_utf8(&mut buffer);
-            self.push_str_raw(encoded, kind);
+            self.push_str_raw(encoded, mark, source);
             return;
         }
         if character.is_whitespace() {
             self.pending_space = true;
-            self.pending_kind = kind;
+            self.pending_mark = mark;
+            self.pending_source = source;
             return;
         }
         if self.needs_join && self.has_content() {
-            self.push_str_raw("\n", None);
+            self.push_str_raw("\n", None, None);
         } else if self.pending_space && self.has_content() {
-            self.push_str_raw(" ", self.pending_kind);
+            self.push_str_raw(" ", self.pending_mark.clone(), self.pending_source.clone());
         }
         self.needs_join = false;
         self.pending_space = false;
+        self.pending_mark = None;
+        self.pending_source = None;
         let mut buffer = [0u8; 4];
         let encoded = character.encode_utf8(&mut buffer);
-        self.push_str_raw(encoded, kind);
+        self.push_str_raw(encoded, mark, source);
     }
 
     /// Appends decoded text with the supplied effective role.
-    fn push_text(&mut self, raw: &str, kind: Option<InlineKind>) {
-        for character in raw.chars() {
-            self.push_char(character, kind);
+    fn push_text(
+        &mut self,
+        raw: &str,
+        mark: Option<&InlineMark>,
+        source_range: Range<usize>,
+        source_text: &str,
+    ) {
+        for (character, source) in raw.chars().zip(character_source_ranges(
+            raw,
+            source_text,
+            source_range.start,
+        )) {
+            self.push_char(character, mark.cloned(), source);
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct InlineMark {
+    kind: InlineKind,
+    destination: Option<String>,
+    syntax_range: Option<Range<usize>>,
+}
+
+fn character_source_ranges(
+    rendered: &str,
+    source: &str,
+    source_start: usize,
+) -> Vec<Option<Range<usize>>> {
+    let mut cursor = 0usize;
+    rendered
+        .chars()
+        .map(|character| {
+            let encoded = character.to_string();
+            let relative = source.get(cursor..)?.find(&encoded)?;
+            let start = cursor + relative;
+            let end = start + encoded.len();
+            cursor = end;
+            Some(source_start + start..source_start + end)
+        })
+        .collect()
+}
+
+fn mapping_runs(sources: &[Option<Range<usize>>], window: Range<usize>) -> Vec<SourceMapping> {
+    let mut mappings: Vec<SourceMapping> = Vec::new();
+    let mut index = window.start;
+    while index < window.end {
+        let source = sources.get(index).cloned().flatten();
+        let mut end = index + 1;
+        while end < window.end && sources.get(end) == sources.get(index) {
+            end += 1;
+        }
+        if let Some(source) = source {
+            if let Some(previous) = mappings.last_mut()
+                && previous.canonical_range().end == index
+                && previous.source_range().end == source.start
+            {
+                let canonical_start = previous.canonical_range().start;
+                let source_start = previous.source_range().start;
+                *previous = SourceMapping::new(canonical_start..end, source_start..source.end);
+            } else {
+                mappings.push(SourceMapping::new(index..end, source));
+            }
+        }
+        index = end;
+    }
+    mappings
+}
+
+fn contiguous_source_range(
+    mappings: &[SourceMapping],
+    canonical: &Range<usize>,
+) -> Option<Range<usize>> {
+    let relevant: Vec<&SourceMapping> = mappings
+        .iter()
+        .filter(|mapping| {
+            mapping.canonical_range().start < canonical.end
+                && canonical.start < mapping.canonical_range().end
+        })
+        .collect();
+    let first = *relevant.first()?;
+    let last = *relevant.last()?;
+    if first.canonical_range().start > canonical.start
+        || last.canonical_range().end < canonical.end
+        || relevant
+            .iter()
+            .any(|mapping| mapping.canonical_range().len() != mapping.source_range().len())
+    {
+        return None;
+    }
+    let start = first.source_range().start + canonical.start - first.canonical_range().start;
+    let end = last.source_range().end - (last.canonical_range().end - canonical.end);
+    relevant
+        .windows(2)
+        .all(|pair| pair[0].source_range().end == pair[1].source_range().start)
+        .then_some(start..end)
 }
 
 /// Accumulated document under construction.
@@ -177,6 +286,7 @@ struct Assembled {
     canonical: String,
     blocks: Vec<Block>,
     inline: Vec<InlineSpan>,
+    mappings: Vec<SourceMapping>,
 }
 
 impl Assembled {
@@ -209,14 +319,32 @@ impl Assembled {
         self.separate(block.kind);
         let start = self.canonical.len();
         self.canonical.push_str(&block.text);
-        for (range, kind) in runs_from_kinds(&block.kinds) {
-            self.inline.push(InlineSpan::new(
-                kind,
+        let local_mappings = mapping_runs(&block.sources, 0..block.text.len());
+        for (range, mark) in runs_from_marks(&block.marks) {
+            let mut span = InlineSpan::with_metadata(
+                mark.kind,
                 start + range.start..start + range.end,
-            ));
+                mark.destination,
+                contiguous_source_range(&local_mappings, &range),
+            );
+            span.set_syntax_range(mark.syntax_range);
+            self.inline.push(span);
         }
-        self.blocks
-            .push(Block::new(block.kind, start..self.canonical.len()));
+        let mut committed = Block::new(block.kind, start..self.canonical.len());
+        committed.set_source(contiguous_source_range(
+            &local_mappings,
+            &(0..block.text.len()),
+        ));
+        committed.set_syntax(block.syntax_range.clone());
+        committed.set_code_language(block.code_language.clone());
+        self.blocks.push(committed);
+        self.mappings
+            .extend(local_mappings.into_iter().map(|mapping| {
+                SourceMapping::new(
+                    start + mapping.canonical_range().start..start + mapping.canonical_range().end,
+                    mapping.source_range().clone(),
+                )
+            }));
     }
 }
 
@@ -292,7 +420,7 @@ struct ParserState {
     out: Assembled,
     pending: Option<PendingBlock>,
     /// Roles stack as `None` for plain contexts such as image alt text.
-    inline_stack: Vec<Option<InlineKind>>,
+    inline_stack: Vec<Option<InlineMark>>,
     list_stack: Vec<bool>,
     table: Option<TableBuffer>,
     /// Declared image destinations plus the kind of block each placeholder
@@ -310,11 +438,11 @@ impl ParserState {
         }
     }
 
-    fn current_kind(&self) -> Option<InlineKind> {
-        self.inline_stack.last().copied().flatten()
+    fn current_mark(&self) -> Option<InlineMark> {
+        self.inline_stack.last().cloned().flatten()
     }
 
-    fn start(&mut self, tag: &Tag<'_>) {
+    fn start(&mut self, tag: &Tag<'_>, source_range: Range<usize>) {
         match tag {
             Tag::Paragraph => {
                 // Transparent inside list items and quotes, whose own
@@ -336,9 +464,17 @@ impl ParserState {
                 self.flush();
                 self.pending = Some(PendingBlock::new(BlockKind::Quote, false));
             }
-            Tag::CodeBlock(_) => {
+            Tag::CodeBlock(kind) => {
                 self.flush();
-                self.pending = Some(PendingBlock::new(BlockKind::CodeBlock, true));
+                let mut block = PendingBlock::new(BlockKind::CodeBlock, true);
+                block.syntax_range = Some(source_range);
+                if let CodeBlockKind::Fenced(language) = kind {
+                    let language = language.trim();
+                    if !language.is_empty() {
+                        block.code_language = Some(language.to_owned());
+                    }
+                }
+                self.pending = Some(block);
             }
             Tag::List(ordered) => {
                 // Nested lists split the enclosing item: its own text
@@ -371,9 +507,21 @@ impl ParserState {
                     buffer.open_cell();
                 }
             }
-            Tag::Emphasis => self.inline_stack.push(Some(InlineKind::Emphasis)),
-            Tag::Strong => self.inline_stack.push(Some(InlineKind::Strong)),
-            Tag::Link { .. } => self.inline_stack.push(Some(InlineKind::Link)),
+            Tag::Emphasis => self.inline_stack.push(Some(InlineMark {
+                kind: InlineKind::Emphasis,
+                destination: None,
+                syntax_range: Some(source_range),
+            })),
+            Tag::Strong => self.inline_stack.push(Some(InlineMark {
+                kind: InlineKind::Strong,
+                destination: None,
+                syntax_range: Some(source_range),
+            })),
+            Tag::Link { dest_url, .. } => self.inline_stack.push(Some(InlineMark {
+                kind: InlineKind::Link,
+                destination: Some(dest_url.as_ref().to_owned()),
+                syntax_range: Some(source_range),
+            })),
             // Images split the open flow and capture their alt text; inside
             // table cells the alt text stays part of the cell instead.
             Tag::Image { dest_url, .. } => {
@@ -495,7 +643,7 @@ impl ParserState {
 
 /// Parses one Markdown source into the shared logical document.
 fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result<Document, String> {
-    let parser = Parser::new_ext(source, Options::ENABLE_TABLES);
+    let parser = Parser::new_ext(source, Options::ENABLE_TABLES).into_offset_iter();
     let mut state = ParserState {
         out: Assembled::default(),
         pending: None,
@@ -506,19 +654,20 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
         alt_capture: None,
     };
 
-    for event in parser {
+    for (event, source_range) in parser {
         match event {
-            Event::Start(tag) => state.start(&tag),
+            Event::Start(tag) => state.start(&tag, source_range),
             Event::End(tag) => state.end(tag),
             Event::Text(text) => {
                 if let Some(capture) = state.alt_capture.as_mut() {
                     capture.push_str(&text);
                 } else {
-                    let kind = state.current_kind();
+                    let mark = state.current_mark();
                     if let Some(buffer) = state.table.as_mut() {
                         buffer.current_cell.push_str(&text);
                     } else if let Some(block) = state.pending.as_mut() {
-                        block.push_text(&text, kind);
+                        let source_text = source.get(source_range.clone()).unwrap_or_default();
+                        block.push_text(&text, mark.as_ref(), source_range, source_text);
                     }
                 }
             }
@@ -526,16 +675,26 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
                 if let Some(capture) = state.alt_capture.as_mut() {
                     capture.push_str(&code);
                 } else if let Some(block) = state.pending.as_mut() {
-                    block.push_text(&code, Some(InlineKind::Code));
+                    let source_text = source.get(source_range.clone()).unwrap_or_default();
+                    block.push_text(
+                        &code,
+                        Some(&InlineMark {
+                            kind: InlineKind::Code,
+                            destination: None,
+                            syntax_range: Some(source_range.clone()),
+                        }),
+                        source_range,
+                        source_text,
+                    );
                 }
             }
             Event::SoftBreak => {
                 if let Some(capture) = state.alt_capture.as_mut() {
                     capture.push(' ');
                 } else {
-                    let kind = state.current_kind();
+                    let mark = state.current_mark();
                     if let Some(block) = state.pending.as_mut() {
-                        block.push_char(' ', kind);
+                        block.push_char(' ', mark, Some(source_range));
                     }
                 }
             }
@@ -543,7 +702,7 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
                 if let Some(capture) = state.alt_capture.as_mut() {
                     capture.push(' ');
                 } else if let Some(block) = state.pending.as_mut() {
-                    block.push_str_raw("\n", None);
+                    block.push_str_raw("\n", None, Some(source_range));
                 }
             }
             Event::Rule => state.rule(),
@@ -555,19 +714,20 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
 
     Document::from_single_section(id, title, state.out.canonical, state.out.blocks)?
         .with_inline(state.out.inline)
+        .map(|document| document.with_source_mappings(state.out.mappings))
 }
 
 /// Groups equal adjacent byte roles into ordered decoration ranges.
-fn runs_from_kinds(kinds: &[Option<InlineKind>]) -> Vec<(Range<usize>, InlineKind)> {
+fn runs_from_marks(marks: &[Option<InlineMark>]) -> Vec<(Range<usize>, InlineMark)> {
     let mut runs = Vec::new();
     let mut index = 0usize;
-    while index < kinds.len() {
-        let kind = kinds[index];
+    while index < marks.len() {
+        let mark = marks[index].clone();
         let mut end = index + 1;
-        while end < kinds.len() && kinds[end] == kind {
+        while end < marks.len() && marks[end] == mark {
             end += 1;
         }
-        if let Some(decoration) = kind {
+        if let Some(decoration) = mark {
             runs.push((index..end, decoration));
         }
         index = end;
@@ -632,6 +792,11 @@ mod tests {
             .expect("fixture parses");
 
         assert_eq!(document.sections().len(), 1);
+        assert_eq!(document.navigation_points()[0].title(), "Section 1");
+        assert_eq!(
+            document.navigation_points()[0].position(),
+            document.position(0, 0, 0).expect("section start")
+        );
         let blocks: Vec<BlockKind> = document.sections()[0]
             .blocks()
             .iter()
@@ -701,32 +866,115 @@ mod tests {
     }
 
     #[test]
-    fn fenced_code_preserves_bytes_verbatim() {
-        let source = "```text\nkeep    spacing\n\tand tabs\n\nblank above\n```\n";
+    fn md_005_code_content_maps_without_fences_language_or_indentation() {
+        let source =
+            "```rust\nlet λ = call!(\"x, y!\");\n```\n\n    indented(λ, !);\n    second line\n";
         let document =
             parse_markdown(DocumentId::new("md005".to_owned()), None, source).expect("parses");
-        let code = document.sections()[0]
+        let code: Vec<&Block> = document.sections()[0]
             .blocks()
             .iter()
-            .find(|block| block.kind() == BlockKind::CodeBlock)
-            .expect("code block present");
-        let range = code.range();
-        let raw = &document.canonical()[range.clone()];
-        assert!(
-            raw.contains("keep    spacing"),
-            "internal spacing survives: {raw:?}"
+            .filter(|block| block.kind() == BlockKind::CodeBlock)
+            .collect();
+        assert_eq!(code.len(), 2);
+
+        assert_eq!(code[0].code_language(), Some("rust"));
+        assert_eq!(
+            &document.canonical()[code[0].range().clone()],
+            "let λ = call!(\"x, y!\");\n"
         );
-        assert!(raw.contains('\n'), "line breaks survive");
+        assert_eq!(
+            &source[code[0].source_range().expect("contiguous content").clone()],
+            "let λ = call!(\"x, y!\");\n"
+        );
+        assert_eq!(
+            &source[code[0].syntax_range().expect("fenced syntax").clone()],
+            "```rust\nlet λ = call!(\"x, y!\");\n```"
+        );
+
+        assert_eq!(code[1].code_language(), None);
+        assert_eq!(
+            &document.canonical()[code[1].range().clone()],
+            "indented(λ, !);\nsecond line\n"
+        );
+        assert_eq!(
+            code[1].source_range(),
+            None,
+            "indent gaps are non-contiguous"
+        );
+        let mapped_source: Vec<&str> = document
+            .source_mappings()
+            .iter()
+            .filter(|mapping| {
+                mapping.canonical_range().start >= code[1].range().start
+                    && mapping.canonical_range().end <= code[1].range().end
+            })
+            .map(|mapping| &source[mapping.source_range().clone()])
+            .collect();
+        assert_eq!(mapped_source, ["indented(λ, !);\n", "second line\n"]);
+    }
+
+    #[test]
+    fn md_010_link_targets_and_source_offsets_map_to_original_markdown() {
+        let source = concat!(
+            "[same!](one.md) and [same!](two.md), ",
+            "then [a\\[b\\] λ?!](three.md#δ).\n"
+        );
+        let document =
+            parse_markdown(DocumentId::new("md010".to_owned()), None, source).expect("parses");
+        let links: Vec<&InlineSpan> = document
+            .inline_spans()
+            .iter()
+            .filter(|span| span.kind() == InlineKind::Link)
+            .collect();
+        assert_eq!(links.len(), 3);
+        assert_eq!(&document.canonical()[links[0].range().clone()], "same!");
+        assert_eq!(&document.canonical()[links[1].range().clone()], "same!");
+        assert_eq!(links[0].destination(), Some("one.md"));
+        assert_eq!(links[1].destination(), Some("two.md"));
+        assert_eq!(&source[links[0].source_range().unwrap().clone()], "same!");
+        assert_eq!(&source[links[1].source_range().unwrap().clone()], "same!");
+        assert_eq!(
+            &source[links[0].syntax_range().unwrap().clone()],
+            "[same!](one.md)"
+        );
+        assert_eq!(
+            &source[links[1].syntax_range().unwrap().clone()],
+            "[same!](two.md)"
+        );
+
+        assert_eq!(&document.canonical()[links[2].range().clone()], "a[b] λ?!");
+        assert_eq!(links[2].source_range(), None, "escaped label is segmented");
+        let mapped: Vec<&str> = document
+            .source_mappings()
+            .iter()
+            .filter(|mapping| {
+                mapping.canonical_range().start >= links[2].range().start
+                    && mapping.canonical_range().end <= links[2].range().end
+            })
+            .map(|mapping| &source[mapping.source_range().clone()])
+            .collect();
+        assert_eq!(mapped.concat(), "a[b] λ?!");
+        assert!(links.iter().all(|link| link.target().is_none()));
     }
 
     #[test]
     fn md_006_inline_code_punctuation_stays_literal_between_delimiters() {
-        let source = "call `f(x, y) != g(x)` now\n";
+        let source = "call `f(λ, y!) != g(x)?` now\n";
         let document =
             parse_markdown(DocumentId::new("md006".to_owned()), None, source).expect("parses");
         assert_eq!(
             kinds_of(&document),
-            [("f(x, y) != g(x)".to_owned(), InlineKind::Code)]
+            [("f(λ, y!) != g(x)?".to_owned(), InlineKind::Code)]
+        );
+        let code = &document.inline_spans()[0];
+        assert_eq!(
+            &source[code.source_range().expect("content range").clone()],
+            "f(λ, y!) != g(x)?"
+        );
+        assert_eq!(
+            &source[code.syntax_range().expect("delimiter range").clone()],
+            "`f(λ, y!) != g(x)?`"
         );
     }
 

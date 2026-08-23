@@ -492,6 +492,13 @@ mod tests {
         assert!(empty.is_empty());
         assert!(empty.sections()[0].blocks().is_empty());
         assert!(empty.first_position().is_err());
+        assert_eq!(empty.navigation_points()[0].title(), "Section 1");
+        assert_eq!(
+            empty.navigation_points()[0]
+                .position()
+                .absolute_byte(&empty),
+            0
+        );
 
         let blanks = load_text_bytes(PATH, b"  \n\t\n", &TextLimits::default())
             .expect("whitespace-only parses");
