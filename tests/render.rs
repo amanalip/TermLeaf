@@ -4,7 +4,7 @@
 //! anchor, and non-color checks. This suite is the executable body of the
 //! `pr-render` profile; snapshot review notes live in `testreport.md`.
 
-use std::io::Write;
+use std::{io::Write, time::Duration};
 
 use anyhow::{Context, Result};
 use ratatui::{
@@ -40,6 +40,37 @@ fn draw(app: &mut App, width: u16, height: u16) -> Result<Buffer> {
     let mut terminal = Terminal::new(backend)?;
     terminal.draw(|frame| termleaf::ui::render(frame, app))?;
     Ok(terminal.backend().buffer().clone())
+}
+
+fn markdown_image_app(bytes: &[u8], alt: &str) -> Result<(tempfile::TempDir, App)> {
+    let directory = tempfile::tempdir()?;
+    let book = directory.path().join("illustrated.md");
+    std::fs::write(
+        &book,
+        format!("before image\n\n![{alt}](plate.png)\n\nafter image\n"),
+    )?;
+    std::fs::write(directory.path().join("plate.png"), bytes)?;
+    let app = App::open(StartupOptions {
+        book: Some(book),
+        ..StartupOptions::default()
+    })?;
+    Ok((directory, app))
+}
+
+fn draw_until(
+    app: &mut App,
+    width: u16,
+    height: u16,
+    predicate: impl Fn(&Buffer) -> bool,
+) -> Result<Buffer> {
+    for _ in 0..100 {
+        let rendered = draw(app, width, height)?;
+        if predicate(&rendered) {
+            return Ok(rendered);
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    anyhow::bail!("image worker did not reach the expected render state")
 }
 
 fn contents(buffer: &Buffer) -> String {
@@ -217,6 +248,60 @@ fn render_002_empty_short_long_and_error_states_render_safely() -> Result<()> {
     let mut suspended = reader_app("suspended\n")?;
     let rendered = draw(&mut suspended, 15, 2)?;
     assert!(contents(&rendered).contains("Terminal"));
+    Ok(())
+}
+
+#[test]
+fn img_009_011_014_production_half_blocks_render_and_preserve_source() -> Result<()> {
+    let png = {
+        let source = image::RgbaImage::from_pixel(2, 2, image::Rgba([220, 10, 20, 255]));
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(source).write_to(&mut cursor, image::ImageFormat::Png)?;
+        cursor.into_inner()
+    };
+    let (directory, mut app) = markdown_image_app(&png, "red plate")?;
+    app.set_color_mode(ColorMode::TrueColor);
+    let anchor = app.reader().context("reader")?.anchor();
+
+    let rendered = draw_until(&mut app, 80, 24, |buffer| contents(buffer).contains('▀'))?;
+
+    assert!(contents(&rendered).contains("before image"));
+    assert!(contents(&rendered).contains("after image"));
+    assert_eq!(app.reader().context("reader")?.anchor(), anchor);
+    assert!(
+        rendered
+            .content
+            .iter()
+            .any(|cell| { cell.symbol() == "▀" && matches!(cell.fg, Color::Rgb(220, 10, 20)) })
+    );
+    assert_eq!(std::fs::read(directory.path().join("plate.png"))?, png);
+    Ok(())
+}
+
+#[test]
+fn img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason() -> Result<()> {
+    let too_wide = {
+        let source = image::RgbaImage::from_pixel(16_385, 1, image::Rgba([1, 2, 3, 255]));
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(source).write_to(&mut cursor, image::ImageFormat::Png)?;
+        cursor.into_inner()
+    };
+    let (_directory, mut app) = markdown_image_app(&too_wide, "oversized plate")?;
+    app.set_color_mode(ColorMode::TrueColor);
+
+    let rendered = draw_until(&mut app, 100, 24, |buffer| {
+        let text = contents(buffer);
+        text.contains("16385x1") && text.contains("dimension limit")
+    })?;
+    let text = contents(&rendered);
+    assert!(text.contains("oversized plate"), "{text}");
+    assert!(text.contains("before image"), "{text}");
+    assert!(!text.contains('▀'));
+    app.update(Action::NextPage);
+    assert!(
+        contents(&draw(&mut app, 100, 24)?).contains("after image"),
+        "text following the bounded placeholder remains reachable"
+    );
     Ok(())
 }
 

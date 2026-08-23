@@ -17,6 +17,9 @@ mod width;
 pub use width::{caret_notation, display_width, tab_advance, visible_text};
 pub mod viewport;
 
+/// Rows reserved by an image block while its bounded preview is loading.
+pub const IMAGE_PLACEHOLDER_ROWS: usize = 6;
+
 /// One rendered piece of a row: the raw byte range it displays.
 ///
 /// Rendering applies [`visible_text`] with the running column, so tabs,
@@ -195,13 +198,7 @@ fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
                     block: block_index,
                     ..VisualRow::default()
                 }),
-                BlockKind::Paragraph
-                | BlockKind::Separator
-                | BlockKind::Heading { .. }
-                | BlockKind::Image => {
-                    // Image blocks wrap their caption line like prose; the
-                    // frame and pixel placement arrive with the rendering
-                    // slice.
+                BlockKind::Paragraph | BlockKind::Separator | BlockKind::Heading { .. } => {
                     list_counters = [0u64; 8];
                     let text = document
                         .block_text(section_index, block_index)
@@ -212,6 +209,17 @@ fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
                         block.range().start,
                         section_index,
                         block_index,
+                        width,
+                        &mut rows,
+                    );
+                }
+                BlockKind::Image => {
+                    list_counters = [0u64; 8];
+                    append_image_rows(
+                        document,
+                        section_index,
+                        block_index,
+                        block.range().start,
                         width,
                         &mut rows,
                     );
@@ -279,6 +287,26 @@ fn wrap_all_blocks(document: &Document, width: u16) -> Vec<VisualRow> {
         }
     }
     rows
+}
+
+fn append_image_rows(
+    document: &Document,
+    section: usize,
+    block: usize,
+    start: usize,
+    width: u16,
+    rows: &mut Vec<VisualRow>,
+) {
+    let first_row = rows.len();
+    let text = document.block_text(section, block).unwrap_or_default();
+    wrap_paragraph(document, text, start, section, block, width, rows);
+    while rows.len().saturating_sub(first_row) < IMAGE_PLACEHOLDER_ROWS {
+        rows.push(VisualRow {
+            section,
+            block,
+            ..VisualRow::default()
+        });
+    }
 }
 
 enum Atom<'t> {
@@ -629,13 +657,13 @@ fn table_rows(
 
     // Group cells into source rows using the newline boundaries.
     let mut source_rows: Vec<Vec<&Range<usize>>> = vec![Vec::new()];
-    let mut line_end = range.start + text.find('\n').map_or(text.len(), |position| position);
+    let mut line_end = range.start + text.find('\n').unwrap_or(text.len());
     let mut cursor = range.start;
     for cell in cells {
         while cell.start >= line_end && cursor < range.start + text.len() {
             cursor = line_end + 1;
             let rest = &text[cursor - range.start..];
-            line_end = cursor + rest.find('\n').map_or(rest.len(), |position| position);
+            line_end = cursor + rest.find('\n').unwrap_or(rest.len());
             source_rows.push(Vec::new());
         }
         source_rows.last_mut().expect("seeded").push(cell);

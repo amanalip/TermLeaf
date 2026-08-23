@@ -160,14 +160,14 @@ const BINDINGS: &[Binding] = &[
         key: KeyCode::Char('{'),
         modifiers: KeyModifiers::NONE,
         label: "{",
-        description: "Section start",
+        description: "Previous section",
     },
     Binding {
         action: Action::SectionEnd,
         key: KeyCode::Char('}'),
         modifiers: KeyModifiers::NONE,
         label: "}",
-        description: "Section end",
+        description: "Next section",
     },
     Binding {
         action: Action::SetModePaged,

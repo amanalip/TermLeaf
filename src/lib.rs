@@ -10,4 +10,5 @@ pub mod persistence;
 pub mod process;
 pub mod reader;
 pub mod terminal;
+pub mod terminal_image;
 pub mod ui;

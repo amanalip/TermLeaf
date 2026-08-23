@@ -7,15 +7,16 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::Style,
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
 };
 
 use crate::{
-    app::{App, MINIMUM_WIDTH},
+    app::{App, ImageOverlay, ImageVisual, MINIMUM_WIDTH},
     document::InlineKind,
-    layout::viewport::RowCell,
+    layout::{viewport::RowCell, visible_text},
+    terminal_image::{CellColor, Rgb},
     ui::status::{WidthClass, classify},
     ui::theme::{Role, Theme, ThemeName},
 };
@@ -90,10 +91,14 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let content_height = content.height;
     app.set_content_viewport(content_width, content_height);
 
-    let Some(rows) = app
-        .reader_mut()
-        .map(|session| session.plan_rows(content_width, content_height))
-    else {
+    let backend = app.image_backend();
+    let background = image_background(&theme);
+    let Some((rows, overlays)) = app.reader_mut().map(|session| {
+        let rows = session.plan_rows(content_width, content_height);
+        let overlays =
+            session.prepare_visible_images(content_width, content_height, backend, background);
+        (rows, overlays)
+    }) else {
         return;
     };
 
@@ -117,6 +122,90 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
 
     let paragraph = Paragraph::new(lines).style(theme.style(Role::Surface));
     frame.render_widget(paragraph, content);
+    for overlay in overlays {
+        render_image_overlay(frame, content, overlay, &theme);
+    }
+}
+
+fn render_image_overlay(
+    frame: &mut Frame<'_>,
+    content: Rect,
+    overlay: ImageOverlay,
+    theme: &Theme,
+) {
+    let y = content.y.saturating_add(overlay.row);
+    if y >= content.bottom() {
+        return;
+    }
+    match overlay.visual {
+        ImageVisual::Loading(caption) => frame.render_widget(
+            Paragraph::new(visible_text(&caption, 0)).style(theme.style(Role::Secondary)),
+            Rect::new(content.x, y, content.width, 1),
+        ),
+        ImageVisual::Failed(caption) => frame.render_widget(
+            Paragraph::new(visible_text(&caption, 0)).style(theme.style(Role::Warning)),
+            Rect::new(content.x, y, content.width, 1),
+        ),
+        ImageVisual::Ready(image) => {
+            for (row, cells) in image.cells().chunks(usize::from(image.width())).enumerate() {
+                let Ok(row) = u16::try_from(row) else {
+                    break;
+                };
+                let cell_y = y.saturating_add(row);
+                if cell_y >= content.bottom() {
+                    break;
+                }
+                for (column, cell) in cells.iter().enumerate() {
+                    let Ok(column) = u16::try_from(column) else {
+                        break;
+                    };
+                    let cell_x = content.x.saturating_add(column);
+                    if cell_x >= content.right() {
+                        break;
+                    }
+                    frame.buffer_mut()[(cell_x, cell_y)]
+                        .set_symbol("\u{2580}")
+                        .set_fg(cell_color(cell.foreground))
+                        .set_bg(cell_color(cell.background));
+                }
+            }
+        }
+    }
+}
+
+const fn cell_color(color: CellColor) -> Color {
+    match color {
+        CellColor::Rgb(Rgb(red, green, blue)) => Color::Rgb(red, green, blue),
+        CellColor::Indexed(index) => Color::Indexed(index),
+    }
+}
+
+fn image_background(theme: &Theme) -> Rgb {
+    match theme.style(Role::Surface).bg {
+        Some(Color::Rgb(red, green, blue)) => Rgb(red, green, blue),
+        Some(Color::Indexed(index)) => xterm_rgb(index),
+        _ if matches!(theme.name(), ThemeName::Light | ThemeName::Paper) => Rgb(255, 255, 255),
+        _ => Rgb(0, 0, 0),
+    }
+}
+
+fn xterm_rgb(index: u8) -> Rgb {
+    const LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+    match index {
+        16..=231 => {
+            let value = index - 16;
+            Rgb(
+                LEVELS[usize::from(value / 36)],
+                LEVELS[usize::from(value % 36 / 6)],
+                LEVELS[usize::from(value % 6)],
+            )
+        }
+        232..=255 => {
+            let level = 8 + (index - 232) * 10;
+            Rgb(level, level, level)
+        }
+        _ => Rgb(0, 0, 0),
+    }
 }
 
 /// Combines the body style with one inline role.
@@ -164,5 +253,48 @@ pub fn body_style(theme: &Theme) -> Style {
     match surface.bg {
         Some(background) => text.bg(background),
         None => text,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    use super::*;
+
+    #[test]
+    fn img_012_caption_controls_are_sanitized_before_ratatui_buffer_write() {
+        let backend = TestBackend::new(60, 2);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+        terminal
+            .draw(|frame| {
+                render_image_overlay(
+                    frame,
+                    Rect::new(0, 0, 60, 1),
+                    ImageOverlay {
+                        row: 0,
+                        visual: ImageVisual::Failed(
+                            "[image: bad \u{1b}[2J \u{1} plate; decode failed]".to_owned(),
+                        ),
+                    },
+                    &Theme::named(ThemeName::Dark),
+                );
+            })
+            .expect("draw");
+
+        let buffer = terminal.backend().buffer();
+        let text = buffer
+            .content
+            .iter()
+            .map(ratatui::buffer::Cell::symbol)
+            .collect::<String>();
+        assert!(text.contains("^["));
+        assert!(text.contains("^A"));
+        assert!(
+            buffer
+                .content
+                .iter()
+                .all(|cell| !cell.symbol().chars().any(char::is_control))
+        );
     }
 }

@@ -169,6 +169,27 @@ pub fn jump_section_end(
     end_of_block(document, section, last)
 }
 
+/// Selects the exact previous or next navigation point in declared order.
+///
+/// The selected index is part of the reading state because distinct entries
+/// may have the same destination. With no current selection, movement enters
+/// the list at the corresponding end.
+#[must_use]
+pub fn step_section(
+    document: &Document,
+    current: Option<usize>,
+    direction: Direction,
+) -> Option<(usize, Position)> {
+    let points = document.navigation_points();
+    let target = match (current.filter(|index| *index < points.len()), direction) {
+        (Some(index), Direction::TowardStart) => index.checked_sub(1)?,
+        (Some(index), Direction::TowardEnd) => index.checked_add(1)?,
+        (None, Direction::TowardStart) => points.len().checked_sub(1)?,
+        (None, Direction::TowardEnd) => 0,
+    };
+    points.get(target).map(|point| (target, point.position()))
+}
+
 fn first_block_start(document: &Document, section: usize) -> Option<Position> {
     let blocks = document.sections().get(section)?.blocks();
     for block in 0..blocks.len() {
@@ -429,6 +450,92 @@ mod tests {
         assert_eq!(section_end, document_end);
 
         assert_ne!(section_start, section_end);
+    }
+
+    #[test]
+    fn nav_005_section_steps_follow_declared_order_with_duplicate_positions() {
+        use crate::document::{Block, BlockKind, NavigationPoint, Section};
+
+        let base = Document::from_sections(
+            DocumentId::new("nav005".to_owned()),
+            None,
+            "one\ntwo\nthree".to_owned(),
+            vec![
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 0..4)]),
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 4..8)]),
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 8..13)]),
+            ],
+        )
+        .expect("tiles");
+        let first = base.position(0, 0, 0).expect("first");
+        let exact_middle = base.position(1, 0, 1).expect("fragment offset");
+        let last = base.position(2, 0, 0).expect("last");
+        let document = base.with_navigation(vec![
+            NavigationPoint::new("Three first", last),
+            NavigationPoint::new("One", first),
+            NavigationPoint::new("One duplicate", first),
+            NavigationPoint::new("Two detail", exact_middle),
+        ]);
+
+        let expected = [
+            ("Three first", last),
+            ("One", first),
+            ("One duplicate", first),
+            ("Two detail", exact_middle),
+        ];
+        for (point, (title, position)) in document.navigation_points().iter().zip(expected) {
+            assert_eq!(point.title(), title);
+            assert_eq!(point.position(), position);
+        }
+        for index in 0..expected.len() - 1 {
+            assert_eq!(
+                super::step_section(&document, Some(index), Direction::TowardEnd),
+                Some((index + 1, expected[index + 1].1))
+            );
+            assert_eq!(
+                super::step_section(&document, Some(index + 1), Direction::TowardStart),
+                Some((index, expected[index].1))
+            );
+        }
+        assert_eq!(
+            super::step_section(&document, None, Direction::TowardEnd),
+            Some((0, last))
+        );
+        assert_eq!(
+            super::step_section(&document, None, Direction::TowardStart),
+            Some((expected.len() - 1, exact_middle))
+        );
+    }
+
+    #[test]
+    fn section_steps_cross_empty_sections_with_the_same_absolute_byte() {
+        use crate::document::{Block, BlockKind, Section};
+
+        let document = Document::from_sections(
+            DocumentId::new("empty-sections".to_owned()),
+            None,
+            "one".to_owned(),
+            vec![
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 0..3)]),
+                Section::new(None, Vec::new()),
+                Section::new(None, Vec::new()),
+            ],
+        )
+        .expect("empty sections are valid");
+        let points = document.navigation_points();
+        assert_eq!(points[1].position().absolute_byte(&document), 3);
+        assert_eq!(points[2].position().absolute_byte(&document), 3);
+
+        let second =
+            super::step_section(&document, Some(0), Direction::TowardEnd).expect("second point");
+        let third = super::step_section(&document, Some(second.0), Direction::TowardEnd)
+            .expect("third point");
+        assert_eq!(second, (1, points[1].position()));
+        assert_eq!(third, (2, points[2].position()));
+        assert_eq!(
+            super::step_section(&document, Some(third.0), Direction::TowardStart),
+            Some(second)
+        );
     }
 
     #[test]

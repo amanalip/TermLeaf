@@ -1,5 +1,8 @@
-use std::io::{self, stdout};
 use std::time::Duration;
+use std::{
+    io::{self, stdout},
+    panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+};
 
 use anyhow::{Context, Result};
 use crossterm::{
@@ -165,6 +168,33 @@ pub fn run(mut app: App) -> Result<()> {
     run_with_loop(&mut app, run_loop)
 }
 
+trait WorkerTeardown {
+    fn request_shutdown(&mut self);
+    fn join(&mut self);
+}
+
+impl WorkerTeardown for App {
+    fn request_shutdown(&mut self) {
+        self.request_worker_shutdown();
+    }
+
+    fn join(&mut self) {
+        self.join_workers();
+    }
+}
+
+fn ordered_teardown<W, T, F>(workers: &mut W, terminal: T, restore: F) -> Result<()>
+where
+    W: WorkerTeardown,
+    F: FnOnce() -> Result<()>,
+{
+    workers.request_shutdown();
+    drop(terminal);
+    let restore_result = restore();
+    workers.join();
+    restore_result
+}
+
 fn run_with_loop<F>(app: &mut App, loop_operation: F) -> Result<()>
 where
     F: FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>, &mut App) -> Result<()>,
@@ -172,15 +202,30 @@ where
     let mut session =
         TerminalSession::start(CrosstermControl).context("could not initialize the terminal")?;
     let backend = CrosstermBackend::new(stdout());
-    let mut terminal = Terminal::new(backend).context("could not create the terminal renderer")?;
+    let mut terminal =
+        match Terminal::new(backend).context("could not create the terminal renderer") {
+            Ok(terminal) => terminal,
+            Err(error) => {
+                let restore_result = ordered_teardown(app, (), || {
+                    session
+                        .restore()
+                        .context("could not fully restore the terminal")
+                });
+                return Err::<(), _>(error).and(restore_result);
+            }
+        };
 
-    let run_result = loop_operation(&mut terminal, app);
-    drop(terminal);
-    let restore_result = session
-        .restore()
-        .context("could not fully restore the terminal");
+    let run_result = catch_unwind(AssertUnwindSafe(|| loop_operation(&mut terminal, app)));
+    let restore_result = ordered_teardown(app, terminal, || {
+        session
+            .restore()
+            .context("could not fully restore the terminal")
+    });
 
-    run_result.and(restore_result)
+    match run_result {
+        Ok(result) => result.and(restore_result),
+        Err(payload) => resume_unwind(payload),
+    }
 }
 
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
@@ -188,6 +233,7 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
     // mapper per event would make sequences such as `gg` impossible.
     let mut mapper = KeyMapper::default();
     while app.is_running() {
+        app.drain_image_work();
         if interrupt::requested() {
             app.update(crate::app::Action::Quit);
             continue;
@@ -284,6 +330,41 @@ mod tests {
             fail_at,
         }));
         (MockControl(Rc::clone(&state)), state)
+    }
+
+    #[test]
+    fn term_009_cancels_then_restores_terminal_before_joining_workers() -> Result<()> {
+        struct Workers(Rc<RefCell<Vec<&'static str>>>);
+        impl WorkerTeardown for Workers {
+            fn request_shutdown(&mut self) {
+                self.0.borrow_mut().push("cancel");
+            }
+
+            fn join(&mut self) {
+                self.0.borrow_mut().push("join");
+            }
+        }
+
+        struct TerminalDrop(Rc<RefCell<Vec<&'static str>>>);
+        impl Drop for TerminalDrop {
+            fn drop(&mut self) {
+                self.0.borrow_mut().push("drop_terminal");
+            }
+        }
+
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let mut workers = Workers(Rc::clone(&calls));
+        let terminal = TerminalDrop(Rc::clone(&calls));
+        ordered_teardown(&mut workers, terminal, || {
+            calls.borrow_mut().push("restore");
+            Ok(())
+        })?;
+
+        assert_eq!(
+            *calls.borrow(),
+            ["cancel", "drop_terminal", "restore", "join"]
+        );
+        Ok(())
     }
 
     #[test]

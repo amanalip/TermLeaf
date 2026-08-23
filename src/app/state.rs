@@ -1,19 +1,30 @@
 use std::{
-    fs::File,
+    collections::HashMap,
+    mem::size_of,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use crate::{
-    document::{Document, DocumentError},
+    document::{
+        Document, DocumentError, ImageResource, ImageResourceError, ResourceProvider,
+        ResourceReadError,
+    },
     layout::PageLayout,
     reader::{self, Mode},
+    terminal_image::{
+        CellColorMode, CellRenderError, HalfBlockCell, HalfBlockFrame, ImageBackend,
+        ImageCapabilities, Rgb, failure_caption, render_decoded_half_blocks, select_backend,
+    },
     ui::status::StatusMessage,
     ui::theme::{ColorMode, ThemeName},
 };
 use anyhow::{Context, Result, bail};
 
-use super::Action;
+use super::{
+    Action,
+    worker::{Generation, SubmitError, TaskError, WorkerCoordinator},
+};
 use crate::document::model::Position;
 
 /// One open book plus its logical reading state.
@@ -25,21 +36,142 @@ use crate::document::model::Position;
 pub struct ReaderSession {
     document: Document,
     anchor: Position,
+    navigation_index: Option<usize>,
     mode: Mode,
     cached_layout: Option<(u16, PageLayout)>,
+    resources: ResourceProvider,
+    images: HashMap<ImageKey, ImageState>,
+    image_workers: WorkerCoordinator<ImageJob, ImageOutput, ImageJobError>,
+    observed_dropped_completions: u64,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct ImageKey {
+    section: usize,
+    block: usize,
+    reference: String,
+}
+
+#[derive(Debug)]
+enum ImageState {
+    Loading {
+        generation: Generation,
+    },
+    Ready {
+        generation: Generation,
+        frame: Arc<HalfBlockFrame>,
+    },
+    Failed {
+        generation: Generation,
+        caption: String,
+    },
+}
+
+#[derive(Clone, Debug)]
+struct ImageJob {
+    key: ImageKey,
+    provider: ResourceProvider,
+    resource: ImageResource,
+    columns: u16,
+    rows: u16,
+    background: Rgb,
+    mode: CellColorMode,
+    declared: Option<DeclaredImageFormat>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum DeclaredImageFormat {
+    Raster(image::ImageFormat),
+    Vector(crate::document::VectorFormat),
+}
+
+#[derive(Debug)]
+struct ImageOutput {
+    key: ImageKey,
+    frame: HalfBlockFrame,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("{reason}")]
+struct ImageJobError {
+    key: ImageKey,
+    dimensions: Option<(u32, u32)>,
+    reason: ImageFailure,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum ImageFailure {
+    #[error("read: {0}")]
+    Read(ResourceReadError),
+    #[error("decode: {0}")]
+    Decode(ImageResourceError),
+    #[error("render: {0}")]
+    Render(CellRenderError),
+}
+
+impl ImageFailure {
+    fn short_reason(&self) -> String {
+        match self {
+            Self::Read(reason) => format!("read: {reason}"),
+            Self::Decode(ImageResourceError::UnsupportedFormat) => {
+                "decode: unsupported format".to_owned()
+            }
+            Self::Decode(ImageResourceError::DimensionTooLarge { .. }) => {
+                "decode: dimension limit".to_owned()
+            }
+            Self::Decode(ImageResourceError::TooManyPixels { .. }) => {
+                "decode: pixel limit".to_owned()
+            }
+            Self::Decode(ImageResourceError::AllocationTooLarge { .. }) => {
+                "decode: allocation limit".to_owned()
+            }
+            Self::Decode(ImageResourceError::InputTooLarge { .. }) => {
+                "decode: input limit".to_owned()
+            }
+            Self::Decode(ImageResourceError::DecodeFailed { .. }) => {
+                "decode: corrupt data".to_owned()
+            }
+            Self::Decode(ImageResourceError::Vector(_)) => "decode: vector rejected".to_owned(),
+            Self::Render(reason) => format!("render: {reason}"),
+        }
+    }
+}
+
+/// One image overlay projected into the current content viewport.
+#[derive(Clone, Debug)]
+pub struct ImageOverlay {
+    pub row: u16,
+    pub visual: ImageVisual,
+}
+
+/// Paintable current state of one visible image placeholder.
+#[derive(Clone, Debug)]
+pub enum ImageVisual {
+    Loading(String),
+    Ready(Arc<HalfBlockFrame>),
+    Failed(String),
 }
 
 impl ReaderSession {
     /// Opens a parsed document anchored at its start in paged mode.
-    #[must_use]
-    pub fn new(document: Document) -> Self {
+    pub fn new(document: Document, resources: ResourceProvider) -> std::io::Result<Self> {
         let anchor = document.first_position().unwrap_or(Position::ORIGIN);
-        Self {
+        let navigation_index = document
+            .navigation_points()
+            .iter()
+            .position(|point| point.position() == anchor);
+        let image_workers = WorkerCoordinator::new(process_image, image_output_size)?;
+        Ok(Self {
             document,
             anchor,
+            navigation_index,
             mode: Mode::Paged,
             cached_layout: None,
-        }
+            resources,
+            images: HashMap::new(),
+            image_workers,
+            observed_dropped_completions: 0,
+        })
     }
 
     /// The open document.
@@ -134,9 +266,433 @@ impl ReaderSession {
             .cached_layout
             .as_ref()
             .expect("layout cache is populated immediately above");
-        if let Some(next) = step(&self.document, &cache.1, self.anchor) {
+        if let Some(next) = step(&self.document, &cache.1, self.anchor)
+            && next != self.anchor
+        {
             self.anchor = next;
+            self.roll_image_generation();
         }
+    }
+
+    fn navigate_section(&mut self, direction: reader::Direction) {
+        if let Some((index, position)) =
+            reader::step_section(&self.document, self.navigation_index, direction)
+        {
+            self.navigation_index = Some(index);
+            if position != self.anchor {
+                self.anchor = position;
+                self.roll_image_generation();
+            }
+        }
+    }
+
+    fn jump_to_navigation(&mut self, index: usize) {
+        let Some(position) = self
+            .document
+            .navigation_points()
+            .get(index)
+            .map(crate::document::NavigationPoint::position)
+        else {
+            return;
+        };
+        self.navigation_index = Some(index);
+        if position != self.anchor {
+            self.anchor = position;
+            self.roll_image_generation();
+        }
+    }
+
+    fn roll_image_generation(&mut self) {
+        if self.image_workers.next_generation().is_ok() {
+            self.images.clear();
+            self.observed_dropped_completions = self.image_workers.stats().dropped_completions;
+        }
+    }
+
+    fn resized(&mut self) {
+        self.roll_image_generation();
+    }
+
+    /// Drains all currently available worker completions without blocking.
+    pub fn drain_image_work(&mut self) {
+        while let Ok(Some(completion)) = self.image_workers.try_recv() {
+            let generation = completion.generation;
+            match completion.result {
+                Ok(output) => {
+                    if matches!(
+                        self.images.get(&output.key),
+                        Some(ImageState::Loading { generation: expected }) if *expected == generation
+                    ) {
+                        self.images.insert(
+                            output.key,
+                            ImageState::Ready {
+                                generation,
+                                frame: Arc::new(output.frame),
+                            },
+                        );
+                    }
+                }
+                Err(TaskError::Decode(error)) => {
+                    let caption = self.failure_for(
+                        &error.key,
+                        error.dimensions,
+                        &error.reason.short_reason(),
+                    );
+                    if matches!(
+                        self.images.get(&error.key),
+                        Some(ImageState::Loading { generation: expected }) if *expected == generation
+                    ) {
+                        self.images.insert(
+                            error.key,
+                            ImageState::Failed {
+                                generation,
+                                caption,
+                            },
+                        );
+                    }
+                }
+                Err(TaskError::Panicked) => {
+                    for state in self.images.values_mut() {
+                        if matches!(state, ImageState::Loading { generation: expected } if *expected == generation)
+                        {
+                            *state = ImageState::Failed {
+                                generation,
+                                caption: "[image: worker failed]".to_owned(),
+                            };
+                        }
+                    }
+                }
+                Err(TaskError::Cancelled) => {}
+            }
+        }
+        let dropped = self.image_workers.stats().dropped_completions;
+        if dropped > self.observed_dropped_completions {
+            let generation = self.image_workers.generation();
+            let keys = self
+                .images
+                .iter()
+                .filter(|(_, state)| {
+                    matches!(state, ImageState::Loading { generation: expected } if *expected == generation)
+                })
+                .map(|(key, _)| key.clone())
+                .collect::<Vec<_>>();
+            for key in keys {
+                let caption = self.failure_for(&key, None, "worker output dropped");
+                self.images.insert(
+                    key,
+                    ImageState::Failed {
+                        generation,
+                        caption,
+                    },
+                );
+            }
+        }
+        self.observed_dropped_completions = dropped;
+    }
+
+    /// Submits visible placeholders and returns their current paint state.
+    pub fn prepare_visible_images(
+        &mut self,
+        width: u16,
+        height: u16,
+        backend: ImageBackend,
+        background: Rgb,
+    ) -> Vec<ImageOverlay> {
+        self.drain_image_work();
+        if height == 0 {
+            return Vec::new();
+        }
+        let anchor_byte = self.anchor.absolute_byte(&self.document);
+        let locations = {
+            let layout = self.layout_for(width);
+            let top = layout
+                .row_after(anchor_byte)
+                .min(layout.rows().len().saturating_sub(1));
+            let end = top
+                .saturating_add(usize::from(height))
+                .min(layout.rows().len());
+            let mut locations = Vec::new();
+            for index in top..end {
+                let row = &layout.rows()[index];
+                if index > top
+                    && layout.rows()[index - 1].section() == row.section()
+                    && layout.rows()[index - 1].block() == row.block()
+                {
+                    continue;
+                }
+                locations.push((
+                    u16::try_from(index - top).unwrap_or(u16::MAX),
+                    row.section(),
+                    row.block(),
+                ));
+            }
+            locations
+        };
+        let mut visible = Vec::new();
+        for (screen_row, section_index, block_index) in locations {
+            let Some(block) = self
+                .document
+                .sections()
+                .get(section_index)
+                .and_then(|section| section.blocks().get(block_index))
+            else {
+                continue;
+            };
+            if block.kind() != crate::document::BlockKind::Image {
+                continue;
+            }
+            let resource = block
+                .resource()
+                .cloned()
+                .unwrap_or_else(ImageResource::blocked);
+            let key = ImageKey {
+                section: section_index,
+                block: block_index,
+                reference: resource.reference().unwrap_or("blocked").to_owned(),
+            };
+            if !self.images.contains_key(&key) {
+                self.submit_image(key.clone(), resource, width, backend, background);
+            }
+            let caption = self.image_caption(&key);
+            let visual = match self.images.get(&key) {
+                Some(ImageState::Loading { .. }) => {
+                    ImageVisual::Loading(format!("{caption} (loading)"))
+                }
+                Some(ImageState::Ready { generation, frame })
+                    if *generation == self.image_workers.generation() =>
+                {
+                    ImageVisual::Ready(Arc::clone(frame))
+                }
+                Some(ImageState::Failed {
+                    generation,
+                    caption,
+                }) if *generation == self.image_workers.generation() => {
+                    ImageVisual::Failed(caption.clone())
+                }
+                None => ImageVisual::Failed(failure_caption(Some(&caption), None, "not queued")),
+                _ => ImageVisual::Failed(failure_caption(Some(&caption), None, "stale result")),
+            };
+            visible.push(ImageOverlay {
+                row: screen_row,
+                visual,
+            });
+        }
+        visible
+    }
+
+    fn submit_image(
+        &mut self,
+        key: ImageKey,
+        resource: ImageResource,
+        width: u16,
+        backend: ImageBackend,
+        background: Rgb,
+    ) {
+        let generation = self.image_workers.generation();
+        if !resource.is_fetchable() {
+            let caption = self.failure_for(&key, None, "blocked resource");
+            self.images.insert(
+                key,
+                ImageState::Failed {
+                    generation,
+                    caption,
+                },
+            );
+            return;
+        }
+        let mode = match backend {
+            ImageBackend::TrueColorCells => CellColorMode::TrueColor,
+            ImageBackend::Ansi256Cells => CellColorMode::Ansi256,
+            _ => {
+                let caption = self.failure_for(&key, None, "terminal image backend unavailable");
+                self.images.insert(
+                    key,
+                    ImageState::Failed {
+                        generation,
+                        caption,
+                    },
+                );
+                return;
+            }
+        };
+        let limits = crate::document::ImageLimits::default();
+        let charged = resource
+            .byte_len()
+            .unwrap_or(limits.max_input_bytes)
+            .min(limits.max_input_bytes.saturating_add(1));
+        let job = ImageJob {
+            key: key.clone(),
+            provider: self.resources.clone(),
+            resource,
+            columns: width,
+            rows: u16::try_from(crate::layout::IMAGE_PLACEHOLDER_ROWS).unwrap_or(u16::MAX),
+            background,
+            mode,
+            declared: declared_image_format(&key.reference),
+        };
+        let bytes = usize::try_from(charged)
+            .unwrap_or(usize::MAX)
+            .saturating_add(size_of::<ImageJob>())
+            .saturating_add(job.key.reference.capacity())
+            .saturating_add(job.resource.reference().map_or(0, str::len));
+        match self.image_workers.try_submit(generation, job, bytes) {
+            Ok(()) => {
+                self.images.insert(key, ImageState::Loading { generation });
+            }
+            Err(error) => {
+                let reason = submit_reason(error);
+                let caption = self.failure_for(&key, None, reason);
+                self.images.insert(
+                    key,
+                    ImageState::Failed {
+                        generation,
+                        caption,
+                    },
+                );
+            }
+        }
+    }
+
+    fn image_caption(&self, key: &ImageKey) -> String {
+        self.document
+            .block_text(key.section, key.block)
+            .unwrap_or("[image]")
+            .to_owned()
+    }
+
+    fn failure_for(&self, key: &ImageKey, dimensions: Option<(u32, u32)>, reason: &str) -> String {
+        let caption = self.image_caption(key);
+        let alt = caption
+            .strip_prefix("[image:")
+            .and_then(|value| value.strip_suffix(']'))
+            .map(str::trim);
+        failure_caption(alt, dimensions, reason)
+    }
+
+    /// Requests cooperative cancellation without waiting for image workers.
+    pub fn request_worker_shutdown(&self) {
+        self.image_workers.request_shutdown();
+    }
+
+    /// Joins image workers after terminal restoration.
+    pub fn join_workers(&mut self) {
+        self.image_workers.join_workers();
+    }
+}
+
+fn process_image(
+    job: ImageJob,
+    token: &super::worker::CancellationToken,
+) -> Result<ImageOutput, TaskError<ImageJobError>> {
+    let limits = crate::document::ImageLimits::default();
+    token.checkpoint()?;
+    let bytes = job
+        .provider
+        .read_bounded(&job.resource, limits.max_input_bytes)
+        .map_err(|reason| {
+            TaskError::Decode(ImageJobError {
+                key: job.key.clone(),
+                dimensions: None,
+                reason: ImageFailure::Read(reason),
+            })
+        })?;
+    token.checkpoint()?;
+    let decoded = decode_image_bytes(&bytes, &limits, job.declared).map_err(|reason| {
+        let dimensions = dimensions_from_error(&reason);
+        TaskError::Decode(ImageJobError {
+            key: job.key.clone(),
+            dimensions,
+            reason: ImageFailure::Decode(reason),
+        })
+    })?;
+    token.checkpoint()?;
+    let frame =
+        render_decoded_half_blocks(&decoded, job.columns, job.rows, job.background, job.mode)
+            .map_err(|reason| {
+                TaskError::Decode(ImageJobError {
+                    key: job.key.clone(),
+                    dimensions: Some((decoded.width(), decoded.height())),
+                    reason: ImageFailure::Render(reason),
+                })
+            })?;
+    token.checkpoint()?;
+    Ok(ImageOutput {
+        key: job.key,
+        frame,
+    })
+}
+
+fn decode_image_bytes(
+    bytes: &[u8],
+    limits: &crate::document::ImageLimits,
+    declared: Option<DeclaredImageFormat>,
+) -> Result<crate::document::DecodedImage, ImageResourceError> {
+    match declared {
+        Some(DeclaredImageFormat::Vector(format))
+            if crate::document::vector::sniff_vector_format(bytes).is_none()
+                && crate::document::image::sniff_format(bytes).is_err() =>
+        {
+            crate::document::vector::decode_vector_bounded_with_limits(
+                bytes,
+                limits,
+                &crate::document::VectorLimits::default(),
+                Some(format),
+            )
+            .map_err(ImageResourceError::from)
+        }
+        Some(DeclaredImageFormat::Raster(format)) => {
+            crate::document::image::decode_bounded_with_limits(bytes, limits, Some(format))
+        }
+        Some(DeclaredImageFormat::Vector(_)) | None => {
+            crate::document::image::decode_bounded_with_limits(bytes, limits, None)
+        }
+    }
+}
+
+fn declared_image_format(reference: &str) -> Option<DeclaredImageFormat> {
+    let extension = Path::new(reference)
+        .extension()?
+        .to_str()?
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "svg" => Some(DeclaredImageFormat::Vector(
+            crate::document::VectorFormat::Svg,
+        )),
+        "svgz" => Some(DeclaredImageFormat::Vector(
+            crate::document::VectorFormat::Svgz,
+        )),
+        extension => image::ImageFormat::from_extension(extension).map(DeclaredImageFormat::Raster),
+    }
+}
+
+fn image_output_size(output: &ImageOutput) -> usize {
+    size_of::<ImageOutput>()
+        .saturating_add(output.key.reference.capacity())
+        .saturating_add(
+            output
+                .frame
+                .cells()
+                .len()
+                .saturating_mul(size_of::<HalfBlockCell>()),
+        )
+}
+
+const fn dimensions_from_error(error: &ImageResourceError) -> Option<(u32, u32)> {
+    match error {
+        ImageResourceError::DimensionTooLarge { width, height, .. }
+        | ImageResourceError::Vector(
+            crate::document::vector::VectorImageError::DimensionTooLarge { width, height, .. },
+        ) => Some((*width, *height)),
+        _ => None,
+    }
+}
+
+const fn submit_reason(error: SubmitError) -> &'static str {
+    match error {
+        SubmitError::QueueFull => "queue full",
+        SubmitError::ByteBudgetExceeded { .. } => "worker byte budget exceeded",
+        SubmitError::StaleGeneration => "stale generation",
+        SubmitError::ShutDown => "workers shut down",
     }
 }
 
@@ -151,7 +707,6 @@ impl Eq for OpenBook {}
 #[derive(Clone, Debug)]
 pub struct OpenBook {
     path: PathBuf,
-    _file: Arc<File>,
 }
 
 impl OpenBook {
@@ -240,10 +795,10 @@ impl App {
     /// Creates the initial application state for a home or local-book launch.
     ///
     /// The book is decoded before terminal initialization so failures reach
-    /// the reader as plain diagnostics on an untouched shell. The open file
-    /// handle stays held for the session, keeping the source immutable from
-    /// the reader's point of view. Color capability is detected from the
-    /// launch environment here so every later draw uses one fixed decision.
+    /// the reader as plain diagnostics on an untouched shell. EPUB sessions
+    /// retain their immutable inspected bytes, while Markdown sessions retain
+    /// only a canonical local resource root. Color capability is detected once
+    /// here so every later draw uses one fixed decision.
     ///
     /// # Errors
     ///
@@ -256,9 +811,9 @@ impl App {
                 let display = crate::document::sanitize_path(&path.display().to_string());
                 let text_limits = crate::document::TextLimits::default();
                 let archive_limits = crate::document::ArchiveLimits::default();
-                let document =
-                    crate::document::load_book_file(&path, &text_limits, &archive_limits).map_err(
-                        |error| -> anyhow::Error {
+                let loaded =
+                    crate::document::load_book_with_resources(&path, &text_limits, &archive_limits)
+                        .map_err(|error| -> anyhow::Error {
                             match error {
                                 DocumentError::Read { source, .. } => anyhow::Error::new(source)
                                     .context(format!("could not read '{display}'")),
@@ -267,15 +822,11 @@ impl App {
                                 // only bury them.
                                 typed => anyhow::Error::new(typed),
                             }
-                        },
-                    )?;
-                let file = File::open(&path)
-                    .with_context(|| format!("could not hold '{display}' open"))?;
-                let book = OpenBook {
-                    path,
-                    _file: Arc::new(file),
-                };
-                (View::Reader { book }, Some(ReaderSession::new(document)))
+                        })?;
+                let book = OpenBook { path };
+                let reader = ReaderSession::new(loaded.document, loaded.resources)
+                    .context("could not start image workers")?;
+                (View::Reader { book }, Some(reader))
             }
             None => (View::RecentBooks, None),
         };
@@ -391,7 +942,12 @@ impl App {
     /// Overrides the detected color capability so tests can exercise every
     /// fallback rendering deterministically.
     pub fn set_color_mode(&mut self, mode: ColorMode) {
-        self.color_mode = mode;
+        if self.color_mode != mode {
+            self.color_mode = mode;
+            if let Some(reader) = self.reader.as_mut() {
+                reader.roll_image_generation();
+            }
+        }
     }
 
     /// The reader session, when a book is open.
@@ -414,8 +970,53 @@ impl App {
 
     /// Records the content viewport produced by the latest render.
     pub fn set_content_viewport(&mut self, width: u16, height: u16) {
+        if (self.content_width, self.content_height) != (width, height)
+            && let Some(reader) = self.reader.as_mut()
+        {
+            reader.resized();
+        }
         self.content_width = width;
         self.content_height = height;
+    }
+
+    /// Safest image path supported by the launch color capability.
+    #[must_use]
+    pub fn image_backend(&self) -> ImageBackend {
+        let capabilities = ImageCapabilities {
+            true_color: if !self.no_color && self.color_mode == ColorMode::TrueColor {
+                crate::terminal_image::CapabilityEvidence::Positive
+            } else {
+                crate::terminal_image::CapabilityEvidence::Absent
+            },
+            ansi256: if !self.no_color && self.color_mode == ColorMode::Ansi256 {
+                crate::terminal_image::CapabilityEvidence::Positive
+            } else {
+                crate::terminal_image::CapabilityEvidence::Absent
+            },
+            ..ImageCapabilities::default()
+        };
+        select_backend(None, capabilities).unwrap_or(ImageBackend::Caption)
+    }
+
+    /// Drains image completions once per event-loop iteration.
+    pub fn drain_image_work(&mut self) {
+        if let Some(reader) = self.reader.as_mut() {
+            reader.drain_image_work();
+        }
+    }
+
+    /// Requests worker cancellation without waiting for thread exit.
+    pub fn request_worker_shutdown(&self) {
+        if let Some(reader) = self.reader.as_ref() {
+            reader.request_worker_shutdown();
+        }
+    }
+
+    /// Joins all application-owned workers after terminal restoration.
+    pub fn join_workers(&mut self) {
+        if let Some(reader) = self.reader.as_mut() {
+            reader.join_workers();
+        }
     }
 
     /// Shows a temporary status message replacing lower-priority fields.
@@ -471,20 +1072,7 @@ impl App {
                 };
             }
             Action::ShowToc if matches!(self.view, View::Reader { .. }) => {
-                let document = &self
-                    .reader
-                    .as_ref()
-                    .expect("reader view implies a book")
-                    .document;
-                let sections = document.sections().len();
-                self.toc_cursor = self
-                    .reader
-                    .as_ref()
-                    .map_or(0, |session| session.anchor.section())
-                    .min(sections.saturating_sub(1));
-                self.view = View::TableOfContents {
-                    return_to: Box::new(self.view.clone()),
-                };
+                self.show_toc();
             }
             // Without an open book there is nothing to navigate: ShowToc
             // falls through inert like every other unmatched action.
@@ -509,15 +1097,27 @@ impl App {
             }
             Action::DocumentStart if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, layout, _| reader::jump_document_start(layout, document));
+                if let Some(session) = self.reader.as_mut() {
+                    session.navigation_index =
+                        (!session.document.navigation_points().is_empty()).then_some(0);
+                }
             }
             Action::DocumentEnd if matches!(self.view, View::Reader { .. }) => {
                 self.step(|document, _, _| reader::jump_document_end(document));
+                if let Some(session) = self.reader.as_mut() {
+                    session.navigation_index =
+                        session.document.navigation_points().len().checked_sub(1);
+                }
             }
             Action::SectionStart if matches!(self.view, View::Reader { .. }) => {
-                self.step(|document, layout, _| reader::jump_section_start(layout, document, 0));
+                if let Some(session) = self.reader.as_mut() {
+                    session.navigate_section(reader::Direction::TowardStart);
+                }
             }
             Action::SectionEnd if matches!(self.view, View::Reader { .. }) => {
-                self.step(|document, layout, _| reader::jump_section_end(layout, document, 0));
+                if let Some(session) = self.reader.as_mut() {
+                    session.navigate_section(reader::Direction::TowardEnd);
+                }
             }
             Action::SetModePaged | Action::SetModeContinuous
                 if matches!(self.view, View::Reader { .. }) =>
@@ -537,6 +1137,18 @@ impl App {
         self.tick_message();
     }
 
+    fn show_toc(&mut self) {
+        let session = self.reader.as_ref().expect("reader view implies a book");
+        let sections = session.document.navigation_points().len();
+        self.toc_cursor = session
+            .navigation_index
+            .unwrap_or(0)
+            .min(sections.saturating_sub(1));
+        self.view = View::TableOfContents {
+            return_to: Box::new(self.view.clone()),
+        };
+    }
+
     fn update_theme_selection(&mut self, action: Action) {
         let return_to = match &self.view {
             View::ThemeSelection { return_to } => (**return_to).clone(),
@@ -553,6 +1165,9 @@ impl App {
             Action::Confirm => {
                 self.theme = ThemeName::ALL[self.theme_cursor];
                 self.view = return_to;
+                if let Some(reader) = self.reader.as_mut() {
+                    reader.roll_image_generation();
+                }
                 let label = self.theme.label();
                 self.set_message(format!("Theme: {label}"));
             }
@@ -585,7 +1200,7 @@ impl App {
         let sections = self
             .reader
             .as_ref()
-            .map_or(0, |session| session.document.sections().len());
+            .map_or(0, |session| session.document.navigation_points().len());
         match action {
             Action::NextLine if sections > 0 => {
                 self.toc_cursor = (self.toc_cursor + 1).min(sections - 1);
@@ -596,15 +1211,14 @@ impl App {
             Action::Confirm if sections > 0 => {
                 let target = self.toc_cursor.min(sections - 1);
                 self.view = return_to;
-                self.step(|document, layout, _| {
-                    reader::jump_section_start(layout, document, target)
-                });
+                if let Some(session) = self.reader.as_mut() {
+                    session.jump_to_navigation(target);
+                }
                 let label = self
                     .reader
                     .as_ref()
-                    .and_then(|session| session.document.sections().get(target))
-                    .and_then(|section| section.title())
-                    .unwrap_or("Untitled section");
+                    .and_then(|session| session.document.navigation_points().get(target))
+                    .map_or("Untitled section", crate::document::NavigationPoint::title);
                 self.set_message(format!("Jumped: {label}"));
             }
             Action::Quit | Action::Back | Action::ShowToc | Action::ShowThemes => {
@@ -768,11 +1382,189 @@ mod tests {
         reader.update(Action::ShowHelp);
         assert_eq!(reader.focus(), Focus::Help);
     }
+
+    #[test]
+    fn con_002_003_production_navigation_and_resize_roll_image_generation() -> Result<()> {
+        use std::io::Write as _;
+
+        let mut file = tempfile::Builder::new().suffix(".txt").tempfile()?;
+        writeln!(file, "first line\nsecond line\nthird line")?;
+        let mut app = App::open(StartupOptions {
+            book: Some(file.path().to_path_buf()),
+            ..StartupOptions::default()
+        })?;
+        let initial = app
+            .reader
+            .as_ref()
+            .expect("reader")
+            .image_workers
+            .generation();
+
+        app.set_content_viewport(40, 10);
+        let resized = app
+            .reader
+            .as_ref()
+            .expect("reader")
+            .image_workers
+            .generation();
+        assert_ne!(initial, resized, "production resize cancels old image work");
+
+        app.update(Action::DocumentEnd);
+        let navigated = app
+            .reader
+            .as_ref()
+            .expect("reader")
+            .image_workers
+            .generation();
+        assert_ne!(
+            resized, navigated,
+            "production navigation cancels old image work"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn con_005_term_009_app_shutdown_joins_production_image_workers() -> Result<()> {
+        use std::io::Write as _;
+
+        let mut file = tempfile::Builder::new().suffix(".txt").tempfile()?;
+        writeln!(file, "worker shutdown")?;
+        let mut app = App::open(StartupOptions {
+            book: Some(file.path().to_path_buf()),
+            ..StartupOptions::default()
+        })?;
+
+        app.request_worker_shutdown();
+        app.join_workers();
+
+        assert_eq!(
+            app.reader
+                .as_ref()
+                .expect("reader")
+                .image_workers
+                .stats()
+                .live_workers,
+            0
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn img_013_more_than_completion_capacity_never_stays_loading() -> Result<()> {
+        use crate::document::{Block, BlockKind, DocumentId, Section};
+        use std::fmt::Write as _;
+
+        let directory = tempfile::tempdir()?;
+        let book = directory.path().join("many.md");
+        std::fs::write(&book, "many images")?;
+        let png = {
+            let source = image::RgbaImage::from_pixel(2, 2, image::Rgba([12, 34, 56, 255]));
+            let mut cursor = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(source)
+                .write_to(&mut cursor, image::ImageFormat::Png)?;
+            cursor.into_inner()
+        };
+        std::fs::write(directory.path().join("plate.png"), &png)?;
+
+        let mut canonical = String::new();
+        let mut blocks = Vec::new();
+        for index in 0..12 {
+            let start = canonical.len();
+            write!(canonical, "[image: plate {index}]")?;
+            blocks.push(Block::image(
+                start..canonical.len(),
+                ImageResource::member("plate.png", Some(png.len() as u64)),
+            ));
+        }
+        let document = Document::from_sections(
+            DocumentId::new("saturation".to_owned()),
+            None,
+            canonical,
+            vec![Section::new(None, blocks)],
+        )
+        .map_err(anyhow::Error::msg)?;
+        assert!(
+            document.sections()[0]
+                .blocks()
+                .iter()
+                .all(|block| block.kind() == BlockKind::Image)
+        );
+        let provider = ResourceProvider::markdown(&book)?;
+        let mut session = ReaderSession::new(document, provider)?;
+
+        let overlays =
+            session.prepare_visible_images(80, 100, ImageBackend::TrueColorCells, Rgb(0, 0, 0));
+        assert_eq!(overlays.len(), 12);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        for _ in 0..100 {
+            session.drain_image_work();
+            if session
+                .images
+                .values()
+                .all(|state| !matches!(state, ImageState::Loading { .. }))
+            {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+
+        assert_eq!(session.images.len(), 12);
+        assert!(
+            session
+                .images
+                .values()
+                .all(|state| !matches!(state, ImageState::Loading { .. }))
+        );
+        assert!(
+            session.image_workers.stats().rejected > 0
+                || session.image_workers.stats().dropped_completions > 0,
+            "the fixture must cross at least one coordinator capacity boundary"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn img_004_declared_extensions_enable_tga_svg_and_svgz_with_magic_precedence() -> Result<()> {
+        use std::io::Write as _;
+
+        let limits = crate::document::ImageLimits::default();
+        let tga = {
+            let source = image::RgbaImage::from_pixel(2, 2, image::Rgba([90, 80, 70, 255]));
+            let mut cursor = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(source)
+                .write_to(&mut cursor, image::ImageFormat::Tga)?;
+            cursor.into_inner()
+        };
+        let decoded = decode_image_bytes(&tga, &limits, declared_image_format("safe/plate.tga"))?;
+        assert_eq!((decoded.width(), decoded.height()), (2, 2));
+
+        let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><rect width="2" height="3" fill="red"/></svg>"#;
+        let decoded = decode_image_bytes(svg, &limits, declared_image_format("plate.svg"))?;
+        assert_eq!((decoded.width(), decoded.height()), (2, 3));
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(svg)?;
+        let svgz = encoder.finish()?;
+        let decoded = decode_image_bytes(&svgz, &limits, declared_image_format("plate.svgz"))?;
+        assert_eq!((decoded.width(), decoded.height()), (2, 3));
+
+        let png = {
+            let source = image::RgbaImage::from_pixel(1, 1, image::Rgba([1, 2, 3, 255]));
+            let mut cursor = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(source)
+                .write_to(&mut cursor, image::ImageFormat::Png)?;
+            cursor.into_inner()
+        };
+        let decoded = decode_image_bytes(&png, &limits, declared_image_format("wrong.tga"))?;
+        assert_eq!(decoded.rgba(), &vec![1, 2, 3, 255]);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod toc_tests {
     use super::*;
+    use crate::document::{Block, BlockKind, DocumentId, NavigationPoint, Section};
 
     const EPUB2: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -784,6 +1576,87 @@ mod toc_tests {
             book: Some(std::path::PathBuf::from(EPUB2)),
             ..StartupOptions::default()
         })
+    }
+
+    fn app_with_document(document: Document) -> Result<App> {
+        Ok(App {
+            view: View::Reader {
+                book: OpenBook {
+                    path: PathBuf::from("navigation-test.epub"),
+                },
+            },
+            running: true,
+            theme: ThemeName::Paper,
+            no_color: false,
+            color_mode: ColorMode::TrueColor,
+            theme_cursor: ThemeName::Paper as usize,
+            toc_cursor: 0,
+            message: None,
+            reader: Some(ReaderSession::new(document, ResourceProvider::None)?),
+            content_width: MINIMUM_WIDTH,
+            content_height: MINIMUM_HEIGHT,
+        })
+    }
+
+    #[test]
+    fn section_navigation_preserves_declared_selection_across_duplicates_and_resize() -> Result<()>
+    {
+        let base = Document::from_sections(
+            DocumentId::new("declared-navigation".to_owned()),
+            None,
+            "one\ntwo\nthree".to_owned(),
+            vec![
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 0..4)]),
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 4..8)]),
+                Section::new(None, vec![Block::new(BlockKind::Paragraph, 8..13)]),
+            ],
+        )
+        .expect("document");
+        let first = base.position(0, 0, 0).expect("first");
+        let middle = base.position(1, 0, 0).expect("middle");
+        let last = base.position(2, 0, 0).expect("last");
+        let document = base.with_navigation(vec![
+            NavigationPoint::new("Last", last),
+            NavigationPoint::new("First", first),
+            NavigationPoint::new("First duplicate", first),
+            NavigationPoint::new("Middle", middle),
+        ]);
+        let mut app = app_with_document(document)?;
+
+        app.update(Action::ShowToc);
+        assert_eq!(app.toc_cursor(), 1);
+        app.update(Action::NextLine);
+        app.update(Action::Confirm);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(2));
+        assert_eq!(app.reader().expect("reader").anchor(), first);
+
+        app.set_content_viewport(MINIMUM_WIDTH + 7, MINIMUM_HEIGHT + 3);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(2));
+        assert_eq!(app.reader().expect("reader").anchor(), first);
+
+        app.update(Action::SectionEnd);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(3));
+        assert_eq!(app.reader().expect("reader").anchor(), middle);
+        app.update(Action::SectionStart);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(2));
+        assert_eq!(app.reader().expect("reader").anchor(), first);
+
+        app.update(Action::ShowToc);
+        app.update(Action::PreviousLine);
+        app.update(Action::PreviousLine);
+        app.update(Action::Confirm);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(0));
+        assert_eq!(app.reader().expect("reader").anchor(), last);
+        app.update(Action::SectionEnd);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(1));
+        assert_eq!(app.reader().expect("reader").anchor(), first);
+        app.update(Action::SectionStart);
+        assert_eq!(app.reader().expect("reader").navigation_index, Some(0));
+        assert_eq!(app.reader().expect("reader").anchor(), last);
+
+        app.request_worker_shutdown();
+        app.join_workers();
+        Ok(())
     }
 
     #[test]

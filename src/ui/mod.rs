@@ -43,12 +43,26 @@ pub fn render(frame: &mut Frame<'_>, app: &mut App) {
         View::Reader { .. } => reader::render(frame, body, app),
         View::RecentBooks => render_recent_books(frame, body),
         View::ThemeSelection { .. } => render_theme_selection(frame, body, app),
-        View::TableOfContents { .. } => render_toc_selection(frame, body, app),
+        View::TableOfContents { .. } => render_toc(frame, body, app),
         View::Help { .. } => render_help(frame, body),
         view => render_future_view(frame, body, view),
     }
 
     render_status(frame, status, app);
+}
+
+fn render_toc(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    if area.width >= 120 {
+        let [passage, panel] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(70), Constraint::Length(38)])
+            .spacing(2)
+            .areas(area);
+        reader::render(frame, passage, app);
+        render_toc_selection(frame, panel, app);
+    } else {
+        render_toc_selection(frame, area, app);
+    }
 }
 
 fn active_theme(app: &App) -> Theme {
@@ -148,7 +162,7 @@ fn render_toc_selection(frame: &mut Frame<'_>, area: Rect, app: &App) {
         return;
     };
     let document = session.document();
-    let sections = document.sections();
+    let sections = document.navigation_points();
     let visible_height = area.height.saturating_sub(2).max(1) as usize;
     let top = (cursor + 1).saturating_sub(visible_height);
 
@@ -159,9 +173,7 @@ fn render_toc_selection(frame: &mut Frame<'_>, area: Rect, app: &App) {
         .take(visible_height)
         .map(|(index, section)| {
             let marker = if index == cursor { "> " } else { "  " };
-            let title = section
-                .title()
-                .map_or_else(|| format!("Section {}", index + 1), str::to_owned);
+            let title = section.title().to_owned();
             let style = if index == cursor {
                 theme.style(Role::Accent)
             } else {
@@ -361,6 +373,21 @@ mod tests {
         app.update(Action::SetModePaged);
         let rendered = draw(&mut app, 80, 24)?;
         assert!(rendered.contains("PAGED"));
+        Ok(())
+    }
+
+    #[test]
+    fn nav_009_wide_toc_keeps_the_passage_visible_beside_the_panel() -> Result<()> {
+        let mut app = book_app("visible passage\n")?;
+        app.update(Action::ShowToc);
+
+        let wide = draw(&mut app, 120, 40)?;
+        assert!(wide.contains("visible passage"));
+        assert!(wide.contains("Table of contents"));
+
+        let standard = draw(&mut app, 80, 24)?;
+        assert!(!standard.contains("visible passage"));
+        assert!(standard.contains("Table of contents"));
         Ok(())
     }
 
