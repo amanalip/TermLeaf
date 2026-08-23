@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 22, 2026 at 7:14 PM EDT
+**Last updated:** August 23, 2026
 
 ## Table of Contents
 
@@ -77,7 +77,69 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Complete Phase 2 development
+
+**Commit subjects:** `feat: finish structured resource handling`,
+`feat: integrate bounded image rendering`, and
+`docs: record phase 2 development status`
+
+**Revision:** This commit
+
+**Recorded:** August 23, 2026
+
+**Behavior and risks.** Completes the remaining local Phase 2 implementation
+boundaries. Markdown and XHTML retain inert link destinations and original
+source ranges; EPUB chapter/fragment links and TOC entries resolve to validated
+logical positions. All control-document classes receive depth, opening-count,
+DTD, and entity gates before package semantics, and an isolated filesystem
+audit proves EPUB reads do not extract or write sidecars. Static SVG/SVGZ joins
+the raster path through bounded streaming decompression, disabled external
+resolvers, active-content rejection, structural/work/geometry/allocation
+limits, and normalized RGBA output. Terminal image selection requires positive
+evidence, explicit incompatible overrides fail typed, and true-color/256-color
+half-block plus caption frames stay bounded and preserve source pixels. A
+two-thread, eight-request, 64 MiB generation-aware worker coordinator provides
+nonblocking backpressure, cooperative cancellation, stale-result rejection,
+panic/error conversion, exact accounting, and bounded shutdown. Wide TOC
+layout retains passage context in a side panel.
+
+**Decisions.** DD-031 resolves `DEC-TEST-014` with typed failure on explicit
+negative capability evidence. DD-032 resolves `DEC-TEST-018` with two workers,
+queue capacity eight, 64 MiB in-flight input, and immediate typed rejection.
+
+**Environment.** Linux x86-64; Rust stable; MSRV remains 1.88.
+
+**Checks.**
+
+| Check | Result |
+| --- | --- |
+| `python3 tools/case_registry.py check` | Pass (after regenerate) |
+| `cargo fmt --check` | Pass |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Pass |
+| `cargo test --locked` | Pass (195 library, 9 CLI, 17 document-I/O, 6 property, 14 native PTY, 16 render, 9 security) |
+| `cargo test --doc --locked` | Pass |
+| `cargo deny check` | Pass; duplicate-version warnings for `bitflags` and `png` are dependency-graph observations |
+
+**Fixtures.** SVG/SVGZ and hostile archive inputs are generated deterministically
+inside tests; existing committed EPUB 2/3 fixtures remain unchanged.
+
+**Unavailable evidence.** Hosted Linux/macOS/Windows rows cannot run before the
+revision is pushed. Human native-protocol procedure `IMG-018` and fuzz-duration
+artifacts remain evidence work, not unrecorded passes. DD-026 continues to own
+frozen cases whose search, state, annotation, or link-launch features land in
+later phases. Native Kitty/Sixel/iTerm2 rendering is not enabled without a
+positive probe. Markdown loose-resource containment rejects static symlink
+escapes, but a capability-based directory handle is still needed to eliminate
+the canonicalize/open race if an attacker can mutate the book directory during
+the read; EPUB resources do not have this race because they use immutable
+inspected archive bytes.
+
+**Selected case IDs.** `MD-005`, `MD-010`, `EPUB-008`, `EPUB-015`, `SEC-009`,
+`IMG-002` through `IMG-016` where applicable, `CON-001` through `CON-009`,
+`PROP-007`, `PROP-009`, and `NAV-005` are registered to executable locations.
+
+**Cargo clean.** Pass; removed 9,161 files (4.0 GiB) after the final local
+validation cycle.
 
 ## Commit Reports
 

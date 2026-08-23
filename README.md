@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 20, 2026 at 1:02 AM EDT
+**Last updated:** August 23, 2026
 
 ## Table of Contents
 
@@ -45,16 +45,13 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 
 ## Where Things Stand
 
-Phase 0 implementation is complete. TermLeaf has a locked Rust package, the
-complete view/focus identity model, deterministic shell, shared actions,
-interrupt handling, terminal restoration, exact case/profile/gate manifests,
-and native PTY journeys for normal, error, panic, Ctrl-C, and external-interrupt
-paths. Phase 1, the plain-text reading loop, is in progress: bounded TXT
-decoding, the logical document model, grapheme-safe layout with source
-mapping, paged and continuous navigation, five themes with session switching,
-the collapsing status line, help, and the below-minimum state already work.
-Hosted platform jobs still record formal environment evidence and do not
-represent unfinished Phase 0 code.
+Phase 0 and Phase 1 are complete. Phase 2's local implementation now includes
+bounded Markdown and EPUB semantics, exact internal navigation, archive and XML
+security gates, static raster/SVG decoding, bounded generation-aware workers,
+terminal image capability selection, half-block and caption fallbacks, and a
+responsive table of contents. Hosted environment, fuzz-duration, and native
+graphics-protocol evidence is tracked separately and is not claimed before it
+runs.
 
 ## Technical Direction
 

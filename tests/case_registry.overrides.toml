@@ -425,7 +425,9 @@ location = [
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
 [cases.MD-005]
-location = ["src/document/markdown.rs::fenced_code_preserves_bytes_verbatim"]
+status = "Implemented"
+location = ["src/document/markdown.rs::md_005_code_content_maps_without_fences_language_or_indentation"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.MD-006]
 status = "Implemented"
@@ -717,6 +719,7 @@ location = [
     "src/app/state.rs::nav_009_toc_opens_on_the_current_section_and_jumps_by_confirm",
     "src/app/state.rs::nav_009_toc_back_and_help_round_trip_preserve_state",
     "src/app/state.rs::nav_009_show_toc_without_a_book_is_inert",
+    "src/ui/mod.rs::nav_009_wide_toc_keeps_the_passage_visible_beside_the_panel",
 ]
 last_evidence = ["testreport.md#add-table-of-contents-navigation"]
 
@@ -885,15 +888,18 @@ location = ["src/document/image.rs::img_001_every_enabled_decoder_decodes_a_boun
 last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 
 [cases.IMG-002]
+status = "Implemented"
 location = ["src/document/image.rs::img_002_animated_gif_previews_only_its_first_frame"]
-last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-005]
+status = "Implemented"
 location = [
     "src/document/image.rs::img_005_default_policy_matches_the_locked_image_table",
     "src/document/image.rs::img_005_input_byte_gate_rejects_before_any_parsing",
+    "tests/security.rs::img_005_svg_input_and_actual_xml_boundaries_are_inclusive",
 ]
-last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-006]
 status = "Implemented"
@@ -906,11 +912,17 @@ location = ["src/document/image.rs::img_007_pixel_and_allocation_budgets_reject_
 last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 
 [cases.IMG-012]
+status = "Implemented"
 location = [
     "src/document/image.rs::img_012_truncated_corrupt_and_foreign_inputs_fail_typed_without_panicking",
     "src/document/image.rs::error_messages_name_failure_value_and_recovery",
+    "src/terminal_image.rs::ansi256_quantization_and_caption_content_are_deterministic",
+    "src/document/resource.rs::img_012_markdown_provider_reads_only_bounded_non_escaping_files",
+    "src/document/resource.rs::img_012_markdown_provider_rejects_symlink_escape",
+    "tests/render.rs::img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason",
+    "src/ui/reader.rs::img_012_caption_controls_are_sanitized_before_ratatui_buffer_write",
 ]
-last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.SUP-009]
 location = ["src/document/image.rs::resolution_is_extension_first_with_magic_winning_when_present"]
@@ -939,3 +951,187 @@ location = [
     "src/layout/mod.rs::epub_013_image_captions_wrap_within_every_width",
 ]
 last_evidence = ["testreport.md#wire-image-ingestion-into-books"]
+
+[cases.MD-010]
+status = "Implemented"
+location = ["src/document/markdown.rs::md_010_link_targets_and_source_offsets_map_to_original_markdown"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.EPUB-008]
+status = "Implemented"
+location = [
+    "src/document/epub.rs::epub_008_chapter_fragment_links_and_toc_resolve_inside_the_document",
+    "src/document/xhtml.rs::epub_008_ids_follow_dom_emission_without_text_search",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.EPUB-015]
+status = "Implemented"
+location = ["tests/security.rs::epub_015_successful_read_creates_no_extraction_tree_or_sidecar"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.SEC-009]
+status = "Implemented"
+location = [
+    "tests/security.rs::sec_009_depth_and_opening_boundaries_cover_every_control_kind",
+    "tests/security.rs::sec_009_dtd_and_entity_declarations_reject_before_package_semantics",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-003]
+status = "Implemented"
+location = ["tests/security.rs::img_003_safe_svg_and_svgz_render_static_normalized_rgba"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-004]
+status = "Implemented"
+location = [
+    "tests/security.rs::img_004_every_external_reference_class_rejects_before_resvg",
+    "src/app/state.rs::img_004_declared_extensions_enable_tga_svg_and_svgz_with_magic_precedence",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-008]
+status = "Implemented"
+location = ["src/terminal_image.rs::automatic_selection_requires_positive_evidence_in_locked_order"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-009]
+status = "Implemented"
+location = [
+    "src/terminal_image.rs::automatic_selection_requires_positive_evidence_in_locked_order",
+    "src/terminal_image.rs::ansi256_quantization_and_caption_content_are_deterministic",
+    "tests/render.rs::img_009_011_014_production_half_blocks_render_and_preserve_source",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-010]
+status = "Implemented"
+location = ["src/terminal_image.rs::explicit_override_wins_and_negative_evidence_is_typed"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-011]
+status = "Implemented"
+location = [
+    "src/terminal_image.rs::half_blocks_fit_bounds_composite_alpha_and_preserve_source_pixels",
+    "src/terminal_image.rs::aspect_ratio_and_odd_pixel_rows_stay_inside_bounds",
+    "src/terminal_image.rs::half_block_allocation_limit_accepts_boundary_and_rejects_one_over",
+    "tests/render.rs::img_009_011_014_production_half_blocks_render_and_preserve_source",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-014]
+status = "Implemented"
+location = [
+    "src/terminal_image.rs::half_blocks_fit_bounds_composite_alpha_and_preserve_source_pixels",
+    "tests/render.rs::img_009_011_014_production_half_blocks_render_and_preserve_source",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-015]
+status = "Implemented"
+location = ["tests/security.rs::img_015_svgz_stream_failures_are_distinct_and_bounded"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-016]
+status = "Implemented"
+location = ["tests/security.rs::img_016_structure_work_geometry_and_allocation_boundaries_are_typed"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-001]
+status = "Implemented"
+location = [
+    "src/app/worker.rs::con_001_fixed_limits_and_byte_budget_reject_nonblocking",
+    "src/app/worker.rs::completion_queue_is_bounded_and_never_blocks_workers",
+    "src/app/worker.rs::queued_output_consumes_budget_and_oversized_completion_is_dropped",
+    "src/app/worker.rs::successful_output_bytes_remain_charged_until_receive_or_stale_clear",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-002]
+status = "Implemented"
+location = [
+    "src/app/worker.rs::con_002_and_prop_009_old_completion_cannot_replace_new",
+    "src/app/state.rs::con_002_003_production_navigation_and_resize_roll_image_generation",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-003]
+status = "Implemented"
+location = [
+    "src/app/worker.rs::con_003_navigation_cancels_queued_and_running_work",
+    "src/app/state.rs::con_002_003_production_navigation_and_resize_roll_image_generation",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-004]
+status = "Implemented"
+location = ["src/app/worker.rs::con_004_panic_decode_error_and_disconnect_are_typed"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-005]
+status = "Implemented"
+location = [
+    "src/app/worker.rs::con_005_shutdown_cancels_checkpointing_tasks_and_joins_every_worker",
+    "src/app/state.rs::con_005_term_009_app_shutdown_joins_production_image_workers",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-006]
+status = "Implemented"
+location = ["src/app/worker.rs::con_006_and_008_repeated_cycles_preserve_accounting_and_bounds"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-007]
+status = "Implemented"
+location = ["src/app/worker.rs::con_007_task_runs_without_coordinator_lock_held"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-008]
+status = "Implemented"
+location = ["src/app/worker.rs::con_006_and_008_repeated_cycles_preserve_accounting_and_bounds"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.CON-009]
+status = "Implemented"
+location = ["src/app/worker.rs::con_009_checkpoint_and_generation_rollover_cannot_revive_stale_work"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.PROP-007]
+status = "Implemented"
+location = ["tests/security.rs::prop_007_checked_archive_arithmetic_is_monotonic_and_never_wraps"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.PROP-009]
+status = "Implemented"
+location = ["src/app/worker.rs::con_002_and_prop_009_old_completion_cannot_replace_new"]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.NAV-005]
+status = "Implemented"
+location = [
+    "src/document/model.rs::section_navigation_fallbacks_have_stable_titles_and_exact_starts",
+    "src/reader.rs::nav_005_section_steps_follow_declared_order_with_duplicate_positions",
+    "src/reader.rs::section_steps_cross_empty_sections_with_the_same_absolute_byte",
+    "src/app/state.rs::section_navigation_preserves_declared_selection_across_duplicates_and_resize",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-017]
+location = ["src/terminal_image.rs::reports_parse_without_promoting_malformed_values"]
+
+[cases.TERM-009]
+status = "Implemented"
+location = [
+    "src/app/state.rs::con_005_term_009_app_shutdown_joins_production_image_workers",
+    "src/terminal.rs::term_009_cancels_then_restores_terminal_before_joining_workers",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.IMG-013]
+status = "Implemented"
+location = [
+    "tests/document_io.rs::img_013_epub_lazy_provider_keeps_inspected_image_bytes_after_path_swap",
+    "src/app/state.rs::img_013_more_than_completion_capacity_never_stays_loading",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]

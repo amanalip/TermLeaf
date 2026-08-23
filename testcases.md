@@ -369,11 +369,9 @@ affected exact oracle, and the case registry together.
 | `DEC-TEST-010` | `NAV-007`, native `KEY` cases | Final conflict-free action-to-key map and multikey-prefix policy |
 | `DEC-TEST-011` | `STATUS-002`, `STATUS-004`, `STATUS-005` | Exact field collapse order, location/percentage/page formulas, rounding, clock format, and message lifetime |
 | `DEC-TEST-012` | config/state/input limits | Numeric limits for TXT, Markdown, config, state, queries, notes, URLs, recents, annotations, and total persisted state |
-| `DEC-TEST-014` | image override cases | Exact incompatible explicit-override error or fallback behavior |
 | `DEC-TEST-015` | `EPUB-003` | Exact EPUB manifest fallback selection and failure rule |
 | `DEC-TEST-016` | `SEC-007` | Whether an over-limit XHTML chapter rejects the book or becomes a bounded skipped chapter |
 | `DEC-TEST-017` | `ANN-006`, temporary-view returns | Exact return-stack behavior after jumping away from a prior passage |
-| `DEC-TEST-018` | `CON-001`, `CON-008` | Numeric queue/worker/in-flight limits and backpressure/rejection policy |
 
 `DEC-TEST-013` was resolved by `DD-018`: Phase 0 supports raw-mode Ctrl-C on all
 targets and catchable external `SIGINT` on POSIX. Windows console Ctrl-C,
@@ -387,6 +385,16 @@ Markdown and EPUB extend the accepted-extension table in their own delivery
 phases instead of sniffing content ahead of their parsers. Content validity is
 still enforced after the extension gate, so a `.txt` file holding binary data
 fails decoding with a typed reason.
+
+`DEC-TEST-014` is resolved by `DD-031`: an explicit image override wins when
+capability evidence is positive or absent, but explicit negative evidence
+returns one typed incompatibility error instead of silently selecting another
+backend. Automatic selection requires positive evidence.
+
+`DEC-TEST-018` is resolved by `DD-032`: two ordinary worker threads share a
+nonblocking queue of eight waiting requests and a 64 MiB queued/running input
+budget. Over-capacity submissions reject immediately with a typed reason;
+generation rollover cancels queued work and discards stale completions.
 
 ## Boundary Method
 

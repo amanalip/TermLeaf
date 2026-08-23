@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 22, 2026 at 7:14 PM EDT
+**Last updated:** August 23, 2026
 
 ## Table of Contents
 
@@ -27,51 +27,26 @@
 
 ## Right Now
 
-Phase 2 is in progress. The bounded ZIP preflight and `rbook` semantics
-slice landed: hostile archives (unsafe names, symlinks, encryption,
-unsupported methods, overlaps, truncation, CRC lies, ratio bombs) fail with
-typed policy errors inside inclusive resource limits, minimal EPUB 2 and
-EPUB 3 fixtures open with spine order, metadata, and TOC-derived chapter
-titles, and tolerant XHTML conversion feeds a multi-section document model.
-The follow-up boundary slice landed: chapter markup is bounded by a
-one-million-opening byte scan before the HTML5 parser allocates (typed
-`ChapterTooComplex` rejection), and the staged `EpubSnapshot` proves byte
-stability through overwrite, truncate, append, rename, delete, and
-symlink-swap journeys (`EPUB-010`, `EPUB-016`). The semantic content slice
-landed: XHTML and Markdown both produce the full reading structure
-(headings, nested lists, quotes, verbatim code, separators, tables) plus
-inline emphasis/strong/code/link decorations; layout renders markers,
-hanging indents, verbatim code rows, and aligned-or-linearized tables;
-Markdown arrives through pulldown-cmark under the shared byte budget with
-active content inert (`MD-001`, `MD-002`, `MD-006`, `MD-008`, `MD-009`,
-`MD-012`, `LAY-009`, `LAY-010`). The table of contents overlay landed: `o`/F2 opens over any book,
-jumps sections on Enter through validated steps, and preserves the
-anchor around help and back round trips (`NAV-009`). Real Gutenberg
-books parsed successfully in smoke checks. The bounded raster-decode slice
-landed: `src/document/image.rs` enforces the locked initial image limits in
-policy order (input bytes, header-only dimensions, pixels, per-family
-allocation ceilings), normalizes every enabled decoder to RGBA8 with
-first-frame animation, resolves formats extension-first with magic winning,
-and rejects truncated, corrupt, oversized, and foreign inputs typed
-(`IMG-001`, `IMG-006`, `IMG-007` implemented; `IMG-002`, `IMG-005`,
-`IMG-012`, `SUP-009` locations registered). The image ingestion slice
-landed: XHTML `<img>` and Markdown `![alt](dest)` both become caption
-placeholder blocks that split mid-flow without dropping surrounding text,
-EPUB sources resolve chapter-relatively over the inspected archive into
-lazy member references (strict percent decoding, scheme rejection,
-non-escaping dot merging, existence checks) while external, escaping, or
-missing targets stay unfetchable with captions intact (`MD-004`
-implemented; `EPUB-013` locations registered). Phase 1 remains complete with its frozen gate
-passed locally and on every required hosted environment row (run
-`32535725291`). Cross-phase gate members are owned forward by DD-026; the
-next Phase 2 slices wire `<img>` ingestion into EPUB/Markdown chapters and
-add half-block cell rendering behind the worker queue, while
-`SEC-009` control-document gates stay open behind named compensating
-controls (DD-028).
+Phase 2 development is complete locally. Structured ingestion now covers
+bounded ZIP/rbook EPUB semantics, semantic XHTML and Markdown, source-aware
+links, exact internal chapter/fragment/TOC navigation, code/tables, immutable
+archive reads, and structural gates for chapters plus every control-document
+class. Raster and static SVG/SVGZ resources share byte, geometry, pixel,
+allocation, active-content, resolver, and work limits. Terminal presentation
+has positive-evidence backend selection, typed override conflicts, bounded
+true-color/256-color half-block frames, and informative caption fallbacks.
+Two generation-aware workers enforce fixed queue and in-flight-byte budgets,
+cancel stale work, contain failures, and shut down without blocking terminal
+restoration. Wide TOC navigation preserves passage context in a side panel.
+The local implementation suite and security target pass; the Phase 2 gate
+remains evidence-in-progress until the pushed revision supplies required hosted
+rows, fuzz-duration artifacts, and native `IMG-018` procedure results. DD-026
+continues to own frozen members whose actual features land in later phases.
 
 ## Delivery Phases
 
-**Implementation progress:** 2 of 6 phases complete. Phase 2 is in progress.
+**Implementation progress:** 2 of 6 phase gates complete. Phase 2 development
+is complete; external and duration-based gate evidence is in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -86,7 +61,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Bounded ZIP preflight, rbook package/spine/metadata semantics, full semantic XHTML and Markdown ingestion with inline roles, semantic layout (code, tables, lists, quotes), chapter node bounding, byte-stability instrumentation, the bounded raster-decode core with typed resource errors, and caption-block image ingestion with archive-bounded lazy resolution pass locally; image rendering (half-block/caption frames), worker queues and loading/cancellation states, protocol detection, TOC side-panel layout, render-profile fixture evidence, control-document structural gates, and fuzz evidence remain. |
+| 2. Structured books and images | In progress | Local development is complete: structured semantics/navigation, archive/control-document security, raster/SVG decoding, bounded worker coordination, backend selection, cell/caption presentation, and responsive TOC pass. Hosted rows, fuzz-duration artifacts, and native protocol procedure evidence remain before the frozen gate is Complete. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -133,9 +108,9 @@ already inside the six phases; it does not add another phase.
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
 | Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
-| EPUB format | In progress | Bounded archive preflight, rbook package/spine/metadata resolution, linear reading order, NCX/nav-derived chapter titles, encryption and fixed-layout detection, manifest fallbacks, full semantic XHTML conversion (lists, quotes, code, tables, inline roles) with a pre-parse markup-node budget, and proven byte stability across source mutations pass; link activation, images, control-document structural gates, and fuzz coverage arrive with later slices. |
-| Markdown format | In progress | Source-aware pulldown-cmark parsing maps headings, paragraphs, nested lists, quotes, fenced/indented code, rules, GFM tables, and inline roles into the shared model under the shared byte budget with raw HTML inert; language tags, link targets, source-offset fidelity, and render-profile cases arrive with their owning slices. |
-| Inline images | In progress | The bounded raster-decode core passes: `ImageLimits` policy from the locked table, policy-ordered rejection (input bytes before parsing, header-only dimensions, pixels, per-family allocation ceilings), RGBA8 normalization with first-frame animation, extension-first format resolution with magic winning, typed errors for truncated/corrupt/oversized/foreign inputs, and generated-fixture round trips across all fourteen enabled decoders. Image ingestion passes: XHTML `<img>` and Markdown images become caption placeholder blocks that split mid-flow, EPUB sources resolve chapter-relatively into lazy member references while hostile targets stay unfetchable. Caption frames, half-block pixel rendering, worker queues with loading/cancellation states, SVG/SVGZ vector decoding, protocol detection, and PTY evidence arrive with their owning slices. |
+| EPUB format | Complete | Bounded archive and control-document gates, package/spine/metadata semantics, canonical reading order, tolerant semantic XHTML, exact internal links/TOC positions, encryption/fixed-layout errors, lazy resources, no-extraction evidence, and immutable inspected bytes pass locally. |
+| Markdown format | Complete | Source-aware parsing maps full block/inline semantics, code languages and copy ranges, inert link targets, original source ranges, and images into the shared bounded model. |
+| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, positive-evidence backend selection, half-block cells, Paper-safe pixels, and caption errors pass locally. Native protocol procedure and fuzz-duration evidence remain. |
 
 ## The Bookshelf
 
@@ -155,9 +130,9 @@ already inside the six phases; it does not add another phase.
 | --- | --- | --- |
 | Keyboard controls | Complete | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs on all hosted rows; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
-| Table of contents | In progress | Full-screen chapter navigation jumps sections with cursor memory and confirmation messages; contextual side-panel layout arrives later. |
+| Table of contents | Complete | Standard/narrow screens use the full-screen list; wide screens retain passage context beside a TOC panel. Both jump exact validated navigation points with cursor memory and confirmation messages. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
-| Loading and cancellation UI | Not started | Show bounded static progress and preserve anchors when stale work is canceled. |
+| Loading and cancellation UI | In progress | Bounded generations, cancellation, stale-result rejection, fallback states, and anchor-independent work coordination pass at the model boundary; final protocol-specific native presentation evidence remains. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
 | Themes | Complete | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; real-terminal visual review joins the Deferred release rows. |
 | Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, tick-lifetime messages on every screen including the home status, and theme confirmations ship; failed-save states arrive with persistence. |
@@ -192,3 +167,4 @@ already inside the six phases; it does not add another phase.
 | Unicode layout drifts | Width, wrapping, search, and highlights disagree. | Keep logical positions separate from visual rows and test grapheme-safe mappings. |
 | Image capability detection fails | Escape sequences leak or an image covers stale terminal content. | Require positive protocol evidence, allow overrides, and always retain cell and caption fallbacks. |
 | Image decoding exhausts resources | A crafted image consumes excessive memory or CPU. | Enforce byte, dimension, pixel, resolver, allocation, and queue limits before rendering. |
+| Loose image paths change during open | A Markdown directory modified concurrently swaps a checked path before the worker opens it. | Reject unsafe/static symlink escapes today; move loose-resource reads to capability directory handles before claiming hostile concurrent-directory safety. |

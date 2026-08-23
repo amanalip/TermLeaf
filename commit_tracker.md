@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 22, 2026 at 7:14 PM EDT
+**Last updated:** August 23, 2026
 
 ## Table of Contents
 
@@ -26,7 +26,35 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-No changes are pending inclusion in a commit.
+### Complete Phase 2 development
+
+**Intended subjects:**
+
+- `feat: finish structured resource handling`
+- `feat: integrate bounded image rendering`
+- `docs: record phase 2 development status`
+
+- Links carry inert destinations and source ranges; EPUB internal targets map
+  to validated logical navigation points rather than browser actions.
+- Every EPUB control-document class is structurally gated before semantics;
+  successful reads remain archive-only with no extraction or sidecars.
+- `resvg`/`usvg` run with default features and external resolvers disabled;
+  SVGZ is streamed under its actual XML limit before static rasterization.
+- Image backend selection requires positive evidence. Explicit negative
+  evidence is a typed error (DD-031); cell and caption paths are deterministic.
+- Background work uses two workers, an eight-request queue, and a 64 MiB
+  in-flight input budget with immediate rejection (DD-032). Generations own
+  cancellation and stale-result policy.
+- Wide contents navigation uses a side panel; narrower screens retain the
+  full-screen overlay.
+
+Decisions:
+
+- **DD-031:** Explicit image overrides may bypass absent detection, but may not
+  contradict explicit negative capability evidence. Contradiction returns one
+  typed error; automatic protocol emission still requires positive evidence.
+- **DD-032:** Worker limits are two threads, eight waiting requests/completions,
+  and 64 MiB of queued/running inputs. Submission never blocks the UI.
 
 ## Commit History
 
