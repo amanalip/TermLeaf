@@ -13,6 +13,8 @@ ignore = [
 confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
+    # winx, used by cap-std's Windows capability backend, adds LLVM-exception.
+    "Apache-2.0 WITH LLVM-exception",
     "GPL-3.0-only",
     "MIT",
     # arrayref, used by resvg's bounded rasterizer, is BSD-2-Clause.

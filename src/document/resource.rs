@@ -1,11 +1,12 @@
 //! Lazy, bounded providers for image bytes associated with an open document.
 
 use std::{
-    fs::File,
     io::Read,
-    path::{Component, Path, PathBuf},
+    path::{Component, Path},
     sync::Arc,
 };
+
+use cap_std::{ambient_authority, fs::Dir};
 
 use super::{ImageResource, PreflightedArchive, sanitize_path};
 
@@ -17,8 +18,8 @@ pub enum ResourceProvider {
     None,
     /// An EPUB's immutable, preflighted source bytes.
     Epub(Arc<PreflightedArchive>),
-    /// Loose files constrained to the Markdown book's canonical directory.
-    Markdown { root: Arc<PathBuf> },
+    /// Loose files constrained to an already-open Markdown book directory.
+    Markdown { root: Arc<Dir> },
 }
 
 /// Typed lazy-resource resolution and bounded-read failure.
@@ -41,15 +42,18 @@ pub enum ResourceReadError {
 }
 
 impl ResourceProvider {
-    /// Creates a provider rooted at the canonical parent of a Markdown file.
+    /// Creates a provider holding an open capability for a Markdown file's parent.
     ///
     /// # Errors
     ///
-    /// Returns an I/O error if the parent cannot be canonicalized.
+    /// Returns an I/O error if the parent directory cannot be opened.
     pub fn markdown(book: &Path) -> std::io::Result<Self> {
-        let parent = book.parent().unwrap_or_else(|| Path::new("."));
+        let parent = book
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
         Ok(Self::Markdown {
-            root: Arc::new(parent.canonicalize()?),
+            root: Arc::new(Dir::open_ambient_dir(parent, ambient_authority())?),
         })
     }
 
@@ -76,7 +80,7 @@ impl ResourceProvider {
     }
 }
 
-fn read_local(root: &Path, reference: &str, limit: u64) -> Result<Vec<u8>, ResourceReadError> {
+fn read_local(root: &Dir, reference: &str, limit: u64) -> Result<Vec<u8>, ResourceReadError> {
     let relative = Path::new(reference);
     if relative.is_absolute()
         || relative
@@ -85,14 +89,18 @@ fn read_local(root: &Path, reference: &str, limit: u64) -> Result<Vec<u8>, Resou
     {
         return Err(ResourceReadError::UnsafePath);
     }
-    let target = root
-        .join(relative)
-        .canonicalize()
-        .map_err(|_| ResourceReadError::Unreadable)?;
-    if !target.starts_with(root) {
+    // Symlinks are unnecessary for book resources. Rejecting the observed
+    // entry gives stable diagnostics while the capability remains the actual
+    // security boundary if the entry changes immediately after this check.
+    if root
+        .symlink_metadata(relative)
+        .is_ok_and(|metadata| metadata.file_type().is_symlink())
+    {
         return Err(ResourceReadError::EscapesBook);
     }
-    let mut file = File::open(&target).map_err(|_| ResourceReadError::Unreadable)?;
+    let mut file = root
+        .open(relative)
+        .map_err(|_| ResourceReadError::Unreadable)?;
     let metadata = file.metadata().map_err(|_| ResourceReadError::Unreadable)?;
     if !metadata.is_file() {
         return Err(ResourceReadError::NotAFile);
@@ -141,6 +149,31 @@ mod tests {
             provider.read_bounded(&ImageResource::member("../outside", None), 10),
             Err(ResourceReadError::UnsafePath)
         );
+        assert_eq!(
+            provider.read_bounded(&ImageResource::member("/outside", None), 10),
+            Err(ResourceReadError::UnsafePath)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn img_012_markdown_provider_rejects_windows_device_and_drive_paths() {
+        let directory = tempfile::tempdir().expect("book directory");
+        let book = directory.path().join("book.md");
+        std::fs::write(&book, "book").expect("book");
+        let provider = ResourceProvider::markdown(&book).expect("provider");
+
+        for reference in [r"\\.\NUL", r"C:\outside", r"C:outside"] {
+            assert_eq!(
+                provider.read_bounded(&ImageResource::member(reference, None), 10),
+                Err(ResourceReadError::UnsafePath)
+            );
+        }
+        assert_eq!(
+            provider.read_bounded(&ImageResource::member("NUL", None), 10),
+            Err(ResourceReadError::Unreadable),
+            "cap-std rejects reserved device basenames"
+        );
     }
 
     #[cfg(unix)]
@@ -158,5 +191,65 @@ mod tests {
             provider.read_bounded(&ImageResource::member("escape", None), 10),
             Err(ResourceReadError::EscapesBook)
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn img_012_markdown_provider_never_follows_concurrently_swapped_escape() {
+        use std::sync::{
+            Arc as StdArc, Barrier,
+            atomic::{AtomicBool, Ordering},
+        };
+
+        let directory = tempfile::tempdir().expect("book directory");
+        let outside = tempfile::tempdir().expect("outside directory");
+        let book = directory.path().join("book.md");
+        let live = directory.path().join("images");
+        let parked = directory.path().join("images-safe");
+        std::fs::write(&book, "![plate](images/plate.bin)").expect("book");
+        std::fs::create_dir(&live).expect("image directory");
+        std::fs::write(live.join("plate.bin"), b"inside").expect("inside resource");
+        std::fs::write(outside.path().join("plate.bin"), b"outside").expect("outside resource");
+        let provider = ResourceProvider::markdown(&book).expect("provider");
+        let start = StdArc::new(Barrier::new(2));
+        let escape_installed = StdArc::new(Barrier::new(2));
+        let escape_observed = StdArc::new(Barrier::new(2));
+        let finished = StdArc::new(AtomicBool::new(false));
+
+        let swap_start = StdArc::clone(&start);
+        let swap_installed = StdArc::clone(&escape_installed);
+        let swap_observed = StdArc::clone(&escape_observed);
+        let swap_finished = StdArc::clone(&finished);
+        let outside_path = outside.path().to_path_buf();
+        let swapper = std::thread::spawn(move || {
+            swap_start.wait();
+            for iteration in 0..2_000 {
+                std::fs::rename(&live, &parked).expect("park safe directory");
+                std::os::unix::fs::symlink(&outside_path, &live).expect("install escape");
+                if iteration == 0 {
+                    swap_installed.wait();
+                    swap_observed.wait();
+                }
+                std::thread::yield_now();
+                std::fs::remove_file(&live).expect("remove escape");
+                std::fs::rename(&parked, &live).expect("restore safe directory");
+            }
+            swap_finished.store(true, Ordering::Release);
+        });
+
+        start.wait();
+        let resource = ImageResource::member("images/plate.bin", None);
+        escape_installed.wait();
+        assert!(
+            provider.read_bounded(&resource, 16).is_err(),
+            "an installed escape is rejected"
+        );
+        escape_observed.wait();
+        while !finished.load(Ordering::Acquire) {
+            if let Ok(bytes) = provider.read_bounded(&resource, 16) {
+                assert_eq!(bytes, b"inside", "outside bytes crossed the capability");
+            }
+        }
+        swapper.join().expect("swapper thread");
     }
 }

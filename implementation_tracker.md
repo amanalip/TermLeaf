@@ -167,4 +167,4 @@ already inside the six phases; it does not add another phase.
 | Unicode layout drifts | Width, wrapping, search, and highlights disagree. | Keep logical positions separate from visual rows and test grapheme-safe mappings. |
 | Image capability detection fails | Escape sequences leak or an image covers stale terminal content. | Require positive protocol evidence, allow overrides, and always retain cell and caption fallbacks. |
 | Image decoding exhausts resources | A crafted image consumes excessive memory or CPU. | Enforce byte, dimension, pixel, resolver, allocation, and queue limits before rendering. |
-| Loose image paths change during open | A Markdown directory modified concurrently swaps a checked path before the worker opens it. | Reject unsafe/static symlink escapes today; move loose-resource reads to capability directory handles before claiming hostile concurrent-directory safety. |
+| Loose image paths change during open | A Markdown directory modified concurrently swaps a checked path before the worker opens it. | Open relative to a persistent capability directory; static and concurrent symlink-escape tests prove outside files remain unreachable. |

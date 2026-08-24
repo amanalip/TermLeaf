@@ -77,6 +77,25 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Harden loose image resource access
+
+**Commit subject:** `fix: harden loose image resource access`
+
+**Revision:** This commit
+
+**Recorded:** August 24, 2026
+
+Markdown image resources now open relative to an already-open `cap-std`
+directory capability. Absolute, parent, drive/device, static symlink, and
+concurrently swapped symlink paths cannot escape the book directory; metadata
+and reads remain bounded. The same change scopes a Unix-only EPUB test decoy so
+Windows Clippy can execute the full core suite.
+
+Checks passed: registry generation/check, formatting, Clippy with warnings
+denied, 267 Rust tests, doctests, and dependency policy. `cap-std` 4.0.3 uses
+default features off; `Apache-2.0 WITH LLVM-exception` is allowed for its
+cross-platform `winx` dependency.
+
 ### Complete Phase 2 development
 
 **Commit subjects:** `feat: finish structured resource handling`,

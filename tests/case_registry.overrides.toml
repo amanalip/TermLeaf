@@ -918,7 +918,9 @@ location = [
     "src/document/image.rs::error_messages_name_failure_value_and_recovery",
     "src/terminal_image.rs::ansi256_quantization_and_caption_content_are_deterministic",
     "src/document/resource.rs::img_012_markdown_provider_reads_only_bounded_non_escaping_files",
+    "src/document/resource.rs::img_012_markdown_provider_rejects_windows_device_and_drive_paths",
     "src/document/resource.rs::img_012_markdown_provider_rejects_symlink_escape",
+    "src/document/resource.rs::img_012_markdown_provider_never_follows_concurrently_swapped_escape",
     "tests/render.rs::img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason",
     "src/ui/reader.rs::img_012_caption_controls_are_sanitized_before_ratatui_buffer_write",
 ]

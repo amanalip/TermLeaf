@@ -582,9 +582,6 @@ fn epub_010_mutations_after_preflight_never_reach_semantic_parsing() -> anyhow::
 #[test]
 fn epub_016_source_disappears_or_swaps_after_inspection_and_parsing_still_succeeds()
 -> anyhow::Result<()> {
-    let decoy =
-        TempEpub::new_from_strings("epub016-decoy", &stable_edition_members("Decoy Edition"))?;
-
     let book = TempEpub::new_from_strings(
         "epub016-vanishing",
         &stable_edition_members("Vanishing Edition"),
@@ -617,6 +614,8 @@ fn epub_016_source_disappears_or_swaps_after_inspection_and_parsing_still_succee
     // symlink creation is unavailable on Windows).
     #[cfg(unix)]
     {
+        let decoy =
+            TempEpub::new_from_strings("epub016-decoy", &stable_edition_members("Decoy Edition"))?;
         std::os::unix::fs::symlink(decoy.path(), &original_path)
             .context("swap source for a decoy symlink")?;
         let document = snapshot

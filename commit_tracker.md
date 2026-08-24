@@ -26,6 +26,16 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Harden loose image resource access
+
+**Intended subject:** `fix: harden loose image resource access`
+
+- Replace path canonicalization followed by ambient reopen with one persistent
+  capability directory and relative opens.
+- Reject Windows device/drive spellings on every host and prove static plus
+  concurrent symlink swaps cannot expose an outside file.
+- Scope the Unix-only EPUB decoy fixture so Windows Clippy sees no unused local.
+
 ### Complete Phase 2 development
 
 **Intended subjects:**
