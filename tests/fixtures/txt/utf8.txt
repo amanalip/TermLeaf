@@ -1,0 +1,5 @@
+ASCII and cafe.
+Accents: café and café.
+CJK: 书葉. Emoji: 🍃.
+
+Final paragraph.

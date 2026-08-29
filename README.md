@@ -52,8 +52,8 @@ terminal image capability selection, half-block and caption fallbacks, and a
 responsive table of contents. Hosted environment, deterministic robustness, and
 native graphics-protocol evidence is tracked separately and is not claimed
 before it runs. The plan now treats coverage-guided fuzzing as optional
-scheduled discovery rather than mandatory duration-based gate work; the first
-remaining task migrates the executable registry and gate manifests to match.
+scheduled discovery rather than mandatory duration-based gate work, and the
+executable registry and gate manifests enforce that policy.
 
 ## Technical Direction
 

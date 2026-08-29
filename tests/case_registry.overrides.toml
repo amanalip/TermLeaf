@@ -306,8 +306,14 @@ last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-004]
 status = "Implemented"
-location = ["src/document/text.rs::txt_004_invalid_utf8_and_unmarked_utf16_are_rejected_with_reasons"]
-last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
+location = [
+    "src/document/text.rs::txt_004_invalid_utf8_and_unmarked_utf16_are_rejected_with_reasons",
+    "src/document/text.rs::txt_004_malformed_encoding_table_reports_exact_source_offsets",
+    "src/document/text.rs::txt_004_unmarked_utf16_detection_requires_a_dense_pair_pattern",
+    "tests/properties.rs::prop_011_fixed_seed_raw_bytes_are_bounded_models_or_typed_source_errors",
+    "tests/properties.rs::prop_012_fixed_text_mutations_are_bounded_models_or_typed_source_errors",
+]
+last_evidence = ["testreport.md#complete-the-first-three-phase-2-tasks"]
 
 [cases.TXT-005]
 status = "Implemented"
@@ -329,9 +335,12 @@ location = ["src/document/text.rs::txt_007_empty_and_whitespace_only_files_are_s
 status = "Implemented"
 location = [
     "src/document/text.rs::txt_008_byte_limit_holds_at_below_and_above_the_boundary",
+    "src/document/text.rs::txt_008_zero_and_maximum_limits_are_exact_and_overflow_safe",
     "tests/cli.rs::txt_008_file_above_the_byte_limit_fails_before_terminal_setup",
+    "tests/properties.rs::prop_011_fixed_seed_raw_bytes_are_bounded_models_or_typed_source_errors",
+    "tests/properties.rs::prop_012_fixed_text_mutations_are_bounded_models_or_typed_source_errors",
 ]
-last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
+last_evidence = ["testreport.md#complete-the-first-three-phase-2-tasks"]
 
 [cases.TXT-009]
 location = ["src/document/text.rs::txt_009_extremely_long_line_parses_with_progress_and_no_panic"]

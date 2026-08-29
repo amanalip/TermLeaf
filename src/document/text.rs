@@ -34,11 +34,15 @@ enum Bom {
     Utf8,
     Utf16Le,
     Utf16Be,
+    Utf32Le,
+    Utf32Be,
 }
 
 impl Bom {
     fn detect(bytes: &[u8]) -> (Self, usize) {
         match bytes {
+            [0xFF, 0xFE, 0x00, 0x00, rest @ ..] => (Self::Utf32Le, bytes.len() - rest.len()),
+            [0x00, 0x00, 0xFE, 0xFF, rest @ ..] => (Self::Utf32Be, bytes.len() - rest.len()),
             [0xEF, 0xBB, 0xBF, rest @ ..] => (Self::Utf8, bytes.len() - rest.len()),
             [0xFF, 0xFE, rest @ ..] => (Self::Utf16Le, bytes.len() - rest.len()),
             [0xFE, 0xFF, rest @ ..] => (Self::Utf16Be, bytes.len() - rest.len()),
@@ -51,7 +55,7 @@ impl Bom {
         match self {
             Self::Utf16Le => Some(encoding_rs::UTF_16LE),
             Self::Utf16Be => Some(encoding_rs::UTF_16BE),
-            Self::None | Self::Utf8 => None,
+            Self::None | Self::Utf8 | Self::Utf32Le | Self::Utf32Be => None,
         }
     }
 
@@ -60,7 +64,7 @@ impl Bom {
         match self {
             Self::Utf16Le => Some("UTF-16LE"),
             Self::Utf16Be => Some("UTF-16BE"),
-            Self::None | Self::Utf8 => None,
+            Self::None | Self::Utf8 | Self::Utf32Le | Self::Utf32Be => None,
         }
     }
 }
@@ -83,37 +87,82 @@ pub fn decode_text<'a>(
     let (bom, bom_len) = Bom::detect(bytes);
     let rest = &bytes[bom_len..];
 
+    if matches!(bom, Bom::Utf32Le | Bom::Utf32Be) {
+        return Err(DocumentError::InvalidEncoding {
+            path: path.to_owned(),
+            offset: 0,
+            cause: "UTF-32 byte-order marks are not supported".to_owned(),
+        });
+    }
+
     if let Some(decoder) = bom.utf16_decoder() {
-        let (text, had_errors) = decoder.decode_without_bom_handling(rest);
-        if had_errors {
+        if let Err((offset, reason)) = validate_utf16(rest, bom == Bom::Utf16Be) {
             return Err(DocumentError::InvalidUtf16 {
                 path: path.to_owned(),
                 encoding: bom.utf16_name().unwrap_or("UTF-16"),
-                detail: "the stream contains bytes that do not form valid units for the \
-                         advertised encoding"
-                    .to_owned(),
+                detail: format!("{reason} at byte offset {}", bom_len + offset),
             });
         }
+        let (text, had_errors) = decoder.decode_without_bom_handling(rest);
+        debug_assert!(!had_errors, "validated UTF-16 must decode strictly");
         return Ok(text);
     }
 
+    if let Some(offset) = unmarked_utf16_signature(rest) {
+        return Err(DocumentError::InvalidEncoding {
+            path: path.to_owned(),
+            offset: bom_len + offset,
+            cause: "the content appears to be UTF-16 without a byte-order mark".to_owned(),
+        });
+    }
+
     match std::str::from_utf8(rest) {
-        Ok(text) => {
-            if let Some(offset) = unmarked_utf16_signature(rest) {
-                return Err(DocumentError::InvalidEncoding {
-                    path: path.to_owned(),
-                    offset,
-                    cause: "the content appears to be UTF-16 without a byte-order mark".to_owned(),
-                });
-            }
-            Ok(std::borrow::Cow::Borrowed(text))
-        }
+        Ok(text) => Ok(std::borrow::Cow::Borrowed(text)),
         Err(error) => Err(DocumentError::InvalidEncoding {
             path: path.to_owned(),
             offset: bom_len + error.valid_up_to(),
-            cause: invalid_utf8_cause(rest, error.valid_up_to()).to_owned(),
+            cause: "invalid UTF-8 sequence".to_owned(),
         }),
     }
+}
+
+/// Validates code-unit shape before decoding so malformed UTF-16 is never
+/// replaced and diagnostics identify the first damaged source unit.
+fn validate_utf16(bytes: &[u8], big_endian: bool) -> Result<(), (usize, &'static str)> {
+    if !bytes.len().is_multiple_of(2) {
+        return Err((
+            bytes.len() - 1,
+            "a trailing byte does not form a complete UTF-16 unit",
+        ));
+    }
+    let unit_at = |offset: usize| {
+        let pair = [bytes[offset], bytes[offset + 1]];
+        if big_endian {
+            u16::from_be_bytes(pair)
+        } else {
+            u16::from_le_bytes(pair)
+        }
+    };
+
+    let mut offset = 0;
+    while offset < bytes.len() {
+        match unit_at(offset) {
+            0xD800..=0xDBFF => {
+                if offset + 2 == bytes.len() || !matches!(unit_at(offset + 2), 0xDC00..=0xDFFF) {
+                    return Err((
+                        offset,
+                        "a high surrogate is not followed by a low surrogate",
+                    ));
+                }
+                offset += 4;
+            }
+            0xDC00..=0xDFFF => {
+                return Err((offset, "a low surrogate has no preceding high surrogate"));
+            }
+            _ => offset += 2,
+        }
+    }
+    Ok(())
 }
 
 /// Finds the start of a UTF-16-like alternating-NUL pattern.
@@ -124,34 +173,31 @@ pub fn decode_text<'a>(
 /// unreadable gaps.
 fn unmarked_utf16_signature(bytes: &[u8]) -> Option<usize> {
     let window = &bytes[..bytes.len().min(512)];
-    if window.len() < 4 {
+    let pairs = window.len() / 2;
+    if pairs < 2 {
         return None;
     }
-    let zeros_even = window.iter().step_by(2).filter(|byte| **byte == 0).count();
-    let zeros_odd = window
-        .iter()
-        .skip(1)
-        .step_by(2)
-        .filter(|byte| **byte == 0)
-        .count();
-    let half = window.len() / 2;
-    let dense = zeros_even.max(zeros_odd) * 4 >= half;
-    dense.then(|| {
-        window
-            .iter()
-            .position(|byte| *byte == 0)
-            .unwrap_or_default()
-    })
-}
 
-fn invalid_utf8_cause(bytes: &[u8], valid_up_to: usize) -> &'static str {
-    if unmarked_utf16_signature(&bytes[valid_up_to.min(bytes.len())..]).is_some() {
-        "the content appears to be UTF-16 without a byte-order mark"
-    } else if bytes[valid_up_to..].starts_with(&[0xEF, 0xBB, 0xBF]) {
-        "a stray byte-order mark appears inside the text"
-    } else {
-        "invalid UTF-8 sequence"
+    let mut le = 0usize;
+    let mut be = 0usize;
+    for pair in window[..pairs * 2].as_chunks::<2>().0 {
+        le += usize::from(pair[0] != 0 && pair[1] == 0);
+        be += usize::from(pair[0] == 0 && pair[1] != 0);
     }
+    let threshold = pairs.saturating_mul(3).div_ceil(4);
+    let little_endian = le >= threshold && be <= pairs / 4;
+    let big_endian = be >= threshold && le <= pairs / 4;
+    (little_endian || big_endian).then(|| {
+        window[..pairs * 2]
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .position(|pair| {
+                (little_endian && pair[0] != 0 && pair[1] == 0)
+                    || (big_endian && pair[0] == 0 && pair[1] != 0)
+            })
+            .map_or(0, |pair| pair * 2 + usize::from(little_endian))
+    })
 }
 
 /// Builds a document from already-decoded logical text.
@@ -268,8 +314,9 @@ pub fn load_text_file(path: &Path, limits: &TextLimits) -> Result<Document, Docu
     }
 
     let mut bytes = Vec::new();
+    let guarded_limit = limits.max_bytes.saturating_add(1);
     (&mut file)
-        .take(limits.max_bytes + 1)
+        .take(guarded_limit)
         .read_to_end(&mut bytes)
         .map_err(|source| DocumentError::Read {
             path: display.clone(),
@@ -449,6 +496,15 @@ mod tests {
             cause,
             "the content appears to be UTF-16 without a byte-order mark"
         );
+
+        let hostile = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/txt/malformed.bin"
+        ));
+        assert!(matches!(
+            load_text_bytes("FX-TXT-BAD", hostile, &TextLimits::default()),
+            Err(DocumentError::InvalidEncoding { .. })
+        ));
     }
 
     #[test]
@@ -538,6 +594,121 @@ mod tests {
             .position(0, 0, source.len())
             .expect("end boundary is valid");
         assert_eq!(end.absolute_byte(&document), source.len());
+    }
+
+    #[test]
+    fn txt_004_malformed_encoding_table_reports_exact_source_offsets() {
+        let malformed_utf8: &[(&[u8], usize, &str)] = &[
+            (&[0xFF], 0, "invalid UTF-8 sequence"),
+            (&[0x80], 0, "invalid UTF-8 sequence"),
+            (&[0xC0, 0xAF], 0, "invalid UTF-8 sequence"),
+            (&[0xE2, 0x82], 0, "invalid UTF-8 sequence"),
+            (&[b'a', 0xED, 0xA0, 0x80], 1, "invalid UTF-8 sequence"),
+            (&[0xF4, 0x90, 0x80, 0x80], 0, "invalid UTF-8 sequence"),
+            (
+                &[0xFF, 0xFE, 0x00, 0x00],
+                0,
+                "UTF-32 byte-order marks are not supported",
+            ),
+            (
+                &[0x00, 0x00, 0xFE, 0xFF],
+                0,
+                "UTF-32 byte-order marks are not supported",
+            ),
+        ];
+        for &(bytes, expected_offset, expected_cause) in malformed_utf8 {
+            let error = decode_text(PATH, bytes).expect_err("malformed encoding must reject");
+            let DocumentError::InvalidEncoding { offset, cause, .. } = error else {
+                panic!("expected InvalidEncoding, got {error:?}");
+            };
+            assert_eq!(offset, expected_offset, "bytes {bytes:02X?}");
+            assert_eq!(cause, expected_cause, "bytes {bytes:02X?}");
+        }
+
+        let malformed_utf16: &[(&[u8], &str, usize, &str)] = &[
+            (&[0xFF, 0xFE, 0x61], "UTF-16LE", 2, "trailing byte"),
+            (&[0xFE, 0xFF, 0x00], "UTF-16BE", 2, "trailing byte"),
+            (&[0xFF, 0xFE, 0x00, 0xD8], "UTF-16LE", 2, "high surrogate"),
+            (
+                &[0xFE, 0xFF, 0xD8, 0x00, 0x00, 0x61],
+                "UTF-16BE",
+                2,
+                "high surrogate",
+            ),
+            (&[0xFF, 0xFE, 0x00, 0xDC], "UTF-16LE", 2, "low surrogate"),
+            (&[0xFE, 0xFF, 0xDC, 0x00], "UTF-16BE", 2, "low surrogate"),
+        ];
+        for &(bytes, expected_encoding, expected_offset, expected_reason) in malformed_utf16 {
+            let error = decode_text(PATH, bytes).expect_err("malformed UTF-16 must reject");
+            let DocumentError::InvalidUtf16 {
+                encoding, detail, ..
+            } = error
+            else {
+                panic!("expected InvalidUtf16, got {error:?}");
+            };
+            assert_eq!(encoding, expected_encoding, "bytes {bytes:02X?}");
+            assert!(detail.contains(expected_reason), "{detail}");
+            assert!(
+                detail.contains(&format!("byte offset {expected_offset}")),
+                "{detail}"
+            );
+        }
+    }
+
+    #[test]
+    fn txt_004_unmarked_utf16_detection_requires_a_dense_pair_pattern() {
+        for sparse in [
+            &b"abc\0defghijkl"[..],
+            &b"\0abcdefghijk"[..],
+            &b"abcde\0fghij\0"[..],
+        ] {
+            let decoded = decode_text(PATH, sparse).expect("sparse NULs are valid UTF-8 text");
+            assert_eq!(decoded.as_bytes(), sparse);
+        }
+
+        for (bytes, offset) in [(&b"h\0i\0"[..], 1), (&b"\0h\0i"[..], 0)] {
+            assert!(matches!(
+                decode_text(PATH, bytes),
+                Err(DocumentError::InvalidEncoding {
+                    offset: actual,
+                    ..
+                }) if actual == offset
+            ));
+        }
+    }
+
+    #[test]
+    fn txt_008_zero_and_maximum_limits_are_exact_and_overflow_safe() {
+        let zero = TextLimits { max_bytes: 0 };
+        assert!(load_text_bytes(PATH, b"", &zero).is_ok());
+        assert!(matches!(
+            load_text_bytes(PATH, b"x", &zero),
+            Err(DocumentError::TooLarge {
+                size: 1,
+                limit: 0,
+                ..
+            })
+        ));
+
+        let file = tempfile::NamedTempFile::new().expect("temporary text file");
+        std::fs::write(file.path(), b"x").expect("write temporary text file");
+        assert!(matches!(
+            load_text_file(file.path(), &zero),
+            Err(DocumentError::TooLarge {
+                size: 1,
+                limit: 0,
+                ..
+            })
+        ));
+        assert!(
+            load_text_file(
+                file.path(),
+                &TextLimits {
+                    max_bytes: u64::MAX,
+                },
+            )
+            .is_ok()
+        );
     }
 
     #[test]

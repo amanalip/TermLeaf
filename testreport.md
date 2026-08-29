@@ -77,6 +77,54 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Complete the first three Phase 2 tasks
+
+**Commit subject:** `test: add deterministic robustness corpus`
+
+**Revision:** This commit
+
+**Recorded:** August 29, 2026
+
+**Behavior and risks.** Required parser robustness evidence is now deterministic:
+the generated profiles keep all twelve `FUZZ-*` IDs as optional weekly discovery
+metadata and exclude them and synthetic durations from security and cumulative
+phase gates. A 29-file authored corpus covers strict text encodings, semantic and
+hostile Markdown, malformed and hostile EPUB, every enabled raster decoder, SVG,
+and SVGZ. Plain-text decoding rejects UTF-32 and malformed UTF-8/UTF-16 with typed
+offset-bearing diagnostics, handles injected byte limits without overflow, and
+runs fixed-seed arbitrary-byte and bounded mutation properties that require a
+valid tiled model or an expected typed bounded error.
+
+**Fixtures.** `tools/fixture_corpus.py` and `examples/fixture_rasters.rs`
+reproduce all committed corpus files. `tests/fixtures.toml` records SHA-256,
+size, authored provenance, `GPL-3.0-only`, generator revision and parameters,
+expected properties, and served case IDs for each file. No external fixture or
+network access is used.
+
+**Checks.** Passed: `python3 tools/case_registry.py check`,
+`python3 tools/fixture_corpus.py check` (29 files reproduced byte-for-byte),
+`cargo fmt --check`, `cargo clippy --all-targets --all-features --locked -- -D
+warnings`, `cargo test --locked` (199 library, 9 CLI, 17 document-I/O, 8
+property, 14 PTY, 16 render, and 9 security tests), `cargo test --doc --locked`,
+`cargo deny check`, and `cargo +1.88.0 check --locked`. Dependency policy emitted
+only the repository's existing allowed duplicate-version warnings. The full
+`cargo +1.88.0 test --locked` rerun compiled successfully and passed the library,
+CLI, and document-I/O targets, then exceeded the 120-second command window in
+the property target; the same complete suite passed on stable. `git diff
+--check` passed. No optional coverage-guided fuzz campaign was selected or
+required for these tasks. `cargo clean` ran after validation.
+
+**Changed paths and selection.** Test policy and generated manifests:
+`testcases.md`, `tools/case_registry.py`, `tests/case_registry*.toml`,
+`tests/profiles.toml`, and `tests/phase_gates.toml`. Corpus and generators:
+`tests/fixtures.toml`, `tests/fixtures/**`, `tools/fixture_corpus.py`, and
+`examples/fixture_rasters.rs`. Text implementation and deterministic evidence:
+`src/document/text.rs` and `tests/properties.rs`. Tracking paths: `README.md`,
+`implementation_tracker.md`, `tasks left.md`, `testreport.md`, and
+`commit_tracker.md`. Selected behavioral IDs are `TXT-004` and `TXT-008`; all
+fixture `served_case_ids` are emitted into the registry. `FUZZ-001` through
+`FUZZ-012` remain optional and were not run.
+
 ### Replace duration-based fuzz gates in the plan
 
 **Commit subject:** `docs: define the remaining implementation queue`

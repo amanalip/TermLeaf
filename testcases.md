@@ -124,6 +124,10 @@ value. Snapshot names must include the case ID.
 | P1 | Promised first-release behavior or major compatibility path | Must pass before its phase gate and release |
 | P2 | Secondary presentation, diagnostics, or non-blocking compatibility depth | Must pass before claiming the affected behavior |
 
+Priority merge policy applies to required behavioral cases. A `FUZZ-*` row's
+priority describes discovery triage only and never makes that optional target a
+merge, security-profile, phase-gate, or release requirement.
+
 No failing case may be hidden by changing it to Blocked. A Blocked case needs an
 owner, reason, compensating evidence, and removal condition in `testreport.md`.
 
@@ -152,7 +156,10 @@ CI must reject duplicate, malformed, unknown, and orphaned IDs. Every executable
 test, manual procedure, benchmark, and fuzz target must map back to at least one
 catalog ID, and every Implemented or Passing ID must map to executable evidence.
 Property and fuzz cases record `implements` links to the behavioral cases they
-support. Retired IDs remain reserved and name their replacement when one exists.
+support. `FUZZ-*` IDs are optional discovery metadata: they may appear only as
+optional `weekly` cases, never as required `security` or `phase-gate-N` members.
+Their deterministic linked behavior remains required under its ordinary IDs and
+profiles. Retired IDs remain reserved and name their replacement when one exists.
 
 Status changes follow these rules:
 
@@ -175,7 +182,7 @@ Status changes follow these rules:
 | Render | Application cell grid or Ratatui test backend | Direct cell and width assertions accompany reviewed snapshots |
 | Integration | Filesystem, parser stack, configuration, or process boundary | Isolated temporary directories and deterministic environment |
 | PTY | Real process and terminal lifecycle | Strict timeout, child cleanup, fixed locale and `TERM`, low parallelism |
-| Fuzz | Untrusted parser and state boundaries | Bounded harness, seed corpus, crash artifact retention |
+| Fuzz | Optional coverage-guided discovery at untrusted boundaries | Bounded harness, seed corpus, crash artifact retention; never substitutes for deterministic evidence |
 | Benchmark | Responsiveness and memory budgets | Release profile, recorded hardware, stable fixtures, no shared-runner gate |
 | Manual | Hardware, terminal, assistive technology, or packaging behavior | Written steps, expected result, tester, platform, and date |
 
@@ -194,9 +201,9 @@ crossing process or terminal boundaries also needs evidence at that boundary.
 | `pr-core` | Every Rust change | `cargo fmt --check`; `cargo clippy --all-targets --all-features -- -D warnings`; `cargo test --locked`; `cargo test --doc --locked`; `cargo deny check` |
 | `pr-render` | UI, layout, theme, status, help, or terminal cell changes | `pr-core`; render integration target; snapshot review with direct assertions |
 | `native-pty` | Terminal lifecycle, input, signal, or release changes | `pr-core`; serial PTY integration target with named `ENV-*` rows and 30-second per-case timeout |
-| `security` | Parser, archive, image, URL, path, state, dependency, worker, or allocation changes | `pr-core`; security integration target; boundary vectors; relevant fuzz target 60-second smoke; side-effect inventory |
-| `scheduled` | Nightly | `pr-core`; all properties at extended case count; rotating fuzz targets; local licensed corpus; leak and retained-memory checks |
-| `weekly` | Weekly | `scheduled`; every fuzz target for the recorded duration; dependency graph review; selected release-profile benchmarks |
+| `security` | Parser, archive, image, URL, path, state, dependency, worker, or allocation changes | `pr-core`; security integration target; deterministic boundary, malformed-input, hostile-fixture, property, and bounded-mutation cases; side-effect inventory |
+| `scheduled` | Nightly | `pr-core`; all properties at extended case count; local licensed corpus; leak and retained-memory checks |
+| `weekly` | Optional weekly discovery | Explicitly selected fuzz targets with run-specific budgets; dependency graph review; selected release-profile benchmarks |
 | `phase-gate-N` | Completion of phase N | Frozen exact ID and environment manifest for N plus every earlier phase gate and all permanent regressions |
 | `release` | Release candidate and protected tag | Every prior gate; required `ENV-*` rows; supply chain, package, install, upgrade where applicable, notices, and checksums |
 
@@ -430,13 +437,13 @@ cross-cutting profiles when behavior crosses boundaries.
 | CLI or startup | `CLI`, `TERM`, `ERR`, `PRIV` |
 | Plain-text ingestion | `TXT`, `MODEL`, `LAY`, `SEARCH`, `SEC` |
 | Markdown ingestion | `MD`, `MODEL`, `LAY`, `LINK`, `SEC` |
-| EPUB archive or parser | `EPUB`, `SEC`, `MODEL`, `LINK`, `IMG`, fuzz targets |
+| EPUB archive or parser | `EPUB`, `SEC`, `MODEL`, `LINK`, `IMG`; optionally select linked `FUZZ` discovery |
 | Image pipeline | `IMG`, `SEC`, `CON`, `RENDER`, performance |
 | Document model | `MODEL`, every active format adapter, `LAY`, `SEARCH`, `ANN` |
 | Layout or Unicode | `LAY`, `NAV`, `SEARCH`, `RENDER`, `A11Y`, performance |
 | Navigation or reading mode | `NAV`, `LAY`, `STATE`, `STATUS`, PTY journey |
 | Search | `SEARCH`, `LAY`, `STATE`, `PRIV` |
-| Configuration or state | `CFG`, `STATE`, `RECENT`, `ANN`, `PRIV`, fuzz target |
+| Configuration or state | `CFG`, `STATE`, `RECENT`, `ANN`, `PRIV`; optionally select linked `FUZZ` discovery |
 | Recent books | `RECENT`, `STATE`, `PRIV` |
 | Bookmarks or annotations | `ANN`, `STATE`, `LAY`, `A11Y` |
 | Theme or UI | `UI`, `RENDER`, `THEME`, `STATUS`, `HELP`, `A11Y` |
@@ -592,7 +599,7 @@ keyboard protocols.
 | `SEC-007` | P0 | Apply the Boundary Method to one XHTML chapter at 32 MiB. | Final `DEC-TEST-016` policy has one exact typed result and leaves other state valid. | Integration / `security` |
 | `SEC-008` | P0 | Apply the Boundary Method to the final `DEC-TEST-003` ratio and small-file rules. | Actual per-entry and aggregate counts enforce formula, rounding, zero-byte, and exception policy without overflow. | Unit / `security` |
 | `SEC-009` | P0 | Independently vary XML depth at 256 and nodes at 1,000,000 for each control-document type. | Wide/shallow and narrow/deep over-limit input stops before semantic state; DTD/entity variants never resolve. | Integration / `security` |
-| `SEC-010` | P0 | Feed truncated headers, central directory corruption, CRC failures, and trailing data. | Typed malformed-archive errors occur without panic, hang, extraction, or partial trusted model. | Fuzz/integration / `security` |
+| `SEC-010` | P0 | Deterministically feed truncated headers, central directory corruption, CRC failures, trailing data, and a fixed mutation table. | Typed malformed-archive errors occur without panic, hang, extraction, or partial trusted model. | Integration / `security` |
 | `SEC-011` | P0 | Test drive-relative, UNC/verbatim, alternate separators, dot segments, trailing dots/spaces, ADS, reserved names, empty names, case/Unicode collisions, and file/directory collisions. | Each input has one host-independent canonical archive key or typed rejection before semantic parsing. | Unit / `security` |
 
 ## Image Cases
@@ -614,7 +621,7 @@ keyboard protocols.
 | `IMG-013` | P0 | Queue more image jobs than capacity and navigate away. | Queue remains bounded; stale generations are discarded and current work completes. | Integration / `security` |
 | `IMG-014` | P1 | Switch to Paper theme around an image. | Source pixels remain unchanged; only frame, caption, placeholder, and cell background adopt theme roles. | Render / `pr-render` |
 | `IMG-015` | P0 | Feed truncated, corrupt, concatenated, false-size, and high-ratio SVGZ streams. | Actual decompressed XML enforces 8 MiB, checksum errors are typed, and no XML/resource work begins after violation. | Integration / `security` |
-| `IMG-016` | P0 | Feed SVG depth/node extremes and pathological paths, filters, geometry, and transforms. | Parser/rasterizer respects recorded structural and work budgets, cancellation, and allocation limits. | Fuzz / `security` |
+| `IMG-016` | P0 | Deterministically feed SVG depth/node extremes and fixed pathological paths, filters, geometry, and transforms. | Parser/rasterizer respects recorded structural and work budgets, cancellation, and allocation limits. | Integration/property / `security` |
 | `IMG-017` | P1 | Feed malformed, partial, spoofed, delayed, and absent terminal capability responses. | Query times out by policy and falls back once without emitting competing graphics protocols. | Integration / `native-pty` |
 | `IMG-018` | P1 | On one finalized native terminal per claimed protocol, display, resize, scroll, replace, navigate away, fail, and exit. | Image appears correctly; framing/chunks/IDs are accepted; stale images are deleted and terminal remains clean. | Manual / `release` |
 
@@ -930,6 +937,11 @@ seed for every failure.
 
 ## Fuzz Target Catalog
 
+These IDs describe optional coverage-guided discovery targets in the `weekly`
+profile. They are not security requirements or phase-gate members. Each target
+must link through `implements` to deterministic behavioral cases that remain
+required whether or not fuzz discovery is configured or run.
+
 | ID | Target | Required assertions |
 | --- | --- | --- |
 | `FUZZ-001` | Plain-text detection and decoding | No panic, excessive allocation, or unsupported silent replacement |
@@ -945,15 +957,16 @@ seed for every failure.
 | `FUZZ-011` | URL classification, display escaping, and launcher argument construction | No process/network side effect, control injection, option injection, panic, or display/argument mismatch |
 | `FUZZ-012` | Archive-member canonicalization independent of ZIP parsing | No host-dependent escape, ambiguous collision acceptance, panic, or unchecked path output |
 
-Each fuzz target needs a maximum input size, timeout policy, seed corpus,
-dictionary where useful, and crash-artifact procedure. A crash becomes a stable
-regression case before the defect closes.
+When selected, each fuzz target needs an explicit maximum input size, timeout
+policy, seed corpus, dictionary where useful, and crash-artifact procedure. No
+duration or resource budget is inherited from the registry. A crash becomes a
+stable deterministic regression case before the defect closes.
 
 The default harness sandbox denies network, process spawning, and writes outside
-its temporary root; uses a per-input timeout and RSS ceiling recorded in the
-registry; and runs each enabled image decoder with a named corpus both
-individually and in the all-feature configuration. Larger limits require an
-explicit target reason rather than inheriting arbitrary libFuzzer defaults.
+its temporary root. A selected run records its per-input timeout, RSS ceiling,
+and named corpus, and may exercise enabled image decoders individually or in the
+all-feature configuration. Larger limits require an explicit target reason
+rather than inheriting arbitrary libFuzzer defaults.
 
 ## Phase Gates
 
@@ -961,10 +974,10 @@ explicit target reason rather than inheriting arbitrary libFuzzer defaults.
 | --- | --- |
 | 0. Rust foundation | Exact foundation-owned `QG`, `CLI`, `TERM`, `SUP`, registry/profile/harness, and base-shell cases; later feature-dependent CLI/TERM cases remain assigned forward |
 | 1. Plain-text reading loop | Active `TXT`, `MODEL`, `LAY`, `NAV`, core `KEY`, all `THEME`, `RENDER`, `STATUS`, `ERR`, responsive `UI`, and registered provisional performance cases |
-| 2. Structured books and images | `MD`, `EPUB`, `SEC`, `IMG`, relevant `CON`/`UI`, TOC/link-focus, parser/image fuzz targets, and licensed corpus journeys |
+| 2. Structured books and images | `MD`, `EPUB`, `SEC`, `IMG`, relevant `CON`/`UI`, TOC/link-focus, deterministic malformed/boundary/mutation cases, and licensed corpus journeys |
 | 3. Dependable reading | `CFG`, `STATE`, `RECENT`, `SEARCH`, `ANN`, selection/editor/history `UI`, complete `HELP`, required `KEY`/`A11Y`, and named native rows |
 | 4. Product refinement | `LINK`, relocation/return recovery, full Paper matrix, `PRIV`, usability, manual accessibility, and registered performance budgets |
-| 5. Release | All P0/P1 cases, accepted P2 scope, `SUP`, `REL`, clean install, upgrade, notices, checksums, and known limitations |
+| 5. Release | All deterministic P0/P1 behavioral cases, accepted P2 scope, `SUP`, `REL`, clean install, upgrade, notices, checksums, and known limitations; optional `FUZZ-*` discovery is not required |
 
 A phase cannot be Complete with a failing required case. A blocked P1 case needs
 an explicit scope or support decision; a blocked P0 case prevents completion.
@@ -973,8 +986,10 @@ an explicit scope or support decision; a blocked P0 case prevents completion.
 Required `ENV-*` rows. Every gate includes all earlier gate membership and
 permanent regressions. Passing evidence separately names revision, date,
 blocked cases, and CI/manual artifacts; frozen membership does not imply a gate
-passed. “Applicable,” “base,” “depth,” or “accepted scope” may not appear in a
-frozen manifest.
+passed. `FUZZ-*` IDs and default fuzz durations are prohibited from frozen gate
+manifests; the deterministic cases linked by each fuzz target remain required.
+“Applicable,” “base,” “depth,” or “accepted scope” may not appear in a frozen
+manifest.
 
 ## Defect and Regression Process
 

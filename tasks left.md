@@ -21,9 +21,9 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 
 ## Phase 2
 
-1. **Reconcile the deterministic test policy and manifests.** Update the registry generator and regenerate profile, case-registry, and phase-gate manifests so deterministic robustness cases are mandatory and `FUZZ-*` durations are optional.
-2. **Build the structured hostile fixture corpus.** Commit or deterministically generate registered TXT, Markdown, malformed EPUB, raster, SVG, and SVGZ fixtures with hashes, provenance, licenses, parameters, and served case IDs.
-3. **Harden plain-text decoding deterministically.** Add malformed encodings, exact byte limits, fixed-seed properties, hostile fixtures, and bounded mutations that always produce a valid model or typed bounded error.
+1. ~~**Reconcile the deterministic test policy and manifests.** Update the registry generator and regenerate profile, case-registry, and phase-gate manifests so deterministic robustness cases are mandatory and `FUZZ-*` durations are optional.~~
+2. ~~**Build the structured hostile fixture corpus.** Commit or deterministically generate registered TXT, Markdown, malformed EPUB, raster, SVG, and SVGZ fixtures with hashes, provenance, licenses, parameters, and served case IDs.~~
+3. ~~**Harden plain-text decoding deterministically.** Add malformed encodings, exact byte limits, fixed-seed properties, hostile fixtures, and bounded mutations that always produce a valid model or typed bounded error.~~
 4. **Harden ZIP parsing and archive names deterministically.** Test malformed headers and paths, exact count and size limits, checked arithmetic, canonicalization properties, collisions, and fixed archive mutations without extraction or escape.
 5. **Harden EPUB control parsing deterministically.** Test malformed container, OPF, NCX, and navigation documents; structural limits; fixed-seed properties; hostile fixtures; XML mutations; and denial of external resolution.
 6. **Harden XHTML conversion deterministically.** Test malformed, deep, and wide XHTML; source-range invariants; active-content rejection; and fixed tag, entity, and attribute mutations.

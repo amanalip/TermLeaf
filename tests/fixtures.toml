@@ -1,64 +1,117 @@
-schema_version = 1
+schema_version = 2
+generator_revision = "fixture-corpus-v1"
 
 [[fixture]]
 id = "FX-TXT-UTF8"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/txt/utf8.txt"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "c3adba47d5582116da50ee4e55217ab5c88440dbbeb4e3826c091296c72904cd"
+size = 87
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "UTF-8; NFC and NFD accents; CJK; emoji; intentional blank line"
+expected_properties = ["valid UTF-8 without BOM", "contains ASCII, composed and decomposed accents, CJK, emoji, and a blank line"]
+served_case_ids = ["TXT-001", "TXT-005", "TXT-006"]
 
 [[fixture]]
 id = "FX-TXT-UTF16LE"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/txt/utf16le.txt"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "0f9dc3d7c1d8b7225ba6cb1a2226c06e4f4f8ac5d255136010d0049effe4129c"
+size = 92
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "UTF-16LE with FF FE BOM"
+expected_properties = ["BOM-marked UTF-16LE", "decodes without replacement characters"]
+served_case_ids = ["TXT-003"]
 
 [[fixture]]
 id = "FX-TXT-UTF16BE"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/txt/utf16be.txt"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "45b3422249fdd080f95728249d5f64654b2d9d847d4fcf1c81d0a6a29a5262f9"
+size = 92
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "UTF-16BE with FE FF BOM"
+expected_properties = ["BOM-marked UTF-16BE", "decodes without replacement characters"]
+served_case_ids = ["TXT-003"]
 
 [[fixture]]
 id = "FX-TXT-BAD"
-status = "Planned"
-storage = "generated"
-path = ""
-source = "TermLeaf deterministic generator"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/txt/malformed.bin"
+source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = "future text fixture builder"
+sha256 = "4116274af35abb2b9d73bcaf1c0265d7326ce6e6574c4535cf3ff5daae1bb78d"
+size = 21
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "valid prefix; invalid four-byte UTF-8 sequence; truncated BOM-marked UTF-16"
+expected_properties = ["not valid UTF-8", "not valid complete UTF-16", "must produce a typed encoding error"]
+served_case_ids = ["TXT-004"]
 
 [[fixture]]
 id = "FX-MD-SEMANTIC"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/markdown/semantic.md"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "afc69a52a7c8309610d59bf6023d0da7fc7b77fbd222a960988d28128dcf6ff0"
+size = 274
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "CommonMark plus table extension semantic sample"
+expected_properties = ["heading, paragraph, emphasis, strong, link, image, quote, nested lists, table, separator, code, and raw HTML"]
+served_case_ids = ["MD-001", "MD-002", "MD-003", "MD-004", "MD-011"]
 
 [[fixture]]
 id = "FX-MD-CODE"
-status = "Planned"
+status = "Committed"
 storage = "committed"
 path = "tests/fixtures/markdown/code.md"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = ""
+sha256 = "17443b04c5216359153c83c6b6f429e8773fa964743c970a8a1cbcce504f6a7a"
+size = 293
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "inline code; Rust and console fences; tab; blank line; indented code; long line"
+expected_properties = ["code bytes and indentation are stable", "contains fenced languages and terminal transcript"]
+served_case_ids = ["MD-005", "MD-006", "MD-007"]
+
+[[fixture]]
+id = "FX-MD-HOSTILE"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/markdown/hostile.md"
+source = "TermLeaf-authored hostile synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; payload URLs are reserved non-resolving examples"
+license = "GPL-3.0-only"
+sha256 = "9d48397bb63c0651d6a1300e2f3365de3e27143cc9c6d5edb53fa7c44eb20d1e"
+size = 257
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "script, file and network resources, event handler, javascript link, malformed comment/fence/link"
+expected_properties = ["active content remains inert", "external resources are never resolved", "malformed constructs terminate deterministically"]
+served_case_ids = ["MD-008", "MD-009"]
 
 [[fixture]]
 id = "FX-EPUB2"
@@ -66,9 +119,15 @@ status = "Committed"
 storage = "committed"
 path = "tests/fixtures/epub/minimal-epub2.epub"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/make_epub_fixtures.py and reproduced by tools/fixture_corpus.py; no third-party input"
 license = "GPL-3.0-only"
 sha256 = "fa15e4b3867ff80784c214ce73ff3467077569cffc0915a078362ebdc9f5a44c"
-generator = "tools/make_epub_fixtures.py"
+size = 1910
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "EPUB 2.0; NCX; two linear chapters; ZIP timestamp 2026-08-21T12:00:00"
+expected_properties = ["valid EPUB 2", "mimetype first and stored", "NCX order is chapter one then chapter two"]
+served_case_ids = ["EPUB-001", "EPUB-011"]
 
 [[fixture]]
 id = "FX-EPUB3"
@@ -76,49 +135,335 @@ status = "Committed"
 storage = "committed"
 path = "tests/fixtures/epub/minimal-epub3.epub"
 source = "TermLeaf-authored synthetic fixture"
+authored_provenance = "Authored in tools/make_epub_fixtures.py and reproduced by tools/fixture_corpus.py; no third-party input"
 license = "GPL-3.0-only"
 sha256 = "5b0864436c894203ede28cc98246ae77ff53e6b9eab9dfa4216118afd33c7658"
-generator = "tools/make_epub_fixtures.py"
+size = 1882
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "EPUB 3.0; nav and landmarks; two linear chapters; ZIP timestamp 2026-08-21T12:00:00"
+expected_properties = ["valid EPUB 3", "mimetype first and stored", "nav order is chapter one then chapter two"]
+served_case_ids = ["EPUB-002", "EPUB-011"]
 
 [[fixture]]
 id = "FX-EPUB-MALFORMED"
-status = "Planned"
-storage = "generated"
-path = ""
-source = "TermLeaf deterministic generator"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/epub/malformed.epub"
+source = "TermLeaf-authored malformed synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = "future EPUB fixture builder"
+sha256 = "dafee1b9d76500c379780f6e92f08f529a93fa5f8151feb21f292ddc9611677c"
+size = 1698
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "valid EPUB 3 package with two malformed but text-bearing XHTML chapters"
+expected_properties = ["ZIP and package controls are valid", "chapter markup is malformed and recoverable", "readable text remains present"]
+served_case_ids = ["EPUB-005"]
 
 [[fixture]]
 id = "FX-EPUB-HOSTILE"
-status = "Planned"
-storage = "generated"
-path = ""
-source = "TermLeaf deterministic generator"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/epub/hostile.epub"
+source = "TermLeaf-authored hostile synthetic fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; payload URLs are local or reserved non-resolving examples"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = "future hostile EPUB fixture builder"
+sha256 = "99da20a9b61ee83b59247c201bb84db5896013416d8ea062830a379b130171fe"
+size = 1852
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "parent-escaping ZIP member and OPF href; DTD external entity; script; remote image"
+expected_properties = ["unsafe archive name is rejected", "external entity and remote image are never resolved", "script remains inert"]
+served_case_ids = ["EPUB-009", "SEC-001", "SEC-002"]
 
 [[fixture]]
 id = "FX-IMG-RASTER"
-status = "Planned"
+status = "Committed"
 storage = "committed"
-path = "tests/fixtures/images"
-source = "TermLeaf-authored or licensed per-format fixtures"
-license = "unreviewed"
-sha256 = ""
-generator = ""
+path = "tests/fixtures/images/minimal.png"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "c68518007784053f1522c494f418ae5672e21a57af029aa8182ecfacc620663a"
+size = 86
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "PNG; 2x2 RGBA8; color [220,40,20,255]"
+expected_properties = ["PNG decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-JPEG"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.jpg"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "91b92b46f939f9f91018a1f4d9a2c14380f3313d400d8ebfeea8da9210c2c200"
+size = 630
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "JPEG; 2x2 RGB8; color [20,180,60]"
+expected_properties = ["JPEG decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-GIF"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.gif"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "de5899acbdf01f55a8f211769f4491eb2d27bd3c886f0d60edd9bb9d9d1a400e"
+size = 49
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "GIF; 2x2 RGBA8"
+expected_properties = ["GIF decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001", "IMG-002"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-WEBP"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.webp"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "3e46ab200050d723ad56d145fb200492c901e949801e061dc42891dc98ec4d29"
+size = 158
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "WebP; 2x2 RGBA8"
+expected_properties = ["WebP decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-BMP"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.bmp"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "2336705f9779b8a28819d58b580d7d75e0f688f5144e939c0719bee292aa5f0a"
+size = 138
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "BMP; 2x2 RGBA8"
+expected_properties = ["BMP decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-ICO"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.ico"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "d1ed1686095b74e2bd7177e3c9697df159031c47a71d1b9e19332a7ae0748739"
+size = 108
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "ICO; 2x2 RGBA8"
+expected_properties = ["ICO decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-TIFF"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.tiff"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "b1adce2f1f06167cf718e629b4569fdb4edd72399bd1d63ff5738b950c22b918"
+size = 230
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "TIFF; 2x2 RGBA8"
+expected_properties = ["TIFF decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-PNM"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.ppm"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "bdee328b6278f79764711d411e65cb18b368137338b54d0d33521ec66c003a54"
+size = 71
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "PNM/PPM; 2x2 RGB8"
+expected_properties = ["PNM decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-TGA"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.tga"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "0117e1105ea5e05e711584c998cc5b10028338ed31af1c61ad887c0e190aeb11"
+size = 23
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "TGA; 2x2 RGBA8; extension declaration required"
+expected_properties = ["TGA decoder", "2x2 pixels", "has no magic signature"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-QOI"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.qoi"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "4f35a0267911c0a99fe621531487be5a50c75600e697116ebb74ec3a7a9d2141"
+size = 27
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "QOI; 2x2 RGBA8"
+expected_properties = ["QOI decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-DDS"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.dds"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Hand-authored from the DDS and BC1 container specifications in examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "fbf1ec68d207b69e8a0d565fce3e9e6181c12b521dc3c8978edc75b9e0ca4e18"
+size = 136
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "DDS DXT1/BC1; one red 4x4 texel block"
+expected_properties = ["DDS decoder", "4x4 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-HDR"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.hdr"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "9c2a466233e7ae43093428b34e7d1d16656c55363476aa7f47b9b2f277c9a3eb"
+size = 80
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "Radiance HDR; 2x2 RGB32F"
+expected_properties = ["HDR decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-EXR"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.exr"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "9f0981769137193106135cd657157309ca56aad3bf9ebd4706b32db9979b4160"
+size = 478
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "OpenEXR; 2x2 RGBA32F"
+expected_properties = ["OpenEXR decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
+
+[[fixture]]
+id = "FX-IMG-RASTER-FARBFELD"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/minimal.ff"
+source = "TermLeaf-authored synthetic raster fixture"
+authored_provenance = "Uniform pixels authored by TermLeaf and encoded by image 0.25 through examples/fixture_rasters.rs"
+license = "GPL-3.0-only"
+sha256 = "e3e7bace3e9d546daf229a1f0b67f569f7d58faba16b578c5604d2f17a744fde"
+size = 48
+generator = "examples/fixture_rasters.rs"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "Farbfeld; 2x2 RGBA16"
+expected_properties = ["Farbfeld decoder", "2x2 pixels"]
+served_case_ids = ["IMG-001"]
 
 [[fixture]]
 id = "FX-IMG-SVG"
-status = "Planned"
-storage = "generated"
-path = ""
-source = "TermLeaf deterministic generator"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/safe.svg"
+source = "TermLeaf-authored synthetic vector fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; no third-party input"
 license = "GPL-3.0-only"
-sha256 = ""
-generator = "future SVG fixture builder"
+sha256 = "881fdf018c3d31bfadf50b5f420f21d3776b09ab7b17656b9cc9f2071e7c374a"
+size = 129
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "SVG 1.1 namespace; 2x2 viewBox; one solid rectangle"
+expected_properties = ["safe static SVG", "rasterizes to 2x2", "contains no resource references"]
+served_case_ids = ["IMG-003"]
+
+[[fixture]]
+id = "FX-IMG-SVG-HOSTILE"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/hostile.svg"
+source = "TermLeaf-authored hostile synthetic vector fixture"
+authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; payload URLs are local or reserved non-resolving examples"
+license = "GPL-3.0-only"
+sha256 = "cd5b95444535313782f3f5f0e4ae19d381bd1b71d7e7afc6954b7ff2fddb02f1"
+size = 246
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "script plus file:///etc/passwd and https://example.invalid image references"
+expected_properties = ["scripts remain inert", "file and network references are denied", "no external I/O"]
+served_case_ids = ["IMG-004"]
+
+[[fixture]]
+id = "FX-IMG-SVGZ"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/safe.svgz"
+source = "TermLeaf-authored synthetic compressed vector fixture"
+authored_provenance = "The authored safe SVG compressed by Python gzip with empty filename and mtime zero"
+license = "GPL-3.0-only"
+sha256 = "96d2b8078ce980514f1230b6cfedd81d62149339d30bd201cda7390cfbfdd985"
+size = 120
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "gzip safe.svg; mtime=0; filename empty"
+expected_properties = ["valid deterministic gzip", "decompresses exactly to safe.svg", "rasterizes to 2x2"]
+served_case_ids = ["IMG-003", "IMG-005"]
+
+[[fixture]]
+id = "FX-IMG-SVGZ-MALFORMED"
+status = "Committed"
+storage = "committed"
+path = "tests/fixtures/images/malformed.svgz"
+source = "TermLeaf-authored malformed compressed vector fixture"
+authored_provenance = "The authored safe SVG compressed deterministically and truncated by five trailer bytes"
+license = "GPL-3.0-only"
+sha256 = "f835acda649024a625cf757834ec286d7fcb57c1bf4dcc0cf5f3e1cec192bae1"
+size = 115
+generator = "tools/fixture_corpus.py"
+generator_revision = "fixture-corpus-v1"
+generator_parameters = "gzip safe.svg; mtime=0; filename empty; remove final five bytes"
+expected_properties = ["truncated gzip trailer", "must produce a typed malformed SVGZ error", "must not rasterize partial XML"]
+served_case_ids = ["IMG-015"]
 
 [[fixture]]
 id = "FX-STATE"

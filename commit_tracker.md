@@ -26,6 +26,23 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Add deterministic robustness evidence
+
+**Intended subject:** `test: add deterministic robustness corpus`
+
+- Move all `FUZZ-*` IDs to optional weekly discovery and prohibit them and
+  default duration tables from required profiles and frozen phase gates.
+- Generate and validate 29 small authored fixtures, including one sample for
+  every enabled raster decoder, with hashes, provenance, SPDX licenses,
+  parameters, properties, and served case links.
+- Harden text decoding against malformed UTF-8, UTF-16, unsupported UTF-32,
+  limit overflow, false-positive unmarked UTF-16 detection, arbitrary fixed-seed
+  bytes, and bounded mutations.
+- Preserve valid UTF-8 content, including interior U+FEFF; only the one leading
+  UTF-8 BOM selected by the encoding marker is removed.
+
+Validation is recorded in `testreport.md#complete-the-first-three-phase-2-tasks`.
+
 ### Define the remaining implementation queue
 
 **Intended subject:** `docs: define the remaining implementation queue`

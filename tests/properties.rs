@@ -7,8 +7,8 @@
 //! iteration counts without changing the generators.
 
 use termleaf::app::{Action, App, StartupOptions};
-use termleaf::document::text::document_from_text;
-use termleaf::document::{BlockKind, Document, DocumentId};
+use termleaf::document::text::{document_from_text, load_text_bytes};
+use termleaf::document::{BlockKind, Document, DocumentError, DocumentId, TextLimits};
 use termleaf::layout::layout_document;
 use termleaf::reader::{self, Direction};
 use unicode_segmentation::UnicodeSegmentation;
@@ -79,6 +79,67 @@ fn generated_document(rng: &mut Rng, seed: u64) -> Document {
     }
     document_from_text(DocumentId::new(format!("prop-{seed}")), None, &source)
         .unwrap_or_else(|error| panic!("seed {seed:#x}: generated text must parse: {error}"))
+}
+
+fn assert_valid_text_result(
+    result: Result<Document, DocumentError>,
+    source_len: usize,
+    limit: u64,
+    context: &str,
+) {
+    match result {
+        Ok(document) => {
+            assert!(
+                u64::try_from(source_len).is_ok_and(|len| len <= limit),
+                "{context}: an over-limit source succeeded"
+            );
+            assert_eq!(document.sections().len(), 1, "{context}");
+            let mut covered = 0usize;
+            for block in document.sections()[0].blocks() {
+                assert_eq!(block.range().start, covered, "{context}");
+                assert!(block.range().end <= document.len(), "{context}");
+                assert!(
+                    document.canonical().is_char_boundary(block.range().start)
+                        && document.canonical().is_char_boundary(block.range().end),
+                    "{context}"
+                );
+                covered = block.range().end;
+            }
+            assert_eq!(covered, document.len(), "{context}");
+            assert!(
+                document.len() <= source_len.saturating_mul(3),
+                "{context}: decoded model escaped its source-derived bound"
+            );
+        }
+        Err(DocumentError::TooLarge {
+            size,
+            limit: actual,
+            ..
+        }) => {
+            assert_eq!(actual, limit, "{context}");
+            assert_eq!(
+                size,
+                u64::try_from(source_len).unwrap_or(u64::MAX),
+                "{context}"
+            );
+            assert!(size > limit, "{context}");
+        }
+        Err(DocumentError::InvalidEncoding { offset, .. }) => {
+            assert!(
+                u64::try_from(source_len).is_ok_and(|len| len <= limit),
+                "{context}: encoding validation preceded the size bound"
+            );
+            assert!(offset <= source_len, "{context}: invalid offset {offset}");
+        }
+        Err(DocumentError::InvalidUtf16 { detail, .. }) => {
+            assert!(
+                u64::try_from(source_len).is_ok_and(|len| len <= limit),
+                "{context}: UTF-16 validation preceded the size bound"
+            );
+            assert!(detail.contains("byte offset"), "{context}: {detail}");
+        }
+        Err(other) => panic!("{context}: unexpected text source error: {other:?}"),
+    }
 }
 
 fn sample_widths(rng: &mut Rng) -> Vec<u16> {
@@ -424,5 +485,96 @@ fn prop_010_action_sequences_keep_state_valid_or_typed() {
 
         app.update(Action::Quit);
         assert!(!app.is_running());
+    }
+}
+
+#[test]
+fn prop_011_fixed_seed_raw_bytes_are_bounded_models_or_typed_source_errors() {
+    let mut rng = Rng::new(0x5EED_0011);
+    for case in 0..1_000 {
+        let source_len = rng.below(129);
+        let mut bytes = Vec::with_capacity(source_len);
+        bytes.extend((0..source_len).map(|_| rng.next().to_le_bytes()[0]));
+        let limit = u64::try_from(rng.below(129)).unwrap_or(0);
+        let context = format!("raw-byte case {case}, length {source_len}, limit {limit}");
+        assert_valid_text_result(
+            load_text_bytes("raw-property.txt", &bytes, &TextLimits { max_bytes: limit }),
+            source_len,
+            limit,
+            &context,
+        );
+    }
+}
+
+#[test]
+fn prop_012_fixed_text_mutations_are_bounded_models_or_typed_source_errors() {
+    let sources = [
+        b"plain UTF-8\nsecond line\n".to_vec(),
+        [0xEF, 0xBB, 0xBF]
+            .into_iter()
+            .chain(*b"marked UTF-8\n")
+            .collect(),
+        "UTF-16 LE \u{1F642}\n"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>(),
+        "UTF-16 BE \u{1F642}\n"
+            .encode_utf16()
+            .flat_map(u16::to_be_bytes)
+            .collect::<Vec<_>>(),
+    ];
+    let mut sources = sources.to_vec();
+    sources[2].splice(0..0, [0xFF, 0xFE]);
+    sources[3].splice(0..0, [0xFE, 0xFF]);
+
+    let masks = [0x01, 0x80, 0xFF];
+    for (source_index, source) in sources.iter().enumerate() {
+        let positions = source.len().min(32);
+        for position in 0..positions {
+            for mask in masks {
+                let mut mutated = source.clone();
+                mutated[position] ^= mask;
+                let context = format!("source {source_index}, xor {mask:#04x} at {position}");
+                let limit = u64::try_from(mutated.len()).unwrap_or(u64::MAX);
+                assert_valid_text_result(
+                    load_text_bytes(
+                        "mutation-property.txt",
+                        &mutated,
+                        &TextLimits { max_bytes: limit },
+                    ),
+                    mutated.len(),
+                    limit,
+                    &context,
+                );
+            }
+        }
+
+        for end in 0..=source.len().min(32) {
+            let mutated = &source[..end];
+            let context = format!("source {source_index}, truncated at {end}");
+            let limit = u64::try_from(mutated.len()).unwrap_or(u64::MAX);
+            assert_valid_text_result(
+                load_text_bytes(
+                    "mutation-property.txt",
+                    mutated,
+                    &TextLimits { max_bytes: limit },
+                ),
+                mutated.len(),
+                limit,
+                &context,
+            );
+        }
+
+        let above = u64::try_from(source.len().saturating_sub(1)).unwrap_or(u64::MAX);
+        assert_valid_text_result(
+            load_text_bytes(
+                "mutation-property.txt",
+                source,
+                &TextLimits { max_bytes: above },
+            ),
+            source.len(),
+            above,
+            &format!("source {source_index}, exact limit plus one"),
+        );
     }
 }

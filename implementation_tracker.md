@@ -110,7 +110,7 @@ already inside the six phases; it does not add another phase.
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; the TOC overlay jumps sections on Enter with exact return stacking; search-result jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
-| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; deterministic malformed, boundary, property, corpus, and mutation coverage arrives with the security profile. |
+| Plain-text format | Complete | BOM detection, strict UTF-8, marked UTF-16, UTF-32 rejection, newline normalization, paragraph preservation, exact byte limits, hostile fixtures, fixed-seed raw-byte properties, and bounded mutations produce a valid model or typed bounded error. |
 | EPUB format | Complete | Bounded archive and control-document gates, package/spine/metadata semantics, canonical reading order, tolerant semantic XHTML, exact internal links/TOC positions, encryption/fixed-layout errors, lazy resources, no-extraction evidence, and immutable inspected bytes pass locally. |
 | Markdown format | Complete | Source-aware parsing maps full block/inline semantics, code languages and copy ranges, inert link targets, original source ranges, and images into the shared bounded model. |
 | Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, positive-evidence backend selection, half-block cells, Paper-safe pixels, and caption errors pass locally. Native protocol procedure and deterministic robustness evidence remain. |
@@ -146,11 +146,12 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 149 library, 9 CLI, 15 document-I/O, 14 render, 6 property, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 199 library, 9 CLI, 17 document-I/O, 16 render, 8 property, 9 security, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
-| Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; later targets activate with their phases. |
-| Frozen cumulative phase gates | Complete | Phase 0 through Phase 5 membership is frozen as exact cumulative IDs and required native environment rows. |
+| Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; `FUZZ-*` targets are optional weekly discovery metadata rather than required security work. |
+| Frozen cumulative phase gates | Complete | Phase 0 through Phase 5 membership is frozen as exact cumulative deterministic IDs and required native environment rows; fuzz IDs and default durations are prohibited. |
+| Structured fixture corpus | Complete | Twenty-nine authored TXT, Markdown, EPUB, per-decoder raster, SVG, and SVGZ files reproduce byte-for-byte and carry hashes, sizes, provenance, SPDX licenses, generator parameters, expected properties, and served case IDs. |
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
 | Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |

@@ -1,0 +1,1 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2" height="2"><script>alert(1)</script><image width="2" height="2" xlink:href="file:///etc/passwd"/><image href="https://example.invalid/pixel.png"/></svg>
