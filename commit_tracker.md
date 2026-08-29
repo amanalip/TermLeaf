@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 23, 2026
+**Last updated:** August 29, 2026
 
 ## Table of Contents
 
@@ -25,6 +25,34 @@ otherwise have to reconstruct.
    then check both against Git history after the commit lands.
 
 ## Pending Commit
+
+### Define the remaining implementation queue
+
+**Intended subject:** `docs: define the remaining implementation queue`
+
+- Add `tasks left.md` with 60 stable, dependency-ordered tasks grouped under
+  Phases 0 through 5; completed numbers stay visible so requests such as
+  “implement the next 10” remain unambiguous.
+- Replace mandatory duration-based fuzzing in the human plan and quality policy
+  with deterministic malformed-input, exact-boundary, fixed-seed property,
+  hostile-corpus, and fixed-mutation evidence.
+- Retain coverage-guided fuzzing as optional scheduled or pre-release discovery
+  and require every discovered defect to become a deterministic regression.
+- Leave the executable test catalog and generated manifests unchanged in this
+  documentation batch. Queue their coordinated migration first so registry
+  validation never accepts a stale or hand-edited manifest.
+- Correct Phase 2 status: structured ingestion, bounded image decoding, workers,
+  fallback rendering, and TOC behavior exist, while native graphics emission,
+  active capability probing, deterministic robustness evidence, and external
+  gate evidence remain.
+
+Validation:
+
+- `git diff --check` passes.
+- `python3 tools/case_registry.py check` passes.
+- The new queue contains exactly 60 continuously numbered tasks.
+- Cargo and native checks are not applicable because no source, executable test,
+  dependency, fixture, or generated manifest changes.
 
 ### Harden loose image resource access
 

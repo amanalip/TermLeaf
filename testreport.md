@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 23, 2026
+**Last updated:** August 29, 2026
 
 ## Table of Contents
 
@@ -76,6 +76,35 @@ still cover malformed archives, path traversal, compression bombs, excessive
 resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
+
+### Replace duration-based fuzz gates in the plan
+
+**Commit subject:** `docs: define the remaining implementation queue`
+
+**Revision:** This commit
+
+**Recorded:** August 29, 2026
+
+**Behavior and risks.** This documentation-only change makes deterministic
+malformed-input tables, exact boundary cases, fixed-seed properties, curated
+hostile fixtures, and small fixed mutation suites the planned required
+robustness evidence. Coverage-guided fuzzing becomes optional scheduled or
+pre-release discovery. It adds one dependency-ordered, continuously numbered
+queue of 60 remaining tasks across Phases 2 through 5 and corrects the Phase 2
+status so native graphics emission and active probing are not claimed complete.
+
+**Checks.** `git diff --check` passed. `python3 tools/case_registry.py check`
+passed because this change deliberately leaves `testcases.md`, the registry
+generator, and generated manifests unchanged; their policy migration is backlog
+task 1. The backlog contains exactly 60 numbered tasks. No Rust source, tests,
+fixtures, dependencies, or executable manifests changed, so Cargo validation,
+native procedures, hosted jobs, and `cargo clean` were not applicable.
+
+**Changed paths and selection.** Documentation and quality-policy paths:
+`README.md`, `code_quality.md`, `implementation_tracker.md`, `project_plan.md`,
+`tasks left.md`, `testreport.md`, and `commit_tracker.md`. No behavioral case ID
+or executable profile was selected because this commit only changes future work
+policy and tracking.
 
 ### Harden loose image resource access
 

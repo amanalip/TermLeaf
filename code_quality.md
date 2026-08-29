@@ -143,8 +143,9 @@ terminal cleanup, or undocumented unsafe code.
   exhaust memory, or leave partially trusted state behind.
 - Security-sensitive checks should live at TermLeaf's boundary even when a
   dependency performs similar validation.
-- Every new parser or decoder boundary must include adversarial unit tests and a
-  fuzzing decision before it is considered complete.
+- Every new parser or decoder boundary must include deterministic adversarial,
+  exact-boundary, seeded-property, hostile-corpus, and fixed-mutation coverage
+  appropriate to its risk. Record whether optional fuzz discovery is warranted.
 
 ## Terminal Safety
 
@@ -253,8 +254,10 @@ terminal cleanup, or undocumented unsafe code.
   names alone.
 - Unit tests cover invariants and edge cases. Integration tests cover module,
   filesystem, process, and terminal boundaries.
-- Property tests cover layout, navigation, offsets, serialization, and progress
-  invariants. Fuzz targets cover untrusted parsing and state loading.
+- Property tests cover layout, navigation, offsets, serialization, progress,
+  and untrusted-boundary invariants. Deterministic malformed-input, hostile
+  corpus, and fixed-mutation suites cover parsing and state loading; optional
+  fuzz targets provide additional discovery rather than required gate evidence.
 - Regression tests must fail before the fix and explain the original failure in
   their name or a short comment.
 - Tests must be deterministic, isolated from user state and the network, and
@@ -286,8 +289,9 @@ cargo deny check
 ```
 
 Run narrower tests while developing, then run the complete applicable cycle
-before considering the change finished. Platform, PTY, fuzz, benchmark, and
-release checks run when the affected risk or delivery gate requires them.
+before considering the change finished. Platform, PTY, benchmark, and release
+checks run when the affected risk or delivery gate requires them. Optional fuzz
+runs execute only when explicitly selected for scheduled or pre-release work.
 
 Record exact commands, outcomes, skipped checks, environment, and fixtures in
 `testreport.md` for every commit. After the complete local Rust validation cycle,

@@ -998,11 +998,22 @@ PTY tests need strict timeouts, deterministic locale and `TERM`, child cleanup,
 and low parallelism. Native jobs must run them because emulation cannot certify
 platform terminal behavior.
 
-### Fuzzing and Performance
+### Deterministic Robustness, Optional Fuzzing, and Performance
 
-Add `cargo-fuzz` with the first untrusted parsers. Targets should cover ZIP
-preflight, EPUB control files, XHTML conversion, text decoding, and state-file
-loading.
+Untrusted boundaries require deterministic malformed-input tables, exact limit
+tests, reproducibly seeded property tests, a curated hostile corpus, and small
+fixed mutation suites. Every failure found by any exploratory tool becomes a
+focused deterministic regression before the defect closes.
+
+Coverage-guided fuzzing with `cargo-fuzz` is optional scheduled or pre-release
+discovery work. When selected, targets should cover ZIP preflight, EPUB control
+files, XHTML conversion, text decoding, and state-file loading. Missing fuzz
+duration alone does not block a phase gate; the deterministic robustness suites
+remain mandatory.
+
+The existing executable profile and gate manifests still encode the earlier
+duration requirement. Backlog task 1 migrates the registry generator and its
+generated manifests before this policy can be used as formal gate evidence.
 
 Use Criterion after representative fixtures exist. Benchmarks should cover
 launch, opening, first layout, resize, page navigation, literal search, and
@@ -1026,9 +1037,11 @@ platform TermLeaf intends to support. `cargo-nextest` can be added when suite
 runtime, process isolation, or CI reporting makes it worthwhile. Standard
 doctests remain necessary because Nextest does not run them.
 
-Scheduled work should include advisory refreshes, longer fuzz runs, dependency
-updates, and selected performance checks. Wall-clock benchmarks from shared CI
-runners should inform investigation rather than act as hard gates.
+Scheduled work should include advisory refreshes, extended seeded property runs,
+dependency updates, retained-memory checks, and selected performance checks.
+Optional rotating fuzz runs may be added when time and compute budgets permit.
+Wall-clock benchmarks from shared CI runners should inform investigation rather
+than act as hard gates.
 
 ## Release and Supply Chain
 
@@ -1066,8 +1079,10 @@ polish phase.
 
 Every stage exit requires its frozen `phase-gate-N` manifest, every earlier
 phase-gate manifest, and all permanent regressions to pass. The manifest names
-exact case IDs, profiles, fixtures, environments, fuzz durations, benchmarks,
-and manual procedures rather than broad families. No failing required case or
+exact case IDs, profiles, fixtures, environments, deterministic robustness
+suites, benchmarks, and manual procedures rather than broad families. Optional
+fuzz configuration is recorded when a run is selected, but is not required gate
+membership. No failing required case or
 Blocked P0 case may pass a gate; a Blocked P1 case needs an explicit scope or
 support decision. Applicable `code_quality.md` review items, exceptions,
 commands, results, skips, and external evidence belong in `testreport.md`.
@@ -1149,7 +1164,9 @@ Work:
   logical anchor when an image placeholder resolves.
 - Build a licensed corpus of EPUB 2, EPUB 3, malformed, large, and hostile
   fixtures.
-- Fuzz archive, XML, XHTML, and conversion boundaries.
+- Add deterministic malformed-input, boundary, seeded-property, hostile-corpus,
+  and fixed-mutation coverage for archive, XML, XHTML, text, image, and
+  conversion boundaries.
 
 Exit gate:
 
@@ -1160,8 +1177,9 @@ Exit gate:
 - Image failures never block surrounding text or damage terminal output.
 - Markdown semantics/source offsets, TOC/internal links, code, and table layouts
   pass their exact wide/narrow cases.
-- Required archive, XML/XHTML, SVGZ, decoder, worker, cancellation, and image
-  protocol cases and fuzz targets pass with licensed fixture provenance.
+- Required archive, XML/XHTML, SVGZ, decoder, worker, cancellation, image
+  protocol, and deterministic robustness cases pass with licensed fixture
+  provenance.
 
 ### Stage 3: Make Reading Dependable
 
@@ -1248,7 +1266,9 @@ A feature earns **Complete** in the tracker when:
 - The implementation respects module and dependency boundaries.
 - Unit or model tests cover its logic.
 - Integration tests cover the boundary it crosses.
-- Untrusted-input code has limits and fuzz coverage appropriate to its risk.
+- Untrusted-input code has limits and deterministic malformed, boundary,
+  property, hostile-corpus, and mutation coverage appropriate to its risk;
+  optional fuzzing decisions are recorded.
 - Formatting, Clippy, tests, dependency policy, and builds pass.
 - Performance remains inside an agreed budget or the exception is documented.
 - Reader-facing documentation and trackers match the delivered behavior.
@@ -1277,7 +1297,7 @@ A feature earns **Complete** in the tracker when:
 | Incomplete bidi behavior | Right-to-left text displays or highlights incorrectly. | Defer support claims until the full logical-to-visual pipeline is tested. |
 | Terminal input ambiguity | AltGr, non-Latin layouts, or modifier combinations fail. | Keep essential bindings simple and test native keyboard paths. |
 | Broken terminal restoration | The shell remains in raw mode or hides the cursor. | Centralize lifecycle cleanup and cover normal, error, signal, and panic paths. |
-| Parser dependency defects | A trusted crate accepts unsafe or malformed input badly. | Keep limits at TermLeaf's boundary, run `cargo-deny`, fuzz inputs, and update deliberately. |
+| Parser dependency defects | A trusted crate accepts unsafe or malformed input badly. | Keep limits at TermLeaf's boundary, run `cargo-deny`, use deterministic hostile and mutation suites, optionally fuzz for discovery, and update deliberately. |
 | Snapshot complacency | Updated snapshots approve a behavioral regression. | Pair snapshots with invariants and require focused review. |
 | Platform claims outrun testing | A binary builds but behaves poorly in a real terminal. | Require native interaction and installation tests before support claims. |
 | Dependency growth | Convenience crates slow builds and widen the audit surface. | Add a crate only for a measured need and review features with `cargo tree`. |

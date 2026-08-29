@@ -27,7 +27,7 @@
 
 ## Right Now
 
-Phase 2 development is complete locally. Structured ingestion now covers
+Most Phase 2 development is complete locally. Structured ingestion now covers
 bounded ZIP/rbook EPUB semantics, semantic XHTML and Markdown, source-aware
 links, exact internal chapter/fragment/TOC navigation, code/tables, immutable
 archive reads, and structural gates for chapters plus every control-document
@@ -38,15 +38,18 @@ true-color/256-color half-block frames, and informative caption fallbacks.
 Two generation-aware workers enforce fixed queue and in-flight-byte budgets,
 cancel stale work, contain failures, and shut down without blocking terminal
 restoration. Wide TOC navigation preserves passage context in a side panel.
-The local implementation suite and security target pass; the Phase 2 gate
-remains evidence-in-progress until the pushed revision supplies required hosted
-rows, fuzz-duration artifacts, and native `IMG-018` procedure results. DD-026
+Native graphics transport emission and active capability probing still need to
+replace selection-only caption behavior. The local implementation suite and
+security target pass; the Phase 2 gate remains evidence-in-progress until the
+deterministic policy and manifests are reconciled, the remaining robustness and
+hosted evidence passes, and native `IMG-018` results are recorded. DD-026
 continues to own frozen members whose actual features land in later phases.
 
 ## Delivery Phases
 
-**Implementation progress:** 2 of 6 phase gates complete. Phase 2 development
-is complete; external and duration-based gate evidence is in progress.
+**Implementation progress:** 2 of 6 phase gates complete. Phase 2 native
+graphics transport, probing, deterministic robustness, and external gate
+evidence are in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -61,7 +64,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Local development is complete: structured semantics/navigation, archive/control-document security, raster/SVG decoding, bounded worker coordination, backend selection, cell/caption presentation, and responsive TOC pass. Hosted rows, fuzz-duration artifacts, and native protocol procedure evidence remain before the frozen gate is Complete. |
+| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, raster/SVG decoding, bounded worker coordination, backend selection, cell/caption presentation, and responsive TOC pass. Native transport/probing, deterministic policy and robustness suites, hosted rows, and native protocol procedure evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -107,10 +110,10 @@ already inside the six phases; it does not add another phase.
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; the TOC overlay jumps sections on Enter with exact return stacking; search-result jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
-| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; fuzz coverage arrives with the security profile. |
+| Plain-text format | In progress | BOM detection, strict UTF-8, marked UTF-16, newline normalization, paragraph preservation, and file-level size-limit integration evidence are done; deterministic malformed, boundary, property, corpus, and mutation coverage arrives with the security profile. |
 | EPUB format | Complete | Bounded archive and control-document gates, package/spine/metadata semantics, canonical reading order, tolerant semantic XHTML, exact internal links/TOC positions, encryption/fixed-layout errors, lazy resources, no-extraction evidence, and immutable inspected bytes pass locally. |
 | Markdown format | Complete | Source-aware parsing maps full block/inline semantics, code languages and copy ranges, inert link targets, original source ranges, and images into the shared bounded model. |
-| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, positive-evidence backend selection, half-block cells, Paper-safe pixels, and caption errors pass locally. Native protocol procedure and fuzz-duration evidence remain. |
+| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, positive-evidence backend selection, half-block cells, Paper-safe pixels, and caption errors pass locally. Native protocol procedure and deterministic robustness evidence remain. |
 
 ## The Bookshelf
 
