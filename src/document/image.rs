@@ -263,7 +263,7 @@ pub fn decode_bounded_with_limits(
         });
     }
 
-    let pixels = u64::from(width).saturating_mul(u64::from(height));
+    let pixels = u64::from(width) * u64::from(height);
     if pixels > limits.max_pixels {
         return Err(ImageResourceError::TooManyPixels {
             pixels,
@@ -271,7 +271,7 @@ pub fn decode_bounded_with_limits(
         });
     }
 
-    let estimated = pixels.saturating_mul(allocation_bytes_per_pixel(format));
+    let estimated = estimated_allocation(pixels, format).unwrap_or(u64::MAX);
     if estimated > limits.max_allocation_bytes {
         return Err(ImageResourceError::AllocationTooLarge {
             bytes: estimated,
@@ -279,30 +279,52 @@ pub fn decode_bounded_with_limits(
         });
     }
 
-    let decoded = ImageReader::with_format(Cursor::new(bytes), format)
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    let mut decoder_limits = image::Limits::default();
+    decoder_limits.max_image_width = Some(limits.max_dimension);
+    decoder_limits.max_image_height = Some(limits.max_dimension);
+    decoder_limits.max_alloc = Some(limits.max_allocation_bytes);
+    reader.limits(decoder_limits);
+    let decoded = reader
         .decode()
         .map_err(|error| ImageResourceError::DecodeFailed {
             detail: error.to_string(),
         })?;
     let rgba = decoded.to_rgba8().into_raw();
+    let expected = pixels
+        .checked_mul(4)
+        .and_then(|bytes| usize::try_from(bytes).ok())
+        .ok_or(ImageResourceError::AllocationTooLarge {
+            bytes: u64::MAX,
+            limit: limits.max_allocation_bytes,
+        })?;
+    if rgba.len() != expected {
+        return Err(ImageResourceError::DecodeFailed {
+            detail: "decoder returned an incomplete normalized pixel buffer".to_owned(),
+        });
+    }
 
     Ok(DecodedImage::new(width, height, rgba))
 }
 
-/// Conservative ceiling on transient per-pixel bytes per decoder family.
+/// Conservative ceiling on simultaneous decoder storage plus RGBA8 output.
 ///
 /// The values bound the widest intermediate representation each family can
-/// hold while decoding, before the normalized RGBA8 output exists: `OpenEXR`
-/// decodes to RGBA32F, Radiance HDR to RGB32F, and the PNG/TIFF families may
-/// carry 16-bit samples. Every other enabled decoder normalizes from at most
-/// 8-bit samples.
+/// hold while decoding, plus four bytes for the normalized output: `OpenEXR`
+/// decodes to RGBA32F, Radiance HDR to RGB32F, and PNG/TIFF may carry 16-bit
+/// samples. The dependency allocation limit is also lowered to the project
+/// budget, but remains best-effort for decoders that do not support it.
 fn allocation_bytes_per_pixel(format: ImageFormat) -> u64 {
     match format {
-        ImageFormat::OpenExr => 16,
-        ImageFormat::Hdr => 12,
-        ImageFormat::Png | ImageFormat::Tiff => 8,
-        _ => 4,
+        ImageFormat::OpenExr => 20,
+        ImageFormat::Hdr => 16,
+        ImageFormat::Png | ImageFormat::Tiff => 12,
+        _ => 8,
     }
+}
+
+fn estimated_allocation(pixels: u64, format: ImageFormat) -> Option<u64> {
+    pixels.checked_mul(allocation_bytes_per_pixel(format))
 }
 
 #[cfg(test)]
@@ -310,7 +332,7 @@ mod tests {
     use std::io::Cursor;
 
     use image::codecs::gif::GifEncoder;
-    use image::{DynamicImage, Frame, ImageBuffer, Rgba, RgbaImage};
+    use image::{DynamicImage, Frame, Rgba, RgbaImage};
 
     use super::*;
 
@@ -332,33 +354,6 @@ mod tests {
 
     fn red_png() -> Vec<u8> {
         encode_rgba(ImageFormat::Png, [255, 0, 0, 255])
-    }
-
-    /// Hand-crafts one minimal DXT1-compressed DDS holding a single red 4x4
-    /// block; the `image` crate has no DDS encoder, so the fixture is built
-    /// from the container specification directly.
-    fn dxt1_red_dds() -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(128 + 8);
-        bytes.extend_from_slice(b"DDS ");
-        bytes.extend_from_slice(&124u32.to_le_bytes()); // header size
-        bytes.extend_from_slice(&0x0008_1007u32.to_le_bytes()); // CAPS|HEIGHT|WIDTH|PIXELFORMAT|LINEARSIZE
-        bytes.extend_from_slice(&4u32.to_le_bytes()); // height
-        bytes.extend_from_slice(&4u32.to_le_bytes()); // width
-        bytes.extend_from_slice(&8u32.to_le_bytes()); // linear size: one block
-        bytes.extend_from_slice(&[0u8; 8]); // depth, mip count
-        bytes.extend_from_slice(&[0u8; 44]); // reserved
-        bytes.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
-        bytes.extend_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
-        bytes.extend_from_slice(b"DXT1");
-        bytes.extend_from_slice(&[0u8; 16]); // bit count and masks
-        bytes.extend_from_slice(&0x1000u32.to_le_bytes()); // DDSCAPS_TEXTURE
-        bytes.extend_from_slice(&[0u8; 20]); // caps 2-4, reserved2
-        debug_assert_eq!(bytes.len(), 128);
-        // One BC1 block: red endpoint, black endpoint, all texels index 0.
-        bytes.extend_from_slice(&0xF800u16.to_le_bytes());
-        bytes.extend_from_slice(&0x0000u16.to_le_bytes());
-        bytes.extend_from_slice(&0u32.to_le_bytes());
-        bytes
     }
 
     #[test]
@@ -488,120 +483,122 @@ mod tests {
         );
 
         let at_allocation = ImageLimits {
-            // The PNG family reserves up to 8 bytes per pixel for 16-bit
-            // samples, so a 2x2 image estimates exactly 32.
-            max_allocation_bytes: 32,
+            // The PNG family reserves 8 native bytes plus 4 RGBA output
+            // bytes per pixel, so a 2x2 image estimates exactly 48.
+            max_allocation_bytes: 48,
             ..ImageLimits::default()
         };
         decode_bounded_with_limits(&fixture, &at_allocation, None)
             .expect("allocation estimate exactly at the budget decodes");
 
         let over_allocation = ImageLimits {
-            max_allocation_bytes: 31,
+            max_allocation_bytes: 47,
             ..ImageLimits::default()
         };
         assert_eq!(
             decode_bounded_with_limits(&fixture, &over_allocation, None),
             Err(ImageResourceError::AllocationTooLarge {
-                bytes: 32,
-                limit: 31
+                bytes: 48,
+                limit: 47
             })
         );
 
         // Wide intermediate representations reserve extra headroom so float
         // and 16-bit families stay inside the same envelope.
-        assert_eq!(allocation_bytes_per_pixel(ImageFormat::OpenExr), 16);
-        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Hdr), 12);
-        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Png), 8);
-        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Tiff), 8);
-        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Jpeg), 4);
+        assert_eq!(allocation_bytes_per_pixel(ImageFormat::OpenExr), 20);
+        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Hdr), 16);
+        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Png), 12);
+        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Tiff), 12);
+        assert_eq!(allocation_bytes_per_pixel(ImageFormat::Jpeg), 8);
     }
 
-    type Fixture = (ImageFormat, Vec<u8>, (u32, u32));
+    type Fixture = (ImageFormat, &'static [u8], Option<ImageFormat>, (u32, u32));
 
-    /// Builds one bounded fixture per enabled decoder with its expected
-    /// geometry; formats without an encoder in the `image` crate are
-    /// hand-crafted from their container specifications.
+    /// Returns the committed, licensed fixture for every enabled decoder.
     fn all_format_fixtures() -> Vec<Fixture> {
-        let jpeg_source =
-            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(2, 2, image::Rgb([10, 200, 30])));
-        let hdr_source = DynamicImage::ImageRgb32F(image::Rgb32FImage::from_pixel(
-            2,
-            2,
-            image::Rgb([0.25, 0.5, 1.0]),
-        ));
-        let exr_source = DynamicImage::ImageRgba32F(image::Rgba32FImage::from_pixel(
-            2,
-            2,
-            image::Rgba([0.25, 0.5, 1.0, 1.0]),
-        ));
-        let farbfeld_source =
-            DynamicImage::ImageRgba16(ImageBuffer::from_pixel(2, 2, Rgba([65535u16, 0, 0, 65535])));
-        let pnm_source =
-            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(2, 2, image::Rgb([10, 200, 30])));
-
         vec![
-            (ImageFormat::Png, red_png(), (2, 2)),
+            (
+                ImageFormat::Png,
+                include_bytes!("../../tests/fixtures/images/minimal.png"),
+                None,
+                (2, 2),
+            ),
             (
                 ImageFormat::Jpeg,
-                encode_image(ImageFormat::Jpeg, &jpeg_source),
+                include_bytes!("../../tests/fixtures/images/minimal.jpg"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Gif,
-                encode_rgba(ImageFormat::Gif, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.gif"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::WebP,
-                encode_rgba(ImageFormat::WebP, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.webp"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Bmp,
-                encode_rgba(ImageFormat::Bmp, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.bmp"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Ico,
-                encode_rgba(ImageFormat::Ico, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.ico"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Tiff,
-                encode_rgba(ImageFormat::Tiff, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.tiff"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Pnm,
-                encode_image(ImageFormat::Pnm, &pnm_source),
+                include_bytes!("../../tests/fixtures/images/minimal.ppm"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Tga,
-                encode_rgba(ImageFormat::Tga, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.tga"),
+                Some(ImageFormat::Tga),
                 (2, 2),
             ),
             (
                 ImageFormat::Qoi,
-                encode_rgba(ImageFormat::Qoi, [255, 0, 0, 255]),
+                include_bytes!("../../tests/fixtures/images/minimal.qoi"),
+                None,
                 (2, 2),
             ),
-            // One hand-crafted BC1 block covers exactly one 4x4 texel tile.
-            (ImageFormat::Dds, dxt1_red_dds(), (4, 4)),
+            (
+                ImageFormat::Dds,
+                include_bytes!("../../tests/fixtures/images/minimal.dds"),
+                None,
+                (4, 4),
+            ),
             (
                 ImageFormat::Hdr,
-                encode_image(ImageFormat::Hdr, &hdr_source),
+                include_bytes!("../../tests/fixtures/images/minimal.hdr"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::OpenExr,
-                encode_image(ImageFormat::OpenExr, &exr_source),
+                include_bytes!("../../tests/fixtures/images/minimal.exr"),
+                None,
                 (2, 2),
             ),
             (
                 ImageFormat::Farbfeld,
-                encode_image(ImageFormat::Farbfeld, &farbfeld_source),
+                include_bytes!("../../tests/fixtures/images/minimal.ff"),
+                None,
                 (2, 2),
             ),
         ]
@@ -609,16 +606,16 @@ mod tests {
 
     #[test]
     fn img_001_every_enabled_decoder_decodes_a_bounded_fixture() {
-        for (format, bytes, expected) in all_format_fixtures() {
+        for (format, bytes, declared, expected) in all_format_fixtures() {
             if format == ImageFormat::Tga {
                 // TGA carries no magic signature by design; only its
                 // declared extension resolves it.
                 assert_eq!(
-                    sniff_format(&bytes),
+                    sniff_format(bytes),
                     Err(ImageResourceError::UnsupportedFormat)
                 );
                 let declared = decode_bounded_with_limits(
-                    &bytes,
+                    bytes,
                     &ImageLimits::default(),
                     Some(ImageFormat::Tga),
                 )
@@ -627,12 +624,12 @@ mod tests {
                 continue;
             }
             assert_eq!(
-                sniff_format(&bytes),
+                sniff_format(bytes),
                 Ok(format),
                 "{format:?} magic must identify itself"
             );
-            let decoded =
-                decode_bounded(&bytes).unwrap_or_else(|error| panic!("{format:?}: {error}"));
+            let decoded = decode_bounded_with_limits(bytes, &ImageLimits::default(), declared)
+                .unwrap_or_else(|error| panic!("{format:?}: {error}"));
             assert_eq!(
                 (decoded.width(), decoded.height()),
                 expected,
@@ -643,6 +640,77 @@ mod tests {
                 expected.0 as usize * expected.1 as usize * 4,
                 "{format:?} normalizes to RGBA8"
             );
+            assert_eq!(decoded.rgba()[3], 255, "{format:?} keeps opaque alpha");
+            assert!(
+                decoded.rgba()[..3].iter().any(|channel| *channel != 0),
+                "{format:?} preserves a representative non-black pixel"
+            );
+        }
+    }
+
+    fn assert_complete_or_typed(bytes: &[u8], declared: Option<ImageFormat>, context: &str) {
+        if let Ok(decoded) = decode_bounded_with_limits(bytes, &ImageLimits::default(), declared) {
+            let expected = usize::try_from(decoded.width())
+                .ok()
+                .and_then(|width| {
+                    usize::try_from(decoded.height())
+                        .ok()
+                        .and_then(|height| width.checked_mul(height))
+                })
+                .and_then(|pixels| pixels.checked_mul(4))
+                .expect("bounded geometry fits usize");
+            assert_eq!(decoded.rgba().len(), expected, "{context}");
+        }
+    }
+
+    #[test]
+    fn img_012_every_enabled_decoder_handles_fixed_header_and_body_mutations() {
+        for (format, fixture, declared, _) in all_format_fixtures() {
+            let points = [
+                0,
+                1.min(fixture.len()),
+                (fixture.len() / 4).max(1),
+                fixture.len() / 2,
+                fixture.len().saturating_sub(1),
+            ];
+            for end in points {
+                assert_complete_or_typed(
+                    &fixture[..end],
+                    declared.or(Some(format)),
+                    &format!("{format:?} truncated at {end}"),
+                );
+            }
+
+            for (offset, mask) in [
+                (0, 0x01),
+                (fixture.len().min(8).saturating_sub(1), 0x80),
+                (fixture.len() / 2, 0x40),
+                (fixture.len().saturating_sub(1), 0xff),
+            ] {
+                let mut mutated = fixture.to_vec();
+                mutated[offset] ^= mask;
+                assert_complete_or_typed(
+                    &mutated,
+                    declared.or(Some(format)),
+                    &format!("{format:?} xor {mask:#04x} at {offset}"),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn prop_008_raster_allocation_arithmetic_is_checked_and_monotonic() {
+        for format in [
+            ImageFormat::Jpeg,
+            ImageFormat::Png,
+            ImageFormat::Hdr,
+            ImageFormat::OpenExr,
+        ] {
+            let factor = allocation_bytes_per_pixel(format);
+            for pixels in 0..=1024 {
+                assert_eq!(estimated_allocation(pixels, format), Some(pixels * factor));
+            }
+            assert_eq!(estimated_allocation(u64::MAX, format), None);
         }
     }
 
