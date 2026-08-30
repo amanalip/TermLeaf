@@ -221,14 +221,19 @@ pub fn decode_vector_bounded_with_limits(
             limit: image_limits.max_dimension,
         });
     }
-    let pixels = u64::from(width).saturating_mul(u64::from(height));
+    let pixels = u64::from(width) * u64::from(height);
     if pixels > image_limits.max_pixels {
         return Err(VectorImageError::TooManyPixels {
             pixels,
             limit: image_limits.max_pixels,
         });
     }
-    let allocation = pixels.saturating_mul(4);
+    let Some(allocation) = pixels.checked_mul(4) else {
+        return Err(VectorImageError::AllocationTooLarge {
+            bytes: u64::MAX,
+            limit: image_limits.max_allocation_bytes,
+        });
+    };
     if allocation > image_limits.max_allocation_bytes {
         return Err(VectorImageError::AllocationTooLarge {
             bytes: allocation,
@@ -454,10 +459,18 @@ impl WorkTotals {
         limits: &VectorLimits,
     ) -> Result<(), VectorImageError> {
         if element == "path" && attribute == "d" {
-            self.path_bytes = self.path_bytes.saturating_add(value.len());
-            self.path_commands = self
-                .path_commands
-                .saturating_add(value.bytes().filter(|byte| is_path_command(*byte)).count());
+            self.path_bytes = checked_work_add(
+                self.path_bytes,
+                value.len(),
+                VectorWork::PathDataBytes,
+                limits.max_path_data_bytes,
+            )?;
+            self.path_commands = checked_work_add(
+                self.path_commands,
+                value.bytes().filter(|byte| is_path_command(*byte)).count(),
+                VectorWork::PathCommands,
+                limits.max_path_commands,
+            )?;
             enforce_work(
                 VectorWork::PathDataBytes,
                 self.path_bytes,
@@ -470,9 +483,12 @@ impl WorkTotals {
             )?;
         }
         if attribute == "transform" {
-            self.transforms = self
-                .transforms
-                .saturating_add(value.bytes().filter(|byte| *byte == b'(').count());
+            self.transforms = checked_work_add(
+                self.transforms,
+                value.bytes().filter(|byte| *byte == b'(').count(),
+                VectorWork::TransformOperations,
+                limits.max_transform_operations,
+            )?;
             enforce_work(
                 VectorWork::TransformOperations,
                 self.transforms,
@@ -551,8 +567,12 @@ fn inspect_attribute(name: &str, value: &str) -> Result<(), VectorImageError> {
 
 fn has_external_url(value: &str) -> bool {
     let mut rest = value;
-    while let Some(index) = rest.find("url(") {
-        rest = &rest[index + 4..];
+    while let Some(index) = rest.find("url") {
+        rest = rest[index + 3..].trim_start();
+        let Some(after_open) = rest.strip_prefix('(') else {
+            continue;
+        };
+        rest = after_open;
         let Some(end) = rest.find(')') else {
             return true;
         };
@@ -563,6 +583,23 @@ fn has_external_url(value: &str) -> bool {
         rest = &rest[end + 1..];
     }
     false
+}
+
+fn checked_work_add(
+    current: usize,
+    amount: usize,
+    work: VectorWork,
+    limit: usize,
+) -> Result<usize, VectorImageError> {
+    let Some(observed) = current.checked_add(amount) else {
+        return Err(VectorImageError::WorkLimit {
+            work,
+            observed: usize::MAX,
+            limit,
+        });
+    };
+    enforce_work(work, observed, limit)?;
+    Ok(observed)
 }
 
 fn enforce_work(work: VectorWork, observed: usize, limit: usize) -> Result<(), VectorImageError> {

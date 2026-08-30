@@ -113,6 +113,17 @@ fn img_003_safe_svg_and_svgz_render_static_normalized_rgba() {
 }
 
 #[test]
+fn img_003_registered_svg_and_svgz_fixtures_render_identically() {
+    let svg = include_bytes!("fixtures/images/safe.svg");
+    let svgz = include_bytes!("fixtures/images/safe.svgz");
+    let plain = decode_vector_bounded(svg).expect("registered SVG renders");
+    let compressed = decode_vector_bounded(svgz).expect("registered SVGZ renders");
+    assert_eq!(plain, compressed);
+    assert_eq!((plain.width(), plain.height()), (2, 2));
+    assert_eq!(&plain.rgba()[..4], &[220, 40, 20, 255]);
+}
+
+#[test]
 fn img_004_every_external_reference_class_rejects_before_resvg() {
     let references = [
         "https://example.invalid/image.png",
@@ -146,6 +157,30 @@ fn img_004_every_external_reference_class_rejects_before_resvg() {
     ));
     let internal = b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><defs><linearGradient id='g'/></defs><rect width='1' height='1' fill='url(#g)'/></svg>";
     decode_vector_bounded(internal).expect("document-local fragment references remain safe");
+
+    for attribute in [
+        "href='file:///etc/passwd'",
+        "xlink:href='https://example.invalid/x'",
+        "xml:base='file:///tmp/'",
+        "style='fill: URL ( https://example.invalid/x )'",
+    ] {
+        let svg = format!(
+            "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='1' height='1'><image {attribute}/></svg>"
+        );
+        assert!(matches!(
+            decode_vector_bounded(svg.as_bytes()),
+            Err(VectorImageError::ExternalReference { .. })
+        ));
+    }
+}
+
+#[test]
+fn img_004_registered_hostile_svg_rejects_before_rendering() {
+    let hostile = include_bytes!("fixtures/images/hostile.svg");
+    assert!(matches!(
+        decode_vector_bounded(hostile),
+        Err(VectorImageError::ForbiddenElement { .. })
+    ));
 }
 
 #[test]
@@ -196,6 +231,38 @@ fn img_005_svg_input_and_actual_xml_boundaries_are_inclusive() {
         Err(VectorImageError::XmlTooLarge {
             limit: xml.len() as u64 - 1
         })
+    );
+
+    let malformed_gzip = vec![0x1f; 129];
+    assert_eq!(
+        decode_vector_bounded_with_limits(
+            &malformed_gzip,
+            &ImageLimits {
+                max_input_bytes: 128,
+                ..small_image_limits()
+            },
+            &vector,
+            None
+        ),
+        Err(VectorImageError::InputTooLarge {
+            size: 129,
+            limit: 128
+        })
+    );
+
+    let over_xml = gzip(b"<!DOCTYPE svg SYSTEM 'file:///etc/passwd'><svg/>");
+    assert_eq!(
+        decode_vector_bounded_with_limits(
+            &over_xml,
+            &ImageLimits {
+                max_input_bytes: over_xml.len() as u64,
+                max_svg_xml_bytes: 8,
+                ..small_image_limits()
+            },
+            &vector,
+            None
+        ),
+        Err(VectorImageError::XmlTooLarge { limit: 8 })
     );
 }
 
@@ -248,9 +315,15 @@ fn img_015_svgz_stream_failures_are_distinct_and_bounded() {
         decode_vector_bounded_with_limits(&valid, &limits, &VectorLimits::default(), None),
         Err(VectorImageError::XmlTooLarge { limit: 128 })
     );
+
+    assert_eq!(
+        decode_vector_bounded(include_bytes!("fixtures/images/malformed.svgz")),
+        Err(VectorImageError::GzipTruncated)
+    );
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn img_016_structure_work_geometry_and_allocation_boundaries_are_typed() {
     let image = small_image_limits();
     let vector = VectorLimits {
@@ -263,6 +336,19 @@ fn img_016_structure_work_geometry_and_allocation_boundaries_are_typed() {
         max_transform_operations: 1,
         max_attribute_bytes: 64,
     };
+    assert_eq!(
+        VectorLimits::default(),
+        VectorLimits {
+            xml: XmlLimits {
+                max_depth: 128,
+                max_nodes: 100_000,
+            },
+            max_path_data_bytes: 1024 * 1024,
+            max_path_commands: 100_000,
+            max_transform_operations: 10_000,
+            max_attribute_bytes: 1024 * 1024,
+        }
+    );
     let at_structure = b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><g/><path d='M0 0L1 1'/></svg>";
     decode_vector_bounded_with_limits(at_structure, &image, &vector, Some(VectorFormat::Svg))
         .expect("exact depth, nodes, path commands, and transform limits accept");
@@ -292,6 +378,58 @@ fn img_016_structure_work_geometry_and_allocation_boundaries_are_typed() {
             limit: 2
         })
     );
+    let path_bytes_at =
+        b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><path d='M0 0'/></svg>";
+    let path_limits = VectorLimits {
+        max_path_data_bytes: 4,
+        ..VectorLimits::default()
+    };
+    decode_vector_bounded_with_limits(path_bytes_at, &image, &path_limits, Some(VectorFormat::Svg))
+        .expect("path data exact limit accepts");
+    assert_eq!(
+        decode_vector_bounded_with_limits(
+            path_bytes_at,
+            &image,
+            &VectorLimits {
+                max_path_data_bytes: 3,
+                ..path_limits
+            },
+            Some(VectorFormat::Svg)
+        ),
+        Err(VectorImageError::WorkLimit {
+            work: VectorWork::PathDataBytes,
+            observed: 4,
+            limit: 3
+        })
+    );
+    let attribute_at = b"<svg width='1' height='1'><rect id='abcd'/></svg>";
+    let attribute_limits = VectorLimits {
+        max_attribute_bytes: 4,
+        ..VectorLimits::default()
+    };
+    decode_vector_bounded_with_limits(
+        attribute_at,
+        &image,
+        &attribute_limits,
+        Some(VectorFormat::Svg),
+    )
+    .expect("attribute exact limit accepts");
+    assert!(matches!(
+        decode_vector_bounded_with_limits(
+            attribute_at,
+            &image,
+            &VectorLimits {
+                max_attribute_bytes: 3,
+                ..attribute_limits
+            },
+            Some(VectorFormat::Svg)
+        ),
+        Err(VectorImageError::WorkLimit {
+            work: VectorWork::AttributeBytes,
+            observed: 4,
+            limit: 3
+        })
+    ));
     let one_transform = b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><g transform='translate(1 1)'/></svg>";
     decode_vector_bounded_with_limits(one_transform, &image, &vector, Some(VectorFormat::Svg))
         .expect("one transform operation is the inclusive boundary");
@@ -329,6 +467,53 @@ fn img_016_structure_work_geometry_and_allocation_boundaries_are_typed() {
         ),
         Err(VectorImageError::DimensionTooLarge { width: 5, .. })
     ));
+    let exact_geometry = b"<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'/>";
+    decode_vector_bounded_with_limits(
+        exact_geometry,
+        &ImageLimits {
+            max_dimension: 4,
+            max_pixels: 16,
+            max_allocation_bytes: 64,
+            ..image
+        },
+        &VectorLimits::default(),
+        Some(VectorFormat::Svg),
+    )
+    .expect("dimension, pixel, and allocation exact limits accept");
+    assert_eq!(
+        decode_vector_bounded_with_limits(
+            exact_geometry,
+            &ImageLimits {
+                max_dimension: 4,
+                max_pixels: 15,
+                max_allocation_bytes: 64,
+                ..image
+            },
+            &VectorLimits::default(),
+            Some(VectorFormat::Svg)
+        ),
+        Err(VectorImageError::TooManyPixels {
+            pixels: 16,
+            limit: 15
+        })
+    );
+    assert_eq!(
+        decode_vector_bounded_with_limits(
+            exact_geometry,
+            &ImageLimits {
+                max_dimension: 4,
+                max_pixels: 16,
+                max_allocation_bytes: 63,
+                ..image
+            },
+            &VectorLimits::default(),
+            Some(VectorFormat::Svg)
+        ),
+        Err(VectorImageError::AllocationTooLarge {
+            bytes: 64,
+            limit: 63
+        })
+    );
     let allocation_limit = ImageLimits {
         max_pixels: 20,
         max_allocation_bytes: 79,
@@ -351,6 +536,47 @@ fn img_016_structure_work_geometry_and_allocation_boundaries_are_typed() {
         termleaf::document::image::decode_bounded(b"\x1f\x8bnot gzip"),
         Err(ImageResourceError::Vector(VectorImageError::GzipCorrupt))
     ));
+}
+
+#[test]
+fn img_016_fixed_svg_xml_mutations_are_typed_or_complete() {
+    let seed = include_bytes!("fixtures/images/safe.svg");
+    let mut mutations = Vec::new();
+    for end in [0, 1, seed.len() / 4, seed.len() / 2, seed.len() - 1] {
+        mutations.push(seed[..end].to_vec());
+    }
+    for (offset, mask) in [
+        (0, 0x01),
+        (seed.len() / 4, 0x80),
+        (seed.len() / 2, 0x01),
+        (seed.len() - 1, 0xff),
+    ] {
+        let mut mutation = seed.to_vec();
+        mutation[offset] ^= mask;
+        mutations.push(mutation);
+    }
+    mutations.extend([
+        b"<svg><script>alert(1)</script></svg>".to_vec(),
+        b"<svg onload='run()'/>".to_vec(),
+        b"<svg><image href='file:///etc/passwd'/></svg>".to_vec(),
+        b"<!DOCTYPE svg SYSTEM 'file:///etc/passwd'><svg/>".to_vec(),
+        b"<svg><path d='M0 0 L'/></svg>".to_vec(),
+        b"\xff<svg/>".to_vec(),
+    ]);
+
+    for mutation in mutations {
+        if let Ok(decoded) = decode_vector_bounded_with_limits(
+            &mutation,
+            &small_image_limits(),
+            &VectorLimits::default(),
+            Some(VectorFormat::Svg),
+        ) {
+            assert_eq!(
+                decoded.rgba().len(),
+                decoded.width() as usize * decoded.height() as usize * 4
+            );
+        }
+    }
 }
 
 fn preflight(path: &str, xml: &[u8], xml_limits: XmlLimits) -> Result<(), ArchiveError> {
