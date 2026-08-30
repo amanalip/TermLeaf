@@ -1965,7 +1965,7 @@ location = ["src/terminal_image.rs::automatic_selection_requires_positive_eviden
 profiles = ["pr-core", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 decisions = []
 evidence_method = "Unit / pr-core"
 
@@ -2037,7 +2037,7 @@ location = ["src/document/image.rs::img_012_truncated_corrupt_and_foreign_inputs
 profiles = ["pr-render", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 decisions = []
 evidence_method = "Render / pr-render"
 
@@ -4777,7 +4777,7 @@ location = ["src/app/worker.rs::con_001_fixed_limits_and_byte_budget_reject_nonb
 profiles = ["security", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 decisions = ["DEC-TEST-018"]
 evidence_method = "Integration / security"
 
@@ -4813,7 +4813,7 @@ location = ["src/app/worker.rs::con_003_navigation_cancels_queued_and_running_wo
 profiles = ["pr-core", "phase-gate-2", "phase-gate-3", "phase-gate-4", "phase-gate-5"]
 environments = []
 fixtures = []
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 decisions = []
 evidence_method = "Integration / pr-core"
 

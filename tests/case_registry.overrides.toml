@@ -971,7 +971,7 @@ location = [
     "src/terminal_image.rs::native_output_and_chunk_boundaries_reject_one_over",
     "src/terminal_image.rs::native_png_writer_rejects_before_allocating_one_byte_over_limit",
 ]
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 
 [cases.SUP-009]
 location = ["src/document/image.rs::resolution_is_extension_first_with_magic_winning_when_present"]
@@ -1062,7 +1062,7 @@ location = [
     "src/terminal.rs::sixel_cell_pixels_use_measured_window_geometry_only",
     "tests/render.rs::img_008_native_backends_collect_one_protocol_without_escape_cells",
 ]
-last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 
 [cases.IMG-009]
 status = "Implemented"
@@ -1123,7 +1123,7 @@ location = [
     "src/app/worker.rs::successful_output_bytes_remain_charged_until_receive_or_stale_clear",
     "src/app/state.rs::con_001_native_and_cell_completion_accounting_includes_arc_allocations",
 ]
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 
 [cases.CON-002]
 status = "Implemented"
@@ -1140,7 +1140,7 @@ location = [
     "src/app/state.rs::con_002_003_production_navigation_and_resize_roll_image_generation",
     "src/terminal_image.rs::native_encoding_cancels_during_fitting_png_and_sixel_work",
 ]
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#harden-native-graphics-execution"]
 
 [cases.CON-004]
 status = "Implemented"

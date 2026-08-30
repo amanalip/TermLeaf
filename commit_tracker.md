@@ -26,26 +26,20 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
-### Complete structured rendering and native transports
+### Record native transport completion
 
-**Intended subject:** `feat: add native graphics transport foundation`
+**Intended subject:** `docs: record native transport completion`
 
-- Add direct wide/narrow Ratatui evidence for Markdown and EPUB tables, code,
-  images, captions, fallback text, and surrounding source order.
-- Preserve interior blank code lines and reserve image paint rows below wrapped
-  captions so successful pixels cannot erase caption text or following content.
-- Encode Kitty, Sixel, and iTerm2 payloads on image workers with stable
-  session-local IDs, checked output/chunk limits, and one selected protocol.
-- Carry native placements outside the Ratatui cell buffer, replace or clear stale
-  graphics across resize/navigation, suppress unchanged retransmission, and
-  clean graphics before terminal restoration without skipping worker joins.
-- Keep task 11 open for exact Sixel pixel geometry, cooperative encoding
-  cancellation, bounded PNG allocation, and edge-placement hardening. Active
-  probing, hosted PTY journeys, and manual `IMG-018` acceptance remain later;
-  serializer tests do not promote those claims.
+- Mark Task 11 complete after `7e5cf55` closes every deterministic hardening
+  finding left by the native transport foundation.
+- Record measured Sixel geometry, cooperative cancellation, bounded PNG and
+  base64 allocation, exact worker accounting, explicit edge fallback, and
+  failure-safe lifecycle cleanup.
+- Keep Tasks 12 through 14 open: no active capability probing, hosted native
+  lifecycle journey, or real-terminal `IMG-018` result is promoted by this work.
 
 Validation is recorded in
-`testreport.md#complete-structured-rendering-and-native-transports`.
+`testreport.md#harden-native-graphics-execution`.
 
 ### Add deterministic robustness evidence
 
@@ -133,6 +127,28 @@ Decisions:
   and 64 MiB of queued/running inputs. Submission never blocks the UI.
 
 ## Commit History
+
+### Harden native graphics execution
+
+**Completed:** August 30, 2026
+
+**Commit subject:** `fix: harden native graphics execution`
+
+**Revision:** `7e5cf55`
+
+Choices with lasting consequences:
+
+- Sixel output is pixel-addressed only when Crossterm reports nonzero terminal
+  pixel and cell dimensions; missing geometry produces a typed caption fallback.
+- Native image fitting, PNG compression, Kitty/iTerm2 base64 chunking, and Sixel
+  generation checkpoint cancellation without retaining a full base64 copy.
+- PNG writes reject before crossing the 16 MiB native-output limit, and worker
+  completion accounting includes retained object, vector, and Arc allocations.
+- A native image must fit wholly inside the current content viewport before its
+  escape placement is emitted; partial placement renders a warning caption and
+  becomes eligible again after scrolling fully into view.
+- Attempted native IDs remain cleanup-tracked after write or flush failures.
+  Capability probing and real-terminal acceptance remain separate work.
 
 ### Wire image ingestion into books
 

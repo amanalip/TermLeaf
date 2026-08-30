@@ -77,6 +77,48 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Harden native graphics execution
+
+**Commit subject:** `fix: harden native graphics execution`
+
+**Revision:** `7e5cf55`
+
+**Recorded:** August 30, 2026
+
+**Behavior and risks.** Sixel fitting now converts terminal cells to pixels only
+from nonzero Crossterm `window_size` measurements; absent geometry fails with a
+typed caption rather than treating cell counts as pixels. Native fitting, PNG
+compression, Kitty/iTerm2 base64 chunking, and Sixel generation cooperatively
+checkpoint cancellation. PNG writes reject before crossing the 16 MiB output
+limit, base64 output is streamed in bounded raw chunks, and completion-byte
+accounting includes retained frame/image, vector, and Arc allocations.
+
+Native escape placement now requires the whole image to fit inside the content
+viewport. A partial image renders an explicit warning caption and emits no
+native bytes, then becomes placeable after scrolling fully into view. Lifecycle
+state retains every attempted ID across injected write and flush failures so a
+later cleanup can retry deletion safely.
+
+**Scope.** Task 11 is complete. Automatic selection still consumes only existing
+positive evidence; this change does not send capability queries. `IMG-017`
+probing, hosted PTY lifecycle journeys, and manual real-terminal `IMG-018`
+acceptance remain Tasks 12 through 14 and are not promoted here.
+
+**Checks.** Passed: `cargo fmt --all`, `cargo clippy --all-targets --all-features
+--locked -- -D warnings`, `cargo test --locked` (222 library, 9 CLI, 19
+document-I/O, 10 property, 14 native PTY, 23 render, and 12 security tests),
+`cargo test --doc --locked`, `cargo +1.88.0 check --locked`, `cargo +1.88.0 test
+--locked` with the same counts, `cargo deny check`, `python3
+tools/case_registry.py generate`, `python3 tools/case_registry.py check`,
+`python3 tools/fixture_corpus.py check` (29 files), and `git diff --check`.
+Dependency policy passed with duplicate-version observations only.
+
+**Changed paths and cases.** Runtime changes are in `src/app/state.rs`,
+`src/terminal.rs`, `src/terminal_image.rs`, and `src/ui/reader.rs`; deterministic
+render and registry evidence is in `tests/render.rs` and the case manifests.
+Evidence was added to `IMG-008`, `IMG-012`, `IMG-018` supporting locations,
+`CON-001`, and `CON-003`; `IMG-018` remains Planned pending its manual procedure.
+
 ### Complete structured rendering and native transports
 
 **Commit subject:** `feat: add native graphics transport foundation`
@@ -101,13 +143,10 @@ still requires positive evidence, while tests inject an already selected
 backend. `IMG-017` probing, hosted PTY journeys, and real-terminal `IMG-018`
 acceptance remain assigned to tasks 12 through 14 and are not claimed here.
 
-**Residual review findings.** Task 11 remains open. Before it closes, Sixel must
-consume explicit terminal pixel geometry, native fitting/PNG/Sixel encoding must
-checkpoint cancellation internally, PNG output must stop at its allocation
-limit rather than checking afterward, worker accounting must include every Arc
-allocation, and partial viewport-edge placement needs an explicit policy and
-tests. These are deterministic implementation follow-ups, not deferred probing
-or manual-evidence work.
+**Residual review findings at this revision.** This foundation intentionally left
+Sixel geometry, internal cancellation, bounded PNG allocation, exact worker
+accounting, and viewport-edge policy for a follow-up. Revision `7e5cf55` closes
+those deterministic findings; probing and manual evidence remain deferred.
 
 **Checks.** Passed: `python3 tools/case_registry.py generate`, `python3
 tools/case_registry.py check`, `cargo fmt --check`, `cargo clippy --all-targets

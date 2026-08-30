@@ -35,16 +35,17 @@ class. Raster and static SVG/SVGZ resources share byte, geometry, pixel,
 allocation, active-content, resolver, and work limits. Terminal presentation
 has positive-evidence backend selection, typed override conflicts,
 Kitty/Sixel/iTerm2 serializers, true-color/256-color half-block frames, and
-informative caption fallbacks. Native payloads use stable local IDs, bounded
-chunks, post-Ratatui placement, replacement, navigation/resize invalidation, and
-shutdown cleanup.
+informative caption fallbacks. Native payloads use stable local IDs, measured
+Sixel pixel geometry, bounded streaming chunks and PNG writes, cooperative
+cancellation, post-Ratatui placement, replacement, navigation/resize
+invalidation, explicit viewport-edge fallback, and failure-safe shutdown cleanup.
 Two generation-aware workers enforce fixed queue and in-flight-byte budgets,
 cancel stale work, contain failures, and shut down without blocking terminal
 restoration. Wide TOC navigation preserves passage context in a side panel.
-Exact Sixel pixel geometry, cancellation and allocation hardening, active
-capability probing, and native-terminal acceptance remain before the transports
-are complete. The local implementation suite and
-security target pass; the Phase 2 gate remains evidence-in-progress until the
+Native transport implementation is complete. Active capability probing, hosted
+native lifecycle journeys, and native-terminal acceptance remain. The local
+implementation suite and security target pass; the Phase 2 gate remains
+evidence-in-progress until the
 deterministic policy and manifests are reconciled, the remaining robustness and
 hosted evidence passes, and native `IMG-018` results are recorded. DD-026
 continues to own frozen members whose actual features land in later phases.
@@ -149,7 +150,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 199 library, 9 CLI, 17 document-I/O, 16 render, 8 property, 9 security, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 222 library, 9 CLI, 19 document-I/O, 23 render, 10 property, 12 security, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; `FUZZ-*` targets are optional weekly discovery metadata rather than required security work. |
