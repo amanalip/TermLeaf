@@ -938,6 +938,7 @@ last_evidence = ["testreport.md#add-bounded-raster-image-decoding"]
 status = "Implemented"
 location = [
     "src/document/image.rs::img_012_truncated_corrupt_and_foreign_inputs_fail_typed_without_panicking",
+    "src/document/image.rs::img_012_every_enabled_decoder_handles_fixed_header_and_body_mutations",
     "src/document/image.rs::error_messages_name_failure_value_and_recovery",
     "src/terminal_image.rs::ansi256_quantization_and_caption_content_are_deterministic",
     "src/document/resource.rs::img_012_markdown_provider_reads_only_bounded_non_escaping_files",
@@ -1009,13 +1010,17 @@ last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-003]
 status = "Implemented"
-location = ["tests/security.rs::img_003_safe_svg_and_svgz_render_static_normalized_rgba"]
+location = [
+    "tests/security.rs::img_003_safe_svg_and_svgz_render_static_normalized_rgba",
+    "tests/security.rs::img_003_registered_svg_and_svgz_fixtures_render_identically",
+]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-004]
 status = "Implemented"
 location = [
     "tests/security.rs::img_004_every_external_reference_class_rejects_before_resvg",
+    "tests/security.rs::img_004_registered_hostile_svg_rejects_before_rendering",
     "src/app/state.rs::img_004_declared_extensions_enable_tga_svg_and_svgz_with_magic_precedence",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
@@ -1064,7 +1069,15 @@ last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-016]
 status = "Implemented"
-location = ["tests/security.rs::img_016_structure_work_geometry_and_allocation_boundaries_are_typed"]
+location = [
+    "tests/security.rs::img_016_structure_work_geometry_and_allocation_boundaries_are_typed",
+    "tests/security.rs::img_016_fixed_svg_xml_mutations_are_typed_or_complete",
+]
+last_evidence = ["testreport.md#complete-phase-2-development"]
+
+[cases.PROP-008]
+status = "Implemented"
+location = ["src/document/image.rs::prop_008_raster_allocation_arithmetic_is_checked_and_monotonic"]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.CON-001]
