@@ -6,7 +6,7 @@ use std::io::Write;
 
 use anyhow::{Context, Result};
 use termleaf::app::{Action, App, StartupOptions};
-use termleaf::document::{TextLimits, sanitize_path};
+use termleaf::document::{ArchiveLimits, DocumentError, TextLimits, load_book_file, sanitize_path};
 
 fn temp_book(name: &str, contents: &str) -> Result<tempfile::NamedTempFile> {
     let mut file = tempfile::Builder::new()
@@ -18,6 +18,34 @@ fn temp_book(name: &str, contents: &str) -> Result<tempfile::NamedTempFile> {
         .and_then(|()| file.flush())
         .context("write temporary book")?;
     Ok(file)
+}
+
+#[test]
+fn epub_005_registered_malformed_fixture_recovers_or_rejects_typed() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/epub/malformed.epub");
+    match load_book_file(&path, &TextLimits::default(), &ArchiveLimits::default()) {
+        Ok(document) => assert!(!document.canonical().is_empty()),
+        Err(DocumentError::Archive(_) | DocumentError::InvalidPackage { .. }) => {}
+        Err(other) => panic!("unexpected malformed EPUB result: {other:?}"),
+    }
+}
+
+#[test]
+fn epub_009_registered_hostile_fixture_rejects_before_external_resolution() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/epub/hostile.epub");
+    let before = std::fs::read(&path).expect("hostile fixture exists");
+    let error = load_book_file(&path, &TextLimits::default(), &ArchiveLimits::default())
+        .expect_err("hostile fixture rejects");
+    assert!(matches!(
+        error,
+        DocumentError::Archive(_) | DocumentError::InvalidPackage { .. }
+    ));
+    assert_eq!(
+        std::fs::read(path).expect("fixture remains readable"),
+        before
+    );
 }
 
 #[test]

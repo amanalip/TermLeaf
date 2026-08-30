@@ -449,6 +449,7 @@ last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 status = "Implemented"
 location = [
     "src/document/markdown.rs::md_008_raw_html_and_remote_references_stay_inert",
+    "src/document/markdown.rs::md_008_registered_hostile_fixture_is_inert_and_deterministic",
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
@@ -456,6 +457,8 @@ last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 status = "Implemented"
 location = [
     "src/document/markdown.rs::md_009_malformed_constructs_parse_deterministically_without_panicking",
+    "src/document/markdown.rs::md_009_malformed_event_streams_return_typed_errors",
+    "tests/properties.rs::md_009_fixed_seed_markdown_sources_always_form_valid_bounded_models",
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
@@ -463,6 +466,7 @@ last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 status = "Implemented"
 location = [
     "src/document/markdown.rs::md_012_byte_boundaries_reject_exactly_before_any_parsing",
+    "src/document/markdown.rs::md_012_event_nesting_output_and_block_work_limits_are_exact",
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
@@ -780,7 +784,10 @@ last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 
 [cases.SEC-006]
 status = "Implemented"
-location = ["src/document/archive.rs::sec_006_control_members_fail_before_semantic_parsing_at_the_boundary"]
+location = [
+    "src/document/archive.rs::sec_006_control_members_fail_before_semantic_parsing_at_the_boundary",
+    "src/document/archive.rs::sec_006_package_discovery_bounds_extensionless_package_and_nav_members",
+]
 last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 
 [cases.SEC-007]
@@ -829,6 +836,10 @@ status = "Implemented"
 location = [
     "src/document/xhtml.rs::epub_005_malformed_but_recoverable_xhtml_stays_readable",
     "src/document/xhtml.rs::epub_005_hostile_nesting_depth_stays_bounded_without_panic",
+    "src/document/xhtml.rs::epub_005_fixed_tag_entity_and_attribute_mutations_preserve_valid_ranges",
+    "src/document/xhtml.rs::epub_005_wide_output_work_boundaries_are_inclusive",
+    "tests/properties.rs::epub_005_fixed_seed_xhtml_models_preserve_all_local_ranges",
+    "tests/document_io.rs::epub_005_registered_malformed_fixture_recovers_or_rejects_typed",
     "src/document/xhtml.rs::sec_009_node_budget_rejects_before_parser_allocation_exactly_at_the_boundary",
     "src/document/xhtml.rs::sec_009_injected_limits_stop_hostile_chapters_before_any_tree_allocation",
 ]
@@ -846,7 +857,10 @@ last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 
 [cases.EPUB-009]
 status = "Implemented"
-location = ["src/document/xhtml.rs::epub_009_scripts_and_styles_never_contribute_text"]
+location = [
+    "src/document/xhtml.rs::epub_009_scripts_and_styles_never_contribute_text",
+    "tests/document_io.rs::epub_009_registered_hostile_fixture_rejects_before_external_resolution",
+]
 last_evidence = ["testreport.md#start-the-structured-book-ingestion"]
 
 [cases.EPUB-010]
@@ -965,7 +979,10 @@ last_evidence = ["testreport.md#wire-image-ingestion-into-books"]
 
 [cases.MD-010]
 status = "Implemented"
-location = ["src/document/markdown.rs::md_010_link_targets_and_source_offsets_map_to_original_markdown"]
+location = [
+    "src/document/markdown.rs::md_010_link_targets_and_source_offsets_map_to_original_markdown",
+    "src/document/markdown.rs::md_010_invalid_event_offsets_and_bom_offsets_are_exact",
+]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.EPUB-008]
@@ -986,6 +1003,7 @@ status = "Implemented"
 location = [
     "tests/security.rs::sec_009_depth_and_opening_boundaries_cover_every_control_kind",
     "tests/security.rs::sec_009_dtd_and_entity_declarations_reject_before_package_semantics",
+    "src/document/structured.rs::sec_009_control_xml_mutation_table_is_strict_and_never_resolves_declarations",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 

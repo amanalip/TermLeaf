@@ -9,6 +9,7 @@
 use termleaf::app::{Action, App, StartupOptions};
 use termleaf::document::text::{document_from_text, load_text_bytes};
 use termleaf::document::{BlockKind, Document, DocumentError, DocumentId, TextLimits};
+use termleaf::document::{markdown::load_markdown_bytes, xhtml::convert_xhtml};
 use termleaf::layout::layout_document;
 use termleaf::reader::{self, Direction};
 use unicode_segmentation::UnicodeSegmentation;
@@ -576,5 +577,108 @@ fn prop_012_fixed_text_mutations_are_bounded_models_or_typed_source_errors() {
             above,
             &format!("source {source_index}, exact limit plus one"),
         );
+    }
+}
+
+#[test]
+fn md_009_fixed_seed_markdown_sources_always_form_valid_bounded_models() {
+    const TOKENS: &[&str] = &[
+        "word",
+        " ",
+        "\n",
+        "#",
+        "*",
+        "_",
+        "`",
+        "[",
+        "]",
+        "(",
+        ")",
+        "|",
+        "<",
+        ">",
+        "λ",
+        "&amp;",
+        "<script>x</script>",
+    ];
+    let mut rng = Rng::new(0x5EED_0013);
+    for case in 0..500 {
+        let mut source = String::new();
+        for _ in 0..rng.below(96) {
+            source.push_str(TOKENS[rng.below(TOKENS.len())]);
+        }
+        let document = load_markdown_bytes(
+            "generated.md",
+            source.as_bytes(),
+            &TextLimits {
+                max_bytes: source.len() as u64,
+            },
+        )
+        .unwrap_or_else(|error| panic!("case {case}: bounded UTF-8 must stay typed: {error}"));
+        let mut covered = 0usize;
+        for block in document.sections()[0].blocks() {
+            assert_eq!(block.range().start, covered, "case {case}");
+            assert!(block.range().end <= document.len(), "case {case}");
+            assert!(document.canonical().is_char_boundary(block.range().end));
+            covered = block.range().end;
+        }
+        assert_eq!(covered, document.len(), "case {case}");
+        for span in document.inline_spans() {
+            assert!(span.range().end <= document.len(), "case {case}");
+            assert!(document.canonical().is_char_boundary(span.range().start));
+            assert!(document.canonical().is_char_boundary(span.range().end));
+        }
+        for mapping in document.source_mappings() {
+            assert!(
+                mapping.canonical_range().end <= document.len(),
+                "case {case}"
+            );
+            assert!(mapping.source_range().end <= source.len(), "case {case}");
+        }
+    }
+}
+
+#[test]
+fn epub_005_fixed_seed_xhtml_models_preserve_all_local_ranges() {
+    const TOKENS: &[&str] = &[
+        "text",
+        " ",
+        "<p>",
+        "</p>",
+        "<em>",
+        "</em>",
+        "<table>",
+        "</table>",
+        "<tr><td>",
+        "</td></tr>",
+        "<img src='x' alt='λ'/>",
+        "&amp;",
+        "λ",
+        "<script>hidden</script>",
+    ];
+    let mut rng = Rng::new(0x5EED_0014);
+    for case in 0..500 {
+        let mut source = String::new();
+        for _ in 0..rng.below(64) {
+            source.push_str(TOKENS[rng.below(TOKENS.len())]);
+        }
+        let blocks = convert_xhtml(&source)
+            .unwrap_or_else(|error| panic!("case {case}: small source rejected: {error}"));
+        for block in blocks {
+            for range in block
+                .inline
+                .iter()
+                .map(|inline| &inline.range)
+                .chain(block.cells.iter())
+            {
+                assert!(range.start <= range.end && range.end <= block.text.len());
+                assert!(block.text.is_char_boundary(range.start));
+                assert!(block.text.is_char_boundary(range.end));
+            }
+            for (_, offset) in block.anchors {
+                assert!(offset <= block.text.len());
+                assert!(block.text.is_char_boundary(offset));
+            }
+        }
     }
 }
