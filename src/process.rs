@@ -29,6 +29,7 @@ pub fn run(cli: Cli) -> ExitCode {
             let app = App::open(StartupOptions {
                 book: cli.book,
                 theme: startup_theme(cli.theme.as_deref(), settings.theme.as_deref()),
+                image_backend: None,
             })?;
             terminal::run(app)
         },

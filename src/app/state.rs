@@ -14,7 +14,8 @@ use crate::{
     reader::{self, Mode},
     terminal_image::{
         CellColorMode, CellRenderError, HalfBlockCell, HalfBlockFrame, ImageBackend,
-        ImageCapabilities, Rgb, failure_caption, render_decoded_half_blocks, select_backend,
+        ImageCapabilities, ImageId, NativeEncodeError, NativeImage, Rgb, encode_native_image,
+        failure_caption, render_decoded_half_blocks, select_backend,
     },
     ui::status::StatusMessage,
     ui::theme::{ColorMode, ThemeName},
@@ -41,6 +42,8 @@ pub struct ReaderSession {
     cached_layout: Option<(u16, PageLayout)>,
     resources: ResourceProvider,
     images: HashMap<ImageKey, ImageState>,
+    image_ids: HashMap<ImageKey, ImageId>,
+    next_image_id: u32,
     image_workers: WorkerCoordinator<ImageJob, ImageOutput, ImageJobError>,
     observed_dropped_completions: u64,
 }
@@ -59,7 +62,7 @@ enum ImageState {
     },
     Ready {
         generation: Generation,
-        frame: Arc<HalfBlockFrame>,
+        image: Arc<PreparedImage>,
     },
     Failed {
         generation: Generation,
@@ -70,12 +73,13 @@ enum ImageState {
 #[derive(Clone, Debug)]
 struct ImageJob {
     key: ImageKey,
+    id: ImageId,
     provider: ResourceProvider,
     resource: ImageResource,
     columns: u16,
     rows: u16,
     background: Rgb,
-    mode: CellColorMode,
+    backend: ImageBackend,
     declared: Option<DeclaredImageFormat>,
 }
 
@@ -88,7 +92,13 @@ enum DeclaredImageFormat {
 #[derive(Debug)]
 struct ImageOutput {
     key: ImageKey,
-    frame: HalfBlockFrame,
+    image: PreparedImage,
+}
+
+#[derive(Debug)]
+enum PreparedImage {
+    Cells(Arc<HalfBlockFrame>),
+    Native(Arc<NativeImage>),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -107,6 +117,8 @@ enum ImageFailure {
     Decode(ImageResourceError),
     #[error("render: {0}")]
     Render(CellRenderError),
+    #[error("native transport: {0}")]
+    Native(NativeEncodeError),
 }
 
 impl ImageFailure {
@@ -133,6 +145,7 @@ impl ImageFailure {
             }
             Self::Decode(ImageResourceError::Vector(_)) => "decode: vector rejected".to_owned(),
             Self::Render(reason) => format!("render: {reason}"),
+            Self::Native(reason) => format!("native transport: {reason}"),
         }
     }
 }
@@ -148,7 +161,8 @@ pub struct ImageOverlay {
 #[derive(Clone, Debug)]
 pub enum ImageVisual {
     Loading(String),
-    Ready(Arc<HalfBlockFrame>),
+    ReadyCells(Arc<HalfBlockFrame>),
+    Native(Arc<NativeImage>),
     Failed(String),
 }
 
@@ -169,6 +183,8 @@ impl ReaderSession {
             cached_layout: None,
             resources,
             images: HashMap::new(),
+            image_ids: HashMap::new(),
+            next_image_id: 1,
             image_workers,
             observed_dropped_completions: 0,
         })
@@ -327,7 +343,7 @@ impl ReaderSession {
                             output.key,
                             ImageState::Ready {
                                 generation,
-                                frame: Arc::new(output.frame),
+                                image: Arc::new(output.image),
                             },
                         );
                     }
@@ -420,8 +436,19 @@ impl ReaderSession {
                 {
                     continue;
                 }
+                let mut overlay_index = index;
+                while overlay_index < end {
+                    let candidate = &layout.rows()[overlay_index];
+                    if candidate.section() != row.section() || candidate.block() != row.block() {
+                        break;
+                    }
+                    if candidate.spans().is_empty() {
+                        break;
+                    }
+                    overlay_index += 1;
+                }
                 locations.push((
-                    u16::try_from(index - top).unwrap_or(u16::MAX),
+                    u16::try_from(overlay_index - top).unwrap_or(u16::MAX),
                     row.section(),
                     row.block(),
                 ));
@@ -430,59 +457,96 @@ impl ReaderSession {
         };
         let mut visible = Vec::new();
         for (screen_row, section_index, block_index) in locations {
-            let Some(block) = self
-                .document
-                .sections()
-                .get(section_index)
-                .and_then(|section| section.blocks().get(block_index))
-            else {
-                continue;
-            };
-            if block.kind() != crate::document::BlockKind::Image {
-                continue;
+            if let Some(overlay) = self.prepare_image_overlay(
+                screen_row,
+                section_index,
+                block_index,
+                width,
+                backend,
+                background,
+            ) {
+                visible.push(overlay);
             }
-            let resource = block
-                .resource()
-                .cloned()
-                .unwrap_or_else(ImageResource::blocked);
-            let key = ImageKey {
-                section: section_index,
-                block: block_index,
-                reference: resource.reference().unwrap_or("blocked").to_owned(),
-            };
-            if !self.images.contains_key(&key) {
-                self.submit_image(key.clone(), resource, width, backend, background);
-            }
-            let caption = self.image_caption(&key);
-            let visual = match self.images.get(&key) {
-                Some(ImageState::Loading { .. }) => {
-                    ImageVisual::Loading(format!("{caption} (loading)"))
-                }
-                Some(ImageState::Ready { generation, frame })
-                    if *generation == self.image_workers.generation() =>
-                {
-                    ImageVisual::Ready(Arc::clone(frame))
-                }
-                Some(ImageState::Failed {
-                    generation,
-                    caption,
-                }) if *generation == self.image_workers.generation() => {
-                    ImageVisual::Failed(caption.clone())
-                }
-                None => ImageVisual::Failed(failure_caption(Some(&caption), None, "not queued")),
-                _ => ImageVisual::Failed(failure_caption(Some(&caption), None, "stale result")),
-            };
-            visible.push(ImageOverlay {
-                row: screen_row,
-                visual,
-            });
         }
         visible
+    }
+
+    fn prepare_image_overlay(
+        &mut self,
+        row: u16,
+        section: usize,
+        block: usize,
+        width: u16,
+        backend: ImageBackend,
+        background: Rgb,
+    ) -> Option<ImageOverlay> {
+        let block_model = self.document.sections().get(section)?.blocks().get(block)?;
+        if block_model.kind() != crate::document::BlockKind::Image {
+            return None;
+        }
+        let resource = block_model
+            .resource()
+            .cloned()
+            .unwrap_or_else(ImageResource::blocked);
+        let key = ImageKey {
+            section,
+            block,
+            reference: resource.reference().unwrap_or("blocked").to_owned(),
+        };
+        if !self.images.contains_key(&key) {
+            if let Some(id) = self.image_id(&key) {
+                self.submit_image(key.clone(), id, resource, width, backend, background);
+            } else {
+                let generation = self.image_workers.generation();
+                let caption = self.failure_for(&key, None, "image identifier limit reached");
+                self.images.insert(
+                    key.clone(),
+                    ImageState::Failed {
+                        generation,
+                        caption,
+                    },
+                );
+            }
+        }
+        let caption = self.image_caption(&key);
+        let visual = match self.images.get(&key) {
+            Some(ImageState::Loading { .. }) => {
+                ImageVisual::Loading(format!("{caption} (loading)"))
+            }
+            Some(ImageState::Ready { generation, image })
+                if *generation == self.image_workers.generation() =>
+            {
+                match image.as_ref() {
+                    PreparedImage::Cells(frame) => ImageVisual::ReadyCells(Arc::clone(frame)),
+                    PreparedImage::Native(image) => ImageVisual::Native(Arc::clone(image)),
+                }
+            }
+            Some(ImageState::Failed {
+                generation,
+                caption,
+            }) if *generation == self.image_workers.generation() => {
+                ImageVisual::Failed(caption.clone())
+            }
+            None => ImageVisual::Failed(failure_caption(Some(&caption), None, "not queued")),
+            _ => ImageVisual::Failed(failure_caption(Some(&caption), None, "stale result")),
+        };
+        Some(ImageOverlay { row, visual })
+    }
+
+    fn image_id(&mut self, key: &ImageKey) -> Option<ImageId> {
+        if let Some(id) = self.image_ids.get(key) {
+            return Some(*id);
+        }
+        let id = ImageId::new(self.next_image_id)?;
+        self.next_image_id = self.next_image_id.checked_add(1).unwrap_or(0);
+        self.image_ids.insert(key.clone(), id);
+        Some(id)
     }
 
     fn submit_image(
         &mut self,
         key: ImageKey,
+        id: ImageId,
         resource: ImageResource,
         width: u16,
         backend: ImageBackend,
@@ -500,21 +564,17 @@ impl ReaderSession {
             );
             return;
         }
-        let mode = match backend {
-            ImageBackend::TrueColorCells => CellColorMode::TrueColor,
-            ImageBackend::Ansi256Cells => CellColorMode::Ansi256,
-            _ => {
-                let caption = self.failure_for(&key, None, "terminal image backend unavailable");
-                self.images.insert(
-                    key,
-                    ImageState::Failed {
-                        generation,
-                        caption,
-                    },
-                );
-                return;
-            }
-        };
+        if backend == ImageBackend::Caption {
+            let caption = self.failure_for(&key, None, "terminal image backend unavailable");
+            self.images.insert(
+                key,
+                ImageState::Failed {
+                    generation,
+                    caption,
+                },
+            );
+            return;
+        }
         let limits = crate::document::ImageLimits::default();
         let charged = resource
             .byte_len()
@@ -522,12 +582,13 @@ impl ReaderSession {
             .min(limits.max_input_bytes.saturating_add(1));
         let job = ImageJob {
             key: key.clone(),
+            id,
             provider: self.resources.clone(),
             resource,
             columns: width,
             rows: u16::try_from(crate::layout::IMAGE_PLACEHOLDER_ROWS).unwrap_or(u16::MAX),
             background,
-            mode,
+            backend,
             declared: declared_image_format(&key.reference),
         };
         let bytes = usize::try_from(charged)
@@ -606,19 +667,51 @@ fn process_image(
         })
     })?;
     token.checkpoint()?;
-    let frame =
-        render_decoded_half_blocks(&decoded, job.columns, job.rows, job.background, job.mode)
-            .map_err(|reason| {
-                TaskError::Decode(ImageJobError {
-                    key: job.key.clone(),
-                    dimensions: Some((decoded.width(), decoded.height())),
-                    reason: ImageFailure::Render(reason),
-                })
-            })?;
+    let image = match job.backend {
+        ImageBackend::TrueColorCells | ImageBackend::Ansi256Cells => {
+            let mode = if job.backend == ImageBackend::TrueColorCells {
+                CellColorMode::TrueColor
+            } else {
+                CellColorMode::Ansi256
+            };
+            render_decoded_half_blocks(&decoded, job.columns, job.rows, job.background, mode)
+                .map(|frame| PreparedImage::Cells(Arc::new(frame)))
+                .map_err(|reason| {
+                    TaskError::Decode(ImageJobError {
+                        key: job.key.clone(),
+                        dimensions: Some((decoded.width(), decoded.height())),
+                        reason: ImageFailure::Render(reason),
+                    })
+                })?
+        }
+        ImageBackend::Kitty | ImageBackend::Sixel | ImageBackend::Iterm2 => encode_native_image(
+            job.backend,
+            job.id,
+            &decoded,
+            job.columns,
+            job.rows,
+            job.background,
+        )
+        .map(|image| PreparedImage::Native(Arc::new(image)))
+        .map_err(|reason| {
+            TaskError::Decode(ImageJobError {
+                key: job.key.clone(),
+                dimensions: Some((decoded.width(), decoded.height())),
+                reason: ImageFailure::Native(reason),
+            })
+        })?,
+        ImageBackend::Caption => {
+            return Err(TaskError::Decode(ImageJobError {
+                key: job.key,
+                dimensions: Some((decoded.width(), decoded.height())),
+                reason: ImageFailure::Native(NativeEncodeError::NotNative),
+            }));
+        }
+    };
     token.checkpoint()?;
     Ok(ImageOutput {
         key: job.key,
-        frame,
+        image,
     })
 }
 
@@ -668,13 +761,13 @@ fn declared_image_format(reference: &str) -> Option<DeclaredImageFormat> {
 fn image_output_size(output: &ImageOutput) -> usize {
     size_of::<ImageOutput>()
         .saturating_add(output.key.reference.capacity())
-        .saturating_add(
-            output
-                .frame
+        .saturating_add(match &output.image {
+            PreparedImage::Cells(frame) => frame
                 .cells()
                 .len()
                 .saturating_mul(size_of::<HalfBlockCell>()),
-        )
+            PreparedImage::Native(image) => image.allocation_bytes(),
+        })
 }
 
 const fn dimensions_from_error(error: &ImageResourceError) -> Option<(u32, u32)> {
@@ -771,6 +864,7 @@ pub struct App {
     theme: ThemeName,
     no_color: bool,
     color_mode: ColorMode,
+    image_backend_override: Option<ImageBackend>,
     theme_cursor: usize,
     toc_cursor: usize,
     message: Option<StatusMessage>,
@@ -789,6 +883,8 @@ pub struct StartupOptions {
     pub book: Option<PathBuf>,
     /// Resolved startup theme for the session.
     pub theme: ThemeName,
+    /// Preselected image path. Active capability probing is applied separately.
+    pub image_backend: Option<ImageBackend>,
 }
 
 impl App {
@@ -840,6 +936,7 @@ impl App {
                 env_value("COLORTERM").as_deref(),
                 env_value("TERM").as_deref(),
             ),
+            image_backend_override: options.image_backend,
             theme_cursor: options.theme as usize,
             toc_cursor: 0,
             message: None,
@@ -950,6 +1047,16 @@ impl App {
         }
     }
 
+    /// Injects an already selected image backend without performing probing.
+    pub fn set_image_backend(&mut self, backend: Option<ImageBackend>) {
+        if self.image_backend_override != backend {
+            self.image_backend_override = backend;
+            if let Some(reader) = self.reader.as_mut() {
+                reader.roll_image_generation();
+            }
+        }
+    }
+
     /// The reader session, when a book is open.
     #[must_use]
     pub const fn reader(&self) -> Option<&ReaderSession> {
@@ -995,7 +1102,7 @@ impl App {
             },
             ..ImageCapabilities::default()
         };
-        select_backend(None, capabilities).unwrap_or(ImageBackend::Caption)
+        select_backend(self.image_backend_override, capabilities).unwrap_or(ImageBackend::Caption)
     }
 
     /// Drains image completions once per event-loop iteration.
@@ -1287,6 +1394,7 @@ mod tests {
             theme: ThemeName::Paper,
             no_color: false,
             color_mode: ColorMode::TrueColor,
+            image_backend_override: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,
             message: None,
@@ -1589,6 +1697,7 @@ mod toc_tests {
             theme: ThemeName::Paper,
             no_color: false,
             color_mode: ColorMode::TrueColor,
+            image_backend_override: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,
             message: None,

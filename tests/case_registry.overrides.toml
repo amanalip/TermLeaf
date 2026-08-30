@@ -433,6 +433,11 @@ location = [
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
+[cases.MD-003]
+status = "Implemented"
+location = ["tests/render.rs::md_003_tables_render_aligned_wide_and_linearized_narrow"]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
+
 [cases.MD-005]
 status = "Implemented"
 location = ["src/document/markdown.rs::md_005_code_content_maps_without_fences_language_or_indentation"]
@@ -444,6 +449,11 @@ location = [
     "src/document/markdown.rs::md_006_inline_code_punctuation_stays_literal_between_delimiters",
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-007]
+status = "Implemented"
+location = ["tests/render.rs::md_007_code_render_preserves_tabs_blank_lines_and_logical_text"]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
 
 [cases.MD-008]
 status = "Implemented"
@@ -461,6 +471,11 @@ location = [
     "tests/properties.rs::md_009_fixed_seed_markdown_sources_always_form_valid_bounded_models",
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
+
+[cases.MD-011]
+status = "Implemented"
+location = ["tests/render.rs::md_011_image_success_and_fallback_preserve_caption_and_order"]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
 
 [cases.MD-012]
 status = "Implemented"
@@ -880,6 +895,11 @@ location = [
 ]
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
+[cases.EPUB-012]
+status = "Implemented"
+location = ["tests/render.rs::epub_012_semantic_fixture_renders_wide_and_narrow_in_source_order"]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
+
 [cases.EPUB-014]
 status = "Implemented"
 location = ["tests/document_io.rs::epub_014_binary_resources_stay_lazy_during_text_opening"]
@@ -947,6 +967,7 @@ location = [
     "src/document/resource.rs::img_012_markdown_provider_never_follows_concurrently_swapped_escape",
     "tests/render.rs::img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason",
     "src/ui/reader.rs::img_012_caption_controls_are_sanitized_before_ratatui_buffer_write",
+    "src/terminal_image.rs::native_output_and_chunk_boundaries_reject_one_over",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
@@ -965,6 +986,7 @@ location = [
 last_evidence = ["testreport.md#wire-image-ingestion-into-books"]
 
 [cases.EPUB-013]
+status = "Implemented"
 location = [
     "src/document/xhtml.rs::epub_013_image_between_paragraphs_becomes_one_caption_block",
     "src/document/xhtml.rs::epub_013_mid_paragraph_images_split_flow_and_keep_decorations",
@@ -975,8 +997,9 @@ location = [
     "src/document/epub.rs::percent_escapes_decode_strictly_or_reject",
     "tests/document_io.rs::epub_013_embedded_images_resolve_to_lazy_member_resources",
     "src/layout/mod.rs::epub_013_image_captions_wrap_within_every_width",
+    "tests/render.rs::epub_013_embedded_image_renders_without_extraction_and_keeps_order",
 ]
-last_evidence = ["testreport.md#wire-image-ingestion-into-books"]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
 
 [cases.MD-010]
 status = "Implemented"
@@ -1027,8 +1050,14 @@ last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-008]
 status = "Implemented"
-location = ["src/terminal_image.rs::automatic_selection_requires_positive_evidence_in_locked_order"]
-last_evidence = ["testreport.md#complete-phase-2-development"]
+location = [
+    "src/terminal_image.rs::automatic_selection_requires_positive_evidence_in_locked_order",
+    "src/terminal_image.rs::native_kitty_chunks_are_bounded_identified_and_protocol_exclusive",
+    "src/terminal_image.rs::native_sixel_has_one_balanced_dcs_and_correct_top_pixel_bit",
+    "src/terminal_image.rs::native_iterm2_uses_bounded_multipart_framing_and_generated_name",
+    "tests/render.rs::img_008_native_backends_collect_one_protocol_without_escape_cells",
+]
+last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
 
 [cases.IMG-009]
 status = "Implemented"
@@ -1161,6 +1190,12 @@ last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-017]
 location = ["src/terminal_image.rs::reports_parse_without_promoting_malformed_values"]
+
+[cases.IMG-018]
+location = [
+    "src/terminal_image.rs::native_lifecycle_replaces_deletes_and_suppresses_unchanged_frames",
+    "src/terminal_image.rs::legacy_lifecycle_requires_redraw_then_clears_on_shutdown",
+]
 
 [cases.TERM-009]
 status = "Implemented"

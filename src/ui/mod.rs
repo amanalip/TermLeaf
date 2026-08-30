@@ -16,6 +16,7 @@ use crate::{
     app::{App, MINIMUM_HEIGHT, MINIMUM_WIDTH, View, bindings},
     clock, reader as reading,
     reader::Mode,
+    terminal_image::NativeFramePlan,
 };
 
 pub mod reader;
@@ -27,6 +28,11 @@ use theme::{Role, Theme, ThemeName};
 
 /// Renders one frame of the application.
 pub fn render(frame: &mut Frame<'_>, app: &mut App) {
+    render_with_native(frame, app, &mut NativeFramePlan::default());
+}
+
+/// Renders one frame and collects native image placements as a side channel.
+pub fn render_with_native(frame: &mut Frame<'_>, app: &mut App, native: &mut NativeFramePlan) {
     let area = frame.area();
 
     if area.width < MINIMUM_WIDTH || area.height < MINIMUM_HEIGHT {
@@ -40,10 +46,10 @@ pub fn render(frame: &mut Frame<'_>, app: &mut App) {
         .areas(area);
 
     match app.view() {
-        View::Reader { .. } => reader::render(frame, body, app),
+        View::Reader { .. } => reader::render(frame, body, app, native),
         View::RecentBooks => render_recent_books(frame, body),
         View::ThemeSelection { .. } => render_theme_selection(frame, body, app),
-        View::TableOfContents { .. } => render_toc(frame, body, app),
+        View::TableOfContents { .. } => render_toc(frame, body, app, native),
         View::Help { .. } => render_help(frame, body),
         view => render_future_view(frame, body, view),
     }
@@ -51,14 +57,14 @@ pub fn render(frame: &mut Frame<'_>, app: &mut App) {
     render_status(frame, status, app);
 }
 
-fn render_toc(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+fn render_toc(frame: &mut Frame<'_>, area: Rect, app: &mut App, native: &mut NativeFramePlan) {
     if area.width >= 120 {
         let [passage, panel] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Min(70), Constraint::Length(38)])
             .spacing(2)
             .areas(area);
-        reader::render(frame, passage, app);
+        reader::render(frame, passage, app, native);
         render_toc_selection(frame, panel, app);
     } else {
         render_toc_selection(frame, area, app);

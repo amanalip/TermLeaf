@@ -16,7 +16,7 @@ use crate::{
     app::{App, ImageOverlay, ImageVisual, MINIMUM_WIDTH},
     document::InlineKind,
     layout::{viewport::RowCell, visible_text},
-    terminal_image::{CellColor, Rgb},
+    terminal_image::{CellColor, NativeFramePlan, NativePlacement, Rgb},
     ui::status::{WidthClass, classify},
     ui::theme::{Role, Theme, ThemeName},
 };
@@ -63,7 +63,7 @@ const fn chrome(class: WidthClass, paper: bool) -> Chrome {
 }
 
 /// Renders the reading viewport into `area` and reports the content size.
-pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App, native: &mut NativeFramePlan) {
     let theme = active_theme(app);
     let paper = theme.name() == ThemeName::Paper;
     let chrome = chrome(classify(area.width), paper);
@@ -123,7 +123,7 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let paragraph = Paragraph::new(lines).style(theme.style(Role::Surface));
     frame.render_widget(paragraph, content);
     for overlay in overlays {
-        render_image_overlay(frame, content, overlay, &theme);
+        render_image_overlay(frame, content, overlay, &theme, native);
     }
 }
 
@@ -132,6 +132,7 @@ fn render_image_overlay(
     content: Rect,
     overlay: ImageOverlay,
     theme: &Theme,
+    native: &mut NativeFramePlan,
 ) {
     let y = content.y.saturating_add(overlay.row);
     if y >= content.bottom() {
@@ -146,7 +147,7 @@ fn render_image_overlay(
             Paragraph::new(visible_text(&caption, 0)).style(theme.style(Role::Warning)),
             Rect::new(content.x, y, content.width, 1),
         ),
-        ImageVisual::Ready(image) => {
+        ImageVisual::ReadyCells(image) => {
             for (row, cells) in image.cells().chunks(usize::from(image.width())).enumerate() {
                 let Ok(row) = u16::try_from(row) else {
                     break;
@@ -170,6 +171,17 @@ fn render_image_overlay(
                 }
             }
         }
+        ImageVisual::Native(image)
+            if y.saturating_add(image.rows()) <= content.bottom()
+                && content.x.saturating_add(image.columns()) <= content.right() =>
+        {
+            native.push(NativePlacement {
+                column: content.x,
+                row: y,
+                image,
+            });
+        }
+        ImageVisual::Native(_) => {}
     }
 }
 
@@ -268,6 +280,7 @@ mod tests {
         let mut terminal = Terminal::new(backend).expect("terminal");
         terminal
             .draw(|frame| {
+                let mut native = NativeFramePlan::default();
                 render_image_overlay(
                     frame,
                     Rect::new(0, 0, 60, 1),
@@ -278,6 +291,7 @@ mod tests {
                         ),
                     },
                     &Theme::named(ThemeName::Dark),
+                    &mut native,
                 );
             })
             .expect("draw");

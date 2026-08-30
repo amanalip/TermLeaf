@@ -1,6 +1,8 @@
-//! Pure terminal-image backend selection and cell fallback rendering.
+//! Terminal-image backend selection, bounded transports, and cell rendering.
 
-use std::{fmt::Write, mem::size_of};
+use std::{collections::BTreeMap, fmt::Write as _, io, io::Write, mem::size_of, sync::Arc};
+
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 /// Inclusive combined budget for a half-block frame and its ANSI output.
 pub const HALF_BLOCK_ALLOCATION_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
@@ -13,6 +15,13 @@ const BYTES_RESERVED_PER_CELL: u64 = size_of::<HalfBlockCell>() as u64 + MAX_ANS
 /// image allocation budget.
 pub const MAX_HALF_BLOCK_CELLS: u64 = HALF_BLOCK_ALLOCATION_LIMIT_BYTES / BYTES_RESERVED_PER_CELL;
 
+/// Maximum retained wire bytes for one fitted native image.
+pub const NATIVE_OUTPUT_LIMIT_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum independently writable pieces retained for one native image.
+pub const NATIVE_CHUNK_LIMIT: usize = 4096;
+const KITTY_PAYLOAD_BYTES: usize = 4096;
+const STREAM_CHUNK_BYTES: usize = 64 * 1024;
+
 /// A terminal image output path, in automatic preference order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ImageBackend {
@@ -22,6 +31,123 @@ pub enum ImageBackend {
     TrueColorCells,
     Ansi256Cells,
     Caption,
+}
+
+impl ImageBackend {
+    #[must_use]
+    pub const fn is_native(self) -> bool {
+        matches!(self, Self::Kitty | Self::Sixel | Self::Iterm2)
+    }
+}
+
+/// Stable session-local identity for one logical image.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct ImageId(u32);
+
+impl ImageId {
+    /// Creates a nonzero protocol-safe identifier.
+    #[must_use]
+    pub const fn new(value: u32) -> Option<Self> {
+        if value == 0 { None } else { Some(Self(value)) }
+    }
+
+    #[must_use]
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+/// Bounded, pre-encoded image output produced away from the UI thread.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeImage {
+    id: ImageId,
+    backend: ImageBackend,
+    columns: u16,
+    rows: u16,
+    chunks: Vec<Vec<u8>>,
+}
+
+impl NativeImage {
+    #[must_use]
+    pub const fn id(&self) -> ImageId {
+        self.id
+    }
+
+    #[must_use]
+    pub const fn backend(&self) -> ImageBackend {
+        self.backend
+    }
+
+    #[must_use]
+    pub const fn columns(&self) -> u16 {
+        self.columns
+    }
+
+    #[must_use]
+    pub const fn rows(&self) -> u16 {
+        self.rows
+    }
+
+    #[must_use]
+    pub fn chunks(&self) -> &[Vec<u8>] {
+        &self.chunks
+    }
+
+    #[must_use]
+    pub fn wire_bytes(&self) -> usize {
+        self.chunks.iter().map(Vec::len).sum()
+    }
+
+    #[must_use]
+    pub fn allocation_bytes(&self) -> usize {
+        self.chunks.iter().map(Vec::capacity).fold(
+            size_of::<Self>()
+                .saturating_add(self.chunks.capacity().saturating_mul(size_of::<Vec<u8>>())),
+            usize::saturating_add,
+        )
+    }
+}
+
+/// One native image at absolute zero-based terminal cell coordinates.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativePlacement {
+    pub column: u16,
+    pub row: u16,
+    pub image: Arc<NativeImage>,
+}
+
+/// Native side-channel collected while Ratatui paints ordinary cells.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct NativeFramePlan {
+    placements: Vec<NativePlacement>,
+}
+
+impl NativeFramePlan {
+    pub fn push(&mut self, placement: NativePlacement) {
+        self.placements.push(placement);
+    }
+
+    #[must_use]
+    pub fn placements(&self) -> &[NativePlacement] {
+        &self.placements
+    }
+}
+
+/// Native fitting or serialization failed before any terminal bytes were sent.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum NativeEncodeError {
+    #[error("native image dimensions and terminal bounds must be non-zero")]
+    EmptyGeometry,
+    #[error("native image source buffer is incomplete")]
+    InvalidBuffer,
+    #[error("native image output exceeds the {limit} byte limit")]
+    OutputTooLarge { limit: usize },
+    #[error("native image output exceeds the {limit} chunk limit")]
+    TooManyChunks { limit: usize },
+    #[error("native PNG encoding failed")]
+    Png,
+    #[error("the selected image backend is not native")]
+    NotNative,
 }
 
 /// Evidence reported for one terminal capability.
@@ -117,6 +243,439 @@ const fn evidence_for(
         ImageBackend::Ansi256Cells => capabilities.ansi256,
         ImageBackend::Caption => CapabilityEvidence::Positive,
     }
+}
+
+/// Fits and encodes one decoded image for an already selected native backend.
+/// Capability discovery is deliberately external to this pure operation.
+///
+/// # Errors
+///
+/// Returns a typed geometry, buffer, output-budget, chunk-budget, or PNG error.
+pub fn encode_native_image(
+    backend: ImageBackend,
+    id: ImageId,
+    image: &crate::document::DecodedImage,
+    max_columns: u16,
+    max_rows: u16,
+    background: Rgb,
+) -> Result<NativeImage, NativeEncodeError> {
+    if !backend.is_native() {
+        return Err(NativeEncodeError::NotNative);
+    }
+    let (width, height, rgba) = fitted_rgba(image, max_columns, max_rows, background)?;
+    let columns = u16::try_from(width).map_err(|_| NativeEncodeError::OutputTooLarge {
+        limit: NATIVE_OUTPUT_LIMIT_BYTES,
+    })?;
+    let rows =
+        u16::try_from(height.div_ceil(2)).map_err(|_| NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        })?;
+    let chunks = match backend {
+        ImageBackend::Kitty => kitty_chunks(id, width, height, columns, rows, &rgba)?,
+        ImageBackend::Sixel => sixel_chunks(width, height, &rgba)?,
+        ImageBackend::Iterm2 => iterm2_chunks(id, columns, rows, width, height, &rgba)?,
+        _ => return Err(NativeEncodeError::NotNative),
+    };
+    Ok(NativeImage {
+        id,
+        backend,
+        columns,
+        rows,
+        chunks,
+    })
+}
+
+fn fitted_rgba(
+    image: &crate::document::DecodedImage,
+    max_columns: u16,
+    max_rows: u16,
+    background: Rgb,
+) -> Result<(u32, u32, Vec<u8>), NativeEncodeError> {
+    if image.width() == 0 || image.height() == 0 || max_columns == 0 || max_rows == 0 {
+        return Err(NativeEncodeError::EmptyGeometry);
+    }
+    let expected = u64::from(image.width())
+        .checked_mul(u64::from(image.height()))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .and_then(|bytes| usize::try_from(bytes).ok())
+        .ok_or(NativeEncodeError::InvalidBuffer)?;
+    if image.rgba().len() != expected {
+        return Err(NativeEncodeError::InvalidBuffer);
+    }
+    let (width, height) = fit_dimensions(image.width(), image.height(), max_columns, max_rows);
+    let output_len = u64::from(width)
+        .checked_mul(u64::from(height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .and_then(|bytes| usize::try_from(bytes).ok())
+        .ok_or(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        })?;
+    if output_len > NATIVE_OUTPUT_LIMIT_BYTES {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    let mut output = Vec::with_capacity(output_len);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = sample(
+                image.rgba(),
+                image.width(),
+                image.height(),
+                x,
+                y,
+                width,
+                height,
+                background,
+            );
+            output.extend_from_slice(&[pixel.0, pixel.1, pixel.2, 255]);
+        }
+    }
+    Ok((width, height, output))
+}
+
+fn encoded_len(input: usize) -> Result<usize, NativeEncodeError> {
+    input
+        .checked_add(2)
+        .map(|value| value / 3)
+        .and_then(|groups| groups.checked_mul(4))
+        .ok_or(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        })
+}
+
+fn kitty_chunks(
+    id: ImageId,
+    width: u32,
+    height: u32,
+    columns: u16,
+    rows: u16,
+    rgba: &[u8],
+) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
+    let base64_len = encoded_len(rgba.len())?;
+    if base64_len > NATIVE_OUTPUT_LIMIT_BYTES {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    let encoded = STANDARD.encode(rgba);
+    let count = encoded.len().div_ceil(KITTY_PAYLOAD_BYTES);
+    if count > NATIVE_CHUNK_LIMIT {
+        return Err(NativeEncodeError::TooManyChunks {
+            limit: NATIVE_CHUNK_LIMIT,
+        });
+    }
+    let mut chunks = Vec::with_capacity(count);
+    for (index, payload) in encoded.as_bytes().chunks(KITTY_PAYLOAD_BYTES).enumerate() {
+        let more = usize::from(index + 1 < count);
+        let prefix = if index == 0 {
+            format!(
+                "\x1b_Ga=T,t=d,f=32,s={width},v={height},i={},p={},c={columns},r={rows},q=2,m={more};",
+                id.get(),
+                id.get()
+            )
+        } else {
+            format!("\x1b_Gm={more};")
+        };
+        let mut chunk = Vec::with_capacity(prefix.len() + payload.len() + 2);
+        chunk.extend_from_slice(prefix.as_bytes());
+        chunk.extend_from_slice(payload);
+        chunk.extend_from_slice(b"\x1b\\");
+        chunks.push(chunk);
+    }
+    check_native_chunks(&chunks)?;
+    Ok(chunks)
+}
+
+fn png_bytes(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, NativeEncodeError> {
+    use image::ImageEncoder as _;
+
+    let mut png = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut png)
+        .write_image(rgba, width, height, image::ExtendedColorType::Rgba8)
+        .map_err(|_| NativeEncodeError::Png)?;
+    if png.len() > NATIVE_OUTPUT_LIMIT_BYTES {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    Ok(png)
+}
+
+fn iterm2_chunks(
+    id: ImageId,
+    columns: u16,
+    rows: u16,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
+    let png = png_bytes(width, height, rgba)?;
+    if encoded_len(png.len())? > NATIVE_OUTPUT_LIMIT_BYTES {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    let encoded = STANDARD.encode(&png);
+    let name = STANDARD.encode(format!("termleaf-{}.png", id.get()));
+    let mut chunks = vec![format!(
+        "\x1b]1337;MultipartFile=inline=1;size={};width={columns};height={rows};preserveAspectRatio=1;name={name}\x07",
+        png.len()
+    )
+    .into_bytes()];
+    for part in encoded.as_bytes().chunks(STREAM_CHUNK_BYTES) {
+        let mut chunk = Vec::with_capacity(part.len() + 23);
+        chunk.extend_from_slice(b"\x1b]1337;FilePart=");
+        chunk.extend_from_slice(part);
+        chunk.push(0x07);
+        chunks.push(chunk);
+    }
+    chunks.push(b"\x1b]1337;FileEnd\x07".to_vec());
+    check_native_chunks(&chunks)?;
+    Ok(chunks)
+}
+
+fn sixel_chunks(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
+    let indices = rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|pixel| nearest_xterm_index(Rgb(pixel[0], pixel[1], pixel[2])))
+        .collect::<Vec<_>>();
+    let mut palette = BTreeMap::new();
+    for index in &indices {
+        let next = u8::try_from(palette.len()).unwrap_or(u8::MAX);
+        palette.entry(*index).or_insert(next);
+    }
+    let mut output = Vec::new();
+    append_native(&mut output, b"\x1bP0;0;0q")?;
+    append_native(&mut output, format!("\"1;1;{width};{height}").as_bytes())?;
+    for (xterm, local) in &palette {
+        let Rgb(red, green, blue) = xterm_rgb(*xterm);
+        append_native(
+            &mut output,
+            format!(
+                "#{local};2;{};{};{}",
+                percent(red),
+                percent(green),
+                percent(blue)
+            )
+            .as_bytes(),
+        )?;
+    }
+    let width_usize = usize::try_from(width).map_err(|_| NativeEncodeError::OutputTooLarge {
+        limit: NATIVE_OUTPUT_LIMIT_BYTES,
+    })?;
+    for band in (0..height).step_by(6) {
+        for (palette_index, local) in &palette {
+            append_native(&mut output, format!("#{local}").as_bytes())?;
+            let mut run_byte = 0_u8;
+            let mut run_len = 0_usize;
+            for column in 0..width {
+                let mut mask = 0_u8;
+                for bit in 0..6_u32 {
+                    let row = band + bit;
+                    if row < height {
+                        let offset = usize::try_from(row)
+                            .unwrap_or(usize::MAX)
+                            .saturating_mul(width_usize)
+                            .saturating_add(usize::try_from(column).unwrap_or(usize::MAX));
+                        if indices.get(offset) == Some(palette_index) {
+                            mask |= 1 << bit;
+                        }
+                    }
+                }
+                let byte = b'?' + mask;
+                if run_len == 0 || byte == run_byte {
+                    run_byte = byte;
+                    run_len += 1;
+                } else {
+                    append_sixel_run(&mut output, run_byte, run_len)?;
+                    run_byte = byte;
+                    run_len = 1;
+                }
+            }
+            append_sixel_run(&mut output, run_byte, run_len)?;
+            append_native(&mut output, b"$")?;
+        }
+        if band + 6 < height {
+            append_native(&mut output, b"-")?;
+        }
+    }
+    append_native(&mut output, b"\x1b\\")?;
+    let chunks = output
+        .chunks(STREAM_CHUNK_BYTES)
+        .map(<[u8]>::to_vec)
+        .collect::<Vec<_>>();
+    check_native_chunks(&chunks)?;
+    Ok(chunks)
+}
+
+fn append_sixel_run(output: &mut Vec<u8>, byte: u8, count: usize) -> Result<(), NativeEncodeError> {
+    if count >= 4 {
+        append_native(output, format!("!{count}").as_bytes())?;
+        append_native(output, &[byte])
+    } else {
+        for _ in 0..count {
+            append_native(output, &[byte])?;
+        }
+        Ok(())
+    }
+}
+
+fn append_native(output: &mut Vec<u8>, bytes: &[u8]) -> Result<(), NativeEncodeError> {
+    if output.len().saturating_add(bytes.len()) > NATIVE_OUTPUT_LIMIT_BYTES {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    output.extend_from_slice(bytes);
+    Ok(())
+}
+
+fn check_native_chunks(chunks: &[Vec<u8>]) -> Result<(), NativeEncodeError> {
+    if chunks.len() > NATIVE_CHUNK_LIMIT {
+        return Err(NativeEncodeError::TooManyChunks {
+            limit: NATIVE_CHUNK_LIMIT,
+        });
+    }
+    if chunks
+        .iter()
+        .map(Vec::len)
+        .fold(0_usize, usize::saturating_add)
+        > NATIVE_OUTPUT_LIMIT_BYTES
+    {
+        return Err(NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        });
+    }
+    Ok(())
+}
+
+const fn percent(value: u8) -> u16 {
+    (value as u16 * 100 + 127) / 255
+}
+
+fn xterm_rgb(index: u8) -> Rgb {
+    const LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+    match index {
+        16..=231 => {
+            let value = index - 16;
+            Rgb(
+                LEVELS[usize::from(value / 36)],
+                LEVELS[usize::from(value % 36 / 6)],
+                LEVELS[usize::from(value % 6)],
+            )
+        }
+        232..=255 => {
+            let level = 8 + (index - 232) * 10;
+            Rgb(level, level, level)
+        }
+        _ => Rgb(0, 0, 0),
+    }
+}
+
+/// Tracks native objects already emitted in the alternate screen.
+#[derive(Debug, Default)]
+pub struct NativeGraphicsSession {
+    current: NativeFramePlan,
+}
+
+impl NativeGraphicsSession {
+    /// Legacy protocols need a clear and complete Ratatui redraw when an
+    /// existing frame changes because they have no object deletion command.
+    #[must_use]
+    pub fn requires_full_redraw(&self, next: &NativeFramePlan) -> bool {
+        self.current != *next
+            && !self.current.placements.is_empty()
+            && self
+                .current
+                .placements
+                .iter()
+                .chain(next.placements.iter())
+                .any(|placement| placement.image.backend() != ImageBackend::Kitty)
+    }
+
+    /// Emits only the native changes required after Ratatui flushed its frame.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first write or flush error from the terminal sink.
+    pub fn synchronize<W: Write>(
+        &mut self,
+        output: &mut W,
+        next: NativeFramePlan,
+    ) -> io::Result<()> {
+        if self.current == next {
+            return Ok(());
+        }
+        let previous = self.current.clone();
+        let mut cleanup = previous.clone();
+        for placement in &next.placements {
+            if !cleanup.placements.contains(placement) {
+                cleanup.placements.push(placement.clone());
+            }
+        }
+        self.current = cleanup;
+        let next_by_id = next
+            .placements
+            .iter()
+            .map(|placement| (placement.image.id(), placement))
+            .collect::<BTreeMap<_, _>>();
+        for placement in &previous.placements {
+            let replacement = next_by_id.get(&placement.image.id()).copied();
+            if placement.image.backend() == ImageBackend::Kitty && replacement != Some(placement) {
+                write_kitty_delete(output, placement.image.id())?;
+            }
+        }
+        for placement in &next.placements {
+            if !previous.placements.contains(placement) {
+                write_placement(output, placement)?;
+            }
+        }
+        output.flush()?;
+        self.current = next;
+        Ok(())
+    }
+
+    /// Removes every TermLeaf-owned image before leaving the alternate screen.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first write or flush error from the terminal sink.
+    pub fn cleanup<W: Write>(&mut self, output: &mut W) -> io::Result<()> {
+        let mut legacy = false;
+        for placement in &self.current.placements {
+            if placement.image.backend() == ImageBackend::Kitty {
+                write_kitty_delete(output, placement.image.id())?;
+            } else {
+                legacy = true;
+            }
+        }
+        if legacy {
+            output.write_all(b"\x1b[2J\x1b[H")?;
+        }
+        output.flush()?;
+        self.current = NativeFramePlan::default();
+        Ok(())
+    }
+}
+
+fn write_placement<W: Write>(output: &mut W, placement: &NativePlacement) -> io::Result<()> {
+    write!(
+        output,
+        "\x1b7\x1b[{};{}H",
+        placement.row.saturating_add(1),
+        placement.column.saturating_add(1)
+    )?;
+    for chunk in placement.image.chunks() {
+        output.write_all(chunk)?;
+    }
+    output.write_all(b"\x1b8")
+}
+
+fn write_kitty_delete<W: Write>(output: &mut W, id: ImageId) -> io::Result<()> {
+    write!(output, "\x1b_Ga=d,d=I,i={},q=2\x1b\\", id.get())
 }
 
 /// RGB color used by cell rendering and alpha compositing.
@@ -661,6 +1220,164 @@ mod tests {
         assert_eq!(
             CapabilityEvidence::from_report(None),
             CapabilityEvidence::Absent
+        );
+    }
+
+    #[test]
+    fn native_kitty_chunks_are_bounded_identified_and_protocol_exclusive() {
+        let id = ImageId::new(7).expect("nonzero");
+        let rgba = vec![255; 4_000];
+        let chunks = kitty_chunks(id, 1_000, 1, 1_000, 1, &rgba).expect("bounded");
+
+        assert_eq!(chunks.len(), 2, "payload crosses one 4096-byte boundary");
+        assert!(chunks[0].starts_with(b"\x1b_Ga=T,t=d,f=32,s=1000,v=1,i=7,p=7"));
+        assert!(chunks[0].windows(4).any(|part| part == b"m=1;"));
+        assert!(chunks[1].starts_with(b"\x1b_Gm=0;"));
+        assert!(chunks.iter().all(|chunk| chunk.ends_with(b"\x1b\\")));
+        let wire = chunks.concat();
+        assert!(!wire.windows(7).any(|part| part == b"1337;Fi"));
+        assert!(!wire.starts_with(b"\x1bP"));
+    }
+
+    #[test]
+    fn native_sixel_has_one_balanced_dcs_and_correct_top_pixel_bit() {
+        let chunks = sixel_chunks(1, 1, &[255, 0, 0, 255]).expect("sixel");
+        let wire = chunks.concat();
+
+        assert!(wire.starts_with(b"\x1bP0;0;0q\"1;1;1;1"));
+        assert!(wire.ends_with(b"\x1b\\"));
+        assert!(wire.windows(2).any(|part| part == b"#0"));
+        assert!(wire.contains(&b'@'), "mask bit zero paints the top pixel");
+        assert!(!wire.windows(3).any(|part| part == b"\x1b_G"));
+        assert!(!wire.windows(6).any(|part| part == b"1337;F"));
+    }
+
+    #[test]
+    fn native_iterm2_uses_bounded_multipart_framing_and_generated_name() {
+        let chunks =
+            iterm2_chunks(ImageId::new(9).expect("id"), 2, 1, 2, 2, &[255; 16]).expect("multipart");
+
+        assert!(chunks[0].starts_with(b"\x1b]1337;MultipartFile=inline=1;"));
+        assert!(chunks[0].windows(5).any(|part| part == b"name="));
+        assert!(chunks[1].starts_with(b"\x1b]1337;FilePart="));
+        assert_eq!(chunks.last().expect("end"), b"\x1b]1337;FileEnd\x07");
+        assert!(
+            chunks
+                .iter()
+                .all(|chunk| chunk.len() <= STREAM_CHUNK_BYTES + 64)
+        );
+        let wire = chunks.concat();
+        assert!(!wire.windows(3).any(|part| part == b"\x1b_G"));
+        assert!(!wire.starts_with(b"\x1bP"));
+    }
+
+    fn native_for_test(id: u32, backend: ImageBackend, marker: u8) -> Arc<NativeImage> {
+        Arc::new(NativeImage {
+            id: ImageId::new(id).expect("id"),
+            backend,
+            columns: 1,
+            rows: 1,
+            chunks: vec![vec![marker]],
+        })
+    }
+
+    #[test]
+    fn native_lifecycle_replaces_deletes_and_suppresses_unchanged_frames() {
+        let first = NativePlacement {
+            column: 3,
+            row: 4,
+            image: native_for_test(5, ImageBackend::Kitty, b'A'),
+        };
+        let mut session = NativeGraphicsSession::default();
+        let mut output = Vec::new();
+        session
+            .synchronize(
+                &mut output,
+                NativeFramePlan {
+                    placements: vec![first.clone()],
+                },
+            )
+            .expect("first frame");
+        assert!(output.windows(5).any(|part| part == b"\x1b[5;4"));
+        assert!(output.contains(&b'A'));
+
+        output.clear();
+        session
+            .synchronize(
+                &mut output,
+                NativeFramePlan {
+                    placements: vec![first],
+                },
+            )
+            .expect("unchanged");
+        assert!(output.is_empty(), "10 Hz redraws do not retransmit images");
+
+        let replacement = NativePlacement {
+            column: 6,
+            row: 7,
+            image: native_for_test(5, ImageBackend::Kitty, b'B'),
+        };
+        session
+            .synchronize(
+                &mut output,
+                NativeFramePlan {
+                    placements: vec![replacement],
+                },
+            )
+            .expect("replacement");
+        let delete = output
+            .windows(4)
+            .position(|part| part == b"a=d,")
+            .expect("delete command");
+        let replacement = output
+            .iter()
+            .position(|byte| *byte == b'B')
+            .expect("new image");
+        assert!(delete < replacement, "delete precedes ID reuse");
+
+        output.clear();
+        session.cleanup(&mut output).expect("cleanup");
+        assert!(output.windows(4).any(|part| part == b"a=d,"));
+    }
+
+    #[test]
+    fn legacy_lifecycle_requires_redraw_then_clears_on_shutdown() {
+        let plan = NativeFramePlan {
+            placements: vec![NativePlacement {
+                column: 0,
+                row: 0,
+                image: native_for_test(1, ImageBackend::Sixel, b'S'),
+            }],
+        };
+        let mut session = NativeGraphicsSession::default();
+        assert!(
+            !session.requires_full_redraw(&plan),
+            "first frame has no stale pixels"
+        );
+        session.synchronize(&mut Vec::new(), plan).expect("first");
+        assert!(session.requires_full_redraw(&NativeFramePlan::default()));
+
+        let mut output = Vec::new();
+        session.cleanup(&mut output).expect("clear");
+        assert_eq!(output, b"\x1b[2J\x1b[H");
+    }
+
+    #[test]
+    fn native_output_and_chunk_boundaries_reject_one_over() {
+        let mut exact = vec![0; NATIVE_OUTPUT_LIMIT_BYTES];
+        assert_eq!(append_native(&mut exact, &[]), Ok(()));
+        assert_eq!(
+            append_native(&mut exact, &[0]),
+            Err(NativeEncodeError::OutputTooLarge {
+                limit: NATIVE_OUTPUT_LIMIT_BYTES
+            })
+        );
+        let too_many = vec![Vec::new(); NATIVE_CHUNK_LIMIT + 1];
+        assert_eq!(
+            check_native_chunks(&too_many),
+            Err(NativeEncodeError::TooManyChunks {
+                limit: NATIVE_CHUNK_LIMIT
+            })
         );
     }
 }

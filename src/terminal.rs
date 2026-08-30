@@ -15,7 +15,9 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::{
     app::{Action, App, KeyMapper},
-    interrupt, ui,
+    interrupt,
+    terminal_image::{NativeFramePlan, NativeGraphicsSession},
+    ui,
 };
 
 trait TerminalControl {
@@ -183,21 +185,32 @@ impl WorkerTeardown for App {
     }
 }
 
-fn ordered_teardown<W, T, F>(workers: &mut W, terminal: T, restore: F) -> Result<()>
+fn ordered_teardown<W, T, C, F>(
+    workers: &mut W,
+    mut terminal: T,
+    cleanup_graphics: C,
+    restore: F,
+) -> Result<()>
 where
     W: WorkerTeardown,
+    C: FnOnce(&mut T) -> Result<()>,
     F: FnOnce() -> Result<()>,
 {
     workers.request_shutdown();
+    let graphics_result = cleanup_graphics(&mut terminal);
     drop(terminal);
     let restore_result = restore();
     workers.join();
-    restore_result
+    graphics_result.and(restore_result)
 }
 
 fn run_with_loop<F>(app: &mut App, loop_operation: F) -> Result<()>
 where
-    F: FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>, &mut App) -> Result<()>,
+    F: FnOnce(
+        &mut Terminal<CrosstermBackend<io::Stdout>>,
+        &mut App,
+        &mut NativeGraphicsSession,
+    ) -> Result<()>,
 {
     let mut session =
         TerminalSession::start(CrosstermControl).context("could not initialize the terminal")?;
@@ -206,29 +219,49 @@ where
         match Terminal::new(backend).context("could not create the terminal renderer") {
             Ok(terminal) => terminal,
             Err(error) => {
-                let restore_result = ordered_teardown(app, (), || {
-                    session
-                        .restore()
-                        .context("could not fully restore the terminal")
-                });
+                let restore_result = ordered_teardown(
+                    app,
+                    (),
+                    |()| Ok(()),
+                    || {
+                        session
+                            .restore()
+                            .context("could not fully restore the terminal")
+                    },
+                );
                 return Err::<(), _>(error).and(restore_result);
             }
         };
 
-    let run_result = catch_unwind(AssertUnwindSafe(|| loop_operation(&mut terminal, app)));
-    let restore_result = ordered_teardown(app, terminal, || {
-        session
-            .restore()
-            .context("could not fully restore the terminal")
-    });
-
+    let mut graphics = NativeGraphicsSession::default();
+    let run_result = catch_unwind(AssertUnwindSafe(|| {
+        loop_operation(&mut terminal, app, &mut graphics)
+    }));
+    let cleanup_result = ordered_teardown(
+        app,
+        terminal,
+        |_| {
+            graphics
+                .cleanup(&mut stdout())
+                .context("could not clean up terminal images")
+        },
+        || {
+            session
+                .restore()
+                .context("could not fully restore the terminal")
+        },
+    );
     match run_result {
-        Ok(result) => result.and(restore_result),
+        Ok(result) => result.and(cleanup_result),
         Err(payload) => resume_unwind(payload),
     }
 }
 
-fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
+fn run_loop(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut App,
+    graphics: &mut NativeGraphicsSession,
+) -> Result<()> {
     // One mapper owns multikey prefix state for the whole session; a fresh
     // mapper per event would make sequences such as `gg` impossible.
     let mut mapper = KeyMapper::default();
@@ -238,7 +271,14 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
             app.update(crate::app::Action::Quit);
             continue;
         }
-        terminal.draw(|frame| ui::render(frame, app))?;
+        let mut native = NativeFramePlan::default();
+        terminal.draw(|frame| ui::render_with_native(frame, app, &mut native))?;
+        if graphics.requires_full_redraw(&native) {
+            terminal.clear()?;
+            native = NativeFramePlan::default();
+            terminal.draw(|frame| ui::render_with_native(frame, app, &mut native))?;
+        }
+        graphics.synchronize(&mut stdout(), native)?;
         if event::poll(Duration::from_millis(100))?
             && let Some(action) = action_from_event(&mut mapper, &event::read()?)
         {
@@ -355,14 +395,56 @@ mod tests {
         let calls = Rc::new(RefCell::new(Vec::new()));
         let mut workers = Workers(Rc::clone(&calls));
         let terminal = TerminalDrop(Rc::clone(&calls));
-        ordered_teardown(&mut workers, terminal, || {
-            calls.borrow_mut().push("restore");
-            Ok(())
-        })?;
+        ordered_teardown(
+            &mut workers,
+            terminal,
+            |_| {
+                calls.borrow_mut().push("cleanup_graphics");
+                Ok(())
+            },
+            || {
+                calls.borrow_mut().push("restore");
+                Ok(())
+            },
+        )?;
 
         assert_eq!(
             *calls.borrow(),
-            ["cancel", "drop_terminal", "restore", "join"]
+            [
+                "cancel",
+                "cleanup_graphics",
+                "drop_terminal",
+                "restore",
+                "join"
+            ]
+        );
+
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let mut workers = Workers(Rc::clone(&calls));
+        let terminal = TerminalDrop(Rc::clone(&calls));
+        let result = ordered_teardown(
+            &mut workers,
+            terminal,
+            |_| {
+                calls.borrow_mut().push("cleanup_graphics");
+                Err(anyhow::anyhow!("graphics cleanup failed"))
+            },
+            || {
+                calls.borrow_mut().push("restore");
+                Ok(())
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            *calls.borrow(),
+            [
+                "cancel",
+                "cleanup_graphics",
+                "drop_terminal",
+                "restore",
+                "join"
+            ],
+            "a graphics failure cannot skip restoration or worker joins"
         );
         Ok(())
     }
@@ -699,7 +781,7 @@ mod tests {
         let mut app = App::open(crate::app::StartupOptions::default())?;
         let status = crate::process::run_and_report(
             || {
-                run_with_loop(&mut app, |terminal, app| {
+                run_with_loop(&mut app, |terminal, app, _graphics| {
                     terminal.draw(|frame| ui::render(frame, app))?;
                     assert!(mode != "panic", "controlled active panic");
                     bail!("controlled active error")

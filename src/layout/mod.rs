@@ -300,7 +300,8 @@ fn append_image_rows(
     let first_row = rows.len();
     let text = document.block_text(section, block).unwrap_or_default();
     wrap_paragraph(document, text, start, section, block, width, rows);
-    while rows.len().saturating_sub(first_row) < IMAGE_PLACEHOLDER_ROWS {
+    let caption_rows = rows.len().saturating_sub(first_row);
+    while rows.len().saturating_sub(first_row + caption_rows) < IMAGE_PLACEHOLDER_ROWS {
         rows.push(VisualRow {
             section,
             block,
@@ -590,7 +591,7 @@ fn code_block_rows(
 ) {
     let text = document.block_text(section, block).unwrap_or_default();
     let mut consumed = 0usize;
-    for line in text.split('\n') {
+    for line in text.split_terminator('\n') {
         let line_base = range.start + consumed;
         consumed += line.len() + 1;
         emit_verbatim_line(section, block, line_base, line, width, rows);
@@ -606,6 +607,11 @@ fn emit_verbatim_line(
     rows: &mut Vec<VisualRow>,
 ) {
     if line.is_empty() {
+        rows.push(VisualRow {
+            section,
+            block,
+            ..VisualRow::default()
+        });
         return;
     }
     let mut start = 0usize;

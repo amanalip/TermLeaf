@@ -14,6 +14,7 @@ use ratatui::{
     style::{Color, Modifier},
 };
 use termleaf::app::{Action, App, StartupOptions, View};
+use termleaf::terminal_image::{ImageBackend, NativeFramePlan};
 use termleaf::ui::theme::ColorMode;
 use termleaf::ui::{status::MESSAGE_LIFETIME, theme::ThemeName};
 
@@ -42,6 +43,14 @@ fn draw(app: &mut App, width: u16, height: u16) -> Result<Buffer> {
     Ok(terminal.backend().buffer().clone())
 }
 
+fn draw_with_native(app: &mut App, width: u16, height: u16) -> Result<(Buffer, NativeFramePlan)> {
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend)?;
+    let mut native = NativeFramePlan::default();
+    terminal.draw(|frame| termleaf::ui::render_with_native(frame, app, &mut native))?;
+    Ok((terminal.backend().buffer().clone(), native))
+}
+
 fn markdown_image_app(bytes: &[u8], alt: &str) -> Result<(tempfile::TempDir, App)> {
     let directory = tempfile::tempdir()?;
     let book = directory.path().join("illustrated.md");
@@ -57,20 +66,88 @@ fn markdown_image_app(bytes: &[u8], alt: &str) -> Result<(tempfile::TempDir, App
     Ok((directory, app))
 }
 
+fn markdown_app(source: &str) -> Result<(tempfile::TempDir, App)> {
+    let directory = tempfile::tempdir()?;
+    let path = directory.path().join("structured.md");
+    std::fs::write(&path, source)?;
+    let app = App::open(StartupOptions {
+        book: Some(path),
+        ..StartupOptions::default()
+    })?;
+    Ok((directory, app))
+}
+
+fn red_png() -> Result<Vec<u8>> {
+    let source = image::RgbaImage::from_pixel(2, 2, image::Rgba([220, 10, 20, 255]));
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(source).write_to(&mut cursor, image::ImageFormat::Png)?;
+    Ok(cursor.into_inner())
+}
+
+fn epub_app(chapter: &str, png: &[u8]) -> Result<(tempfile::NamedTempFile, App)> {
+    const CONTAINER: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>"#;
+    const OPF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Semantic Render Fixture</dc:title><dc:language>en</dc:language>
+    <dc:identifier id="bookid">urn:termleaf:semantic-render</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="c1" href="text/c1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="img1" href="images/red.png" media-type="image/png"/>
+  </manifest>
+  <spine><itemref idref="c1"/></spine>
+</package>"#;
+
+    let file = tempfile::Builder::new()
+        .prefix("semantic-render")
+        .suffix(".epub")
+        .tempfile()?;
+    let mut writer = zip::ZipWriter::new(&file);
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    for (path, body) in [
+        ("mimetype", b"application/epub+zip".as_slice()),
+        ("META-INF/container.xml", CONTAINER.as_bytes()),
+        ("OEBPS/content.opf", OPF.as_bytes()),
+        ("OEBPS/text/c1.xhtml", chapter.as_bytes()),
+        ("OEBPS/images/red.png", png),
+    ] {
+        writer.start_file(path, options)?;
+        writer.write_all(body)?;
+    }
+    writer.finish()?;
+    file.as_file().sync_data().ok();
+    let app = App::open(StartupOptions {
+        book: Some(file.path().to_path_buf()),
+        ..StartupOptions::default()
+    })?;
+    Ok((file, app))
+}
+
 fn draw_until(
     app: &mut App,
     width: u16,
     height: u16,
     predicate: impl Fn(&Buffer) -> bool,
 ) -> Result<Buffer> {
+    let mut last = String::new();
     for _ in 0..100 {
         let rendered = draw(app, width, height)?;
         if predicate(&rendered) {
             return Ok(rendered);
         }
+        last = (0..height)
+            .map(|y| row_text(&rendered, width, y).trim_end().to_owned())
+            .filter(|row| !row.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(" | ");
         std::thread::sleep(Duration::from_millis(5));
     }
-    anyhow::bail!("image worker did not reach the expected render state")
+    anyhow::bail!("image worker did not reach the expected render state: {last}")
 }
 
 fn contents(buffer: &Buffer) -> String {
@@ -83,6 +160,10 @@ fn contents(buffer: &Buffer) -> String {
 
 fn row_text(buffer: &Buffer, width: u16, y: u16) -> String {
     (0..width).map(|x| buffer[(x, y)].symbol()).collect()
+}
+
+fn row_containing(buffer: &Buffer, needle: &str) -> Option<u16> {
+    (0..buffer.area.height).find(|y| row_text(buffer, buffer.area.width, *y).contains(needle))
 }
 
 fn is_clock_token(token: &str) -> bool {
@@ -279,6 +360,78 @@ fn img_009_011_014_production_half_blocks_render_and_preserve_source() -> Result
 }
 
 #[test]
+fn img_008_native_backends_collect_one_protocol_without_escape_cells() -> Result<()> {
+    let png = red_png()?;
+    for backend in [
+        ImageBackend::Kitty,
+        ImageBackend::Sixel,
+        ImageBackend::Iterm2,
+    ] {
+        let (_directory, mut app) = markdown_image_app(&png, "native plate")?;
+        app.set_image_backend(Some(backend));
+        let mut result = None;
+        for _ in 0..100 {
+            let rendered = draw_with_native(&mut app, 80, 30)?;
+            if !rendered.1.placements().is_empty() {
+                result = Some(rendered);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let (buffer, plan) = result.context("native worker completes")?;
+        assert_eq!(plan.placements().len(), 1);
+        let placement = &plan.placements()[0];
+        assert_eq!(placement.image.backend(), backend);
+        assert!(placement.image.wire_bytes() > 0);
+        let stable_id = placement.image.id();
+        let caption = row_containing(&buffer, "[image: native plate]").context("caption")?;
+        assert!(caption < placement.row);
+        assert!(row_containing(&buffer, "after image").context("following text")? > placement.row);
+        assert!(
+            buffer
+                .content
+                .iter()
+                .all(|cell| !cell.symbol().chars().any(char::is_control)),
+            "{backend:?}: native bytes never enter Ratatui cells"
+        );
+        if backend == ImageBackend::Kitty {
+            let mut resized = None;
+            for _ in 0..100 {
+                let candidate = draw_with_native(&mut app, 30, 30)?;
+                if !candidate.1.placements().is_empty() {
+                    resized = Some(candidate.1);
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(
+                resized.context("resized native worker")?.placements()[0]
+                    .image
+                    .id(),
+                stable_id,
+                "resize replaces the payload under the same logical ID"
+            );
+            app.update(Action::ShowHelp);
+            assert!(
+                draw_with_native(&mut app, 30, 30)?
+                    .1
+                    .placements()
+                    .is_empty()
+            );
+            app.update(Action::Back);
+            assert_eq!(
+                draw_with_native(&mut app, 30, 30)?.1.placements()[0]
+                    .image
+                    .id(),
+                stable_id,
+                "navigation away and back retains the image identity"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason() -> Result<()> {
     let too_wide = {
         let source = image::RgbaImage::from_pixel(16_385, 1, image::Rgba([1, 2, 3, 255]));
@@ -301,6 +454,191 @@ fn img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason() -> Res
     assert!(
         contents(&draw(&mut app, 100, 24)?).contains("after image"),
         "text following the bounded placeholder remains reachable"
+    );
+    Ok(())
+}
+
+#[test]
+fn md_003_tables_render_aligned_wide_and_linearized_narrow() -> Result<()> {
+    let source = concat!(
+        "before table\n\n",
+        "| Specimen name | Recorded lifespan |\n",
+        "| --- | --- |\n",
+        "| Oak | Three centuries |\n\n",
+        "after table\n",
+    );
+    let (_directory, mut app) = markdown_app(source)?;
+
+    let wide = draw(&mut app, 100, 24)?;
+    let wide_header = row_containing(&wide, "Specimen name").context("wide table header")?;
+    assert!(
+        row_text(&wide, 100, wide_header).contains("Specimen name | Recorded lifespan"),
+        "wide columns share one readable row"
+    );
+    assert!(row_text(&wide, 100, wide_header + 1).contains("Oak"));
+    assert!(row_text(&wide, 100, wide_header + 1).contains("Three centuries"));
+
+    let narrow = draw(&mut app, 20, 40)?;
+    let specimen = row_containing(&narrow, "Specimen name").context("narrow first header")?;
+    let lifespan = row_containing(&narrow, "Recorded").context("narrow second header")?;
+    let oak = row_containing(&narrow, "Oak").context("narrow first value")?;
+    let centuries = row_containing(&narrow, "Three").context("narrow second value")?;
+    assert!(specimen < lifespan && lifespan < oak && oak <= centuries);
+    assert_ne!(specimen, lifespan, "narrow table linearizes the wide row");
+    assert!(row_containing(&narrow, "before table").context("before")? < specimen);
+    assert!(centuries < row_containing(&narrow, "after table").context("after")?);
+    Ok(())
+}
+
+#[test]
+fn md_007_code_render_preserves_tabs_blank_lines_and_logical_text() -> Result<()> {
+    let code = concat!(
+        "$ printf\tone\n",
+        "\n",
+        "  indented continuation\n",
+        "abcdefghijklmnopqrstuvwxyz0123456789\n",
+    );
+    let source = format!("before code\n\n```console\n{code}```\n\nafter code\n");
+    let (_directory, mut app) = markdown_app(&source)?;
+
+    let wide = draw(&mut app, 100, 24)?;
+    let prompt = row_containing(&wide, "$ printf").context("prompt")?;
+    let prompt_text = row_text(&wide, 100, prompt);
+    assert!(prompt_text.contains("one"));
+    assert!(!prompt_text.contains('\t'), "tabs are expanded for display");
+    let indented = row_containing(&wide, "  indented continuation").context("indent")?;
+    assert_eq!(
+        indented,
+        prompt + 2,
+        "the interior blank code line survives"
+    );
+
+    let narrow = draw(&mut app, 30, 24)?;
+    let long_start = row_containing(&narrow, "abcdefghijklmnop").context("long line")?;
+    assert!(
+        row_text(&narrow, 30, long_start + 1).contains("456789"),
+        "overlong code hard-splits without changing its logical text"
+    );
+    let document = app.reader().context("reader")?.document();
+    let logical = document.sections()[0]
+        .blocks()
+        .iter()
+        .enumerate()
+        .find(|(_, block)| block.kind() == termleaf::document::BlockKind::CodeBlock)
+        .and_then(|(index, _)| document.block_text(0, index))
+        .context("logical code block")?;
+    assert_eq!(logical, code);
+    Ok(())
+}
+
+#[test]
+fn md_011_image_success_and_fallback_preserve_caption_and_order() -> Result<()> {
+    let png = red_png()?;
+    for (width, height) in [(100_u16, 40_u16), (30, 40)] {
+        let (directory, mut app) = markdown_image_app(&png, "red plate")?;
+        app.set_color_mode(ColorMode::TrueColor);
+        let rendered = draw_until(&mut app, width, height, |buffer| {
+            contents(buffer).contains('▀')
+        })
+        .with_context(|| format!("MD-011 image at {width}x{height}"))?;
+        let before = row_containing(&rendered, "before image").context("before image")?;
+        let caption = row_containing(&rendered, "[image: red plate]").context("caption")?;
+        let image = row_containing(&rendered, "▀").context("image cells")?;
+        let after = row_containing(&rendered, "after image").context("after image")?;
+        assert!(before < caption && caption < image && image < after);
+        assert!(
+            row_text(&rendered, width, caption).contains("[image: red plate]"),
+            "ready pixels never overwrite the caption"
+        );
+        assert_eq!(std::fs::read(directory.path().join("plate.png"))?, png);
+    }
+
+    let (_missing_directory, mut missing) =
+        markdown_app("before missing\n\n![missing plate](missing.png)\n\nafter missing\n")?;
+    missing.set_color_mode(ColorMode::TrueColor);
+    let failed = draw_until(&mut missing, 80, 40, |buffer| {
+        contents(buffer).contains("missing plate") && contents(buffer).contains("read:")
+    })?;
+    let before = row_containing(&failed, "before missing").context("before fallback")?;
+    let caption = row_containing(&failed, "[image: missing plate]").context("fallback caption")?;
+    let reason = row_containing(&failed, "read:").context("fallback reason")?;
+    let after = row_containing(&failed, "after missing").context("after fallback")?;
+    assert!(before < caption && caption < reason && reason < after);
+    Ok(())
+}
+
+#[test]
+fn epub_012_semantic_fixture_renders_wide_and_narrow_in_source_order() -> Result<()> {
+    let chapter = concat!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head>"#,
+        r#"<style>@font-face{font-family:Ignored} table{display:grid}</style></head><body>"#,
+        r#"<p>before semantics</p>"#,
+        r#"<table><tr><th>Specimen name</th><th>Recorded lifespan</th></tr>"#,
+        r#"<tr><td>Oak</td><td>Three centuries</td></tr></table>"#,
+        "<pre>$ inspect\tone\n\n  indented result</pre>",
+        r#"<p>after semantics</p></body></html>"#,
+    );
+    let (_book, mut app) = epub_app(chapter, &red_png()?)?;
+
+    let wide = draw(&mut app, 100, 30)?;
+    let header = row_containing(&wide, "Specimen name").context("wide EPUB table")?;
+    assert!(row_text(&wide, 100, header).contains("Specimen name | Recorded lifespan"));
+    let prompt = row_containing(&wide, "$ inspect").context("EPUB code")?;
+    let indented = row_containing(&wide, "  indented result").context("EPUB indentation")?;
+    assert_eq!(indented, prompt + 2, "EPUB code keeps its blank line");
+    assert!(
+        !contents(&wide).contains("Ignored"),
+        "CSS and custom fonts stay inert"
+    );
+
+    let narrow = draw(&mut app, 20, 40)?;
+    let before = row_containing(&narrow, "before semantics").context("before")?;
+    let specimen = row_containing(&narrow, "Specimen name").context("first cell")?;
+    let lifespan = row_containing(&narrow, "Recorded").context("second cell")?;
+    let oak = row_containing(&narrow, "Oak").context("third cell")?;
+    let centuries = row_containing(&narrow, "Three").context("fourth cell")?;
+    let code = row_containing(&narrow, "$ inspect").context("code after table")?;
+    let after = row_containing(&narrow, "after semantics").context("after")?;
+    assert!(
+        before < specimen
+            && specimen < lifespan
+            && lifespan < oak
+            && oak <= centuries
+            && centuries < code
+            && code < after
+    );
+    assert_ne!(specimen, lifespan, "narrow EPUB table linearizes");
+    Ok(())
+}
+
+#[test]
+fn epub_013_embedded_image_renders_without_extraction_and_keeps_order() -> Result<()> {
+    let png = red_png()?;
+    let chapter = concat!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>"#,
+        r#"<p>before archive image</p>"#,
+        r#"<p><img src="../images/red.png" alt="archive red plate"/></p>"#,
+        r#"<p>after archive image</p></body></html>"#,
+    );
+    let (book, mut app) = epub_app(chapter, &png)?;
+    let source_before = std::fs::read(book.path())?;
+    app.set_color_mode(ColorMode::TrueColor);
+
+    for (width, height) in [(100_u16, 40_u16), (30, 40)] {
+        let rendered = draw_until(&mut app, width, height, |buffer| {
+            contents(buffer).contains('▀')
+        })?;
+        let before = row_containing(&rendered, "before archive image").context("before")?;
+        let caption = row_containing(&rendered, "[image: archive red plate]").context("caption")?;
+        let image = row_containing(&rendered, "▀").context("image")?;
+        let after = row_containing(&rendered, "after archive image").context("after")?;
+        assert!(before < caption && caption < image && image < after);
+        assert!(row_text(&rendered, width, caption).contains("archive red plate"));
+    }
+    assert_eq!(
+        std::fs::read(book.path())?,
+        source_before,
+        "EPUB is never extracted or rewritten"
     );
     Ok(())
 }

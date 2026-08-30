@@ -77,6 +77,60 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Complete structured rendering and native transports
+
+**Commit subject:** `feat: add native graphics transport foundation`
+
+**Revision:** This commit
+
+**Recorded:** August 30, 2026
+
+**Behavior and risks.** Direct Ratatui render journeys now prove Markdown and
+EPUB tables, verbatim code, images, captions, and surrounding source order at
+wide and narrow widths. Interior blank code lines remain visible, and successful
+pixels use reserved rows below captions instead of overwriting caption text.
+Kitty, Sixel, and iTerm2 payloads are fitted and encoded on bounded image workers
+with exact output/chunk limits and stable session-local identifiers. Native
+escape bytes travel through a post-Ratatui placement plan, never through cell
+symbols. Runtime lifecycle state suppresses unchanged retransmission, replaces
+and deletes Kitty IDs, forces a complete Ratatui redraw when legacy protocols
+cannot delete objects, and cleans native output before terminal restoration.
+
+Capability querying is intentionally unchanged: automatic native selection
+still requires positive evidence, while tests inject an already selected
+backend. `IMG-017` probing, hosted PTY journeys, and real-terminal `IMG-018`
+acceptance remain assigned to tasks 12 through 14 and are not claimed here.
+
+**Residual review findings.** Task 11 remains open. Before it closes, Sixel must
+consume explicit terminal pixel geometry, native fitting/PNG/Sixel encoding must
+checkpoint cancellation internally, PNG output must stop at its allocation
+limit rather than checking afterward, worker accounting must include every Arc
+allocation, and partial viewport-edge placement needs an explicit policy and
+tests. These are deterministic implementation follow-ups, not deferred probing
+or manual-evidence work.
+
+**Checks.** Passed: `python3 tools/case_registry.py generate`, `python3
+tools/case_registry.py check`, `cargo fmt --check`, `cargo clippy --all-targets
+--all-features --locked -- -D warnings`, `cargo test --locked
+terminal_image::tests --lib`, `cargo test --locked
+term_009_cancels_then_restores_terminal_before_joining_workers --lib`, and
+`cargo test --locked --test render` (22 tests). Full core, doctest, dependency,
+MSRV, and diff checks are recorded after the complete validation cycle below.
+
+**Fixtures.** Markdown inputs, semantic EPUB archives, and 2x2 PNG resources are
+generated deterministically inside `tests/render.rs`; no network or external
+fixture is used and temporary files are removed by the harness.
+
+**Changed paths and selection.** Runtime and layout paths: `src/layout/mod.rs`,
+`src/app/state.rs`, `src/terminal_image.rs`, `src/ui/mod.rs`,
+`src/ui/reader.rs`, and `src/terminal.rs`. Integration and manifests:
+`tests/render.rs`, `tests/case_registry.overrides.toml`,
+`tests/case_registry.toml`, and `Cargo.toml`/`Cargo.lock`. Selected case IDs:
+`MD-003`, `MD-007`, `MD-011`, `EPUB-012`, `EPUB-013`, `IMG-008`, `IMG-012`,
+`IMG-018` supporting unit locations, `TERM-009`, and existing worker-generation
+regressions. Profiles selected: `pr-core`, `pr-render`, `security`, and
+`native-pty`; manual release acceptance remains unavailable pending tasks 12-14.
+
 ### Complete the first three Phase 2 tasks
 
 **Commit subject:** `test: add deterministic robustness corpus`
