@@ -12,6 +12,7 @@ use std::ops::Range;
 use scraper::{Html, Node};
 
 use super::model::{BlockKind, ImageRef, InlineKind};
+use super::structured::{XmlLimits, XmlStructureError, validate_xml_structure};
 
 /// One converted logical block with its display text.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -67,6 +68,9 @@ const IMAGE_SENTINEL: char = '\u{FFFC}';
 /// Structural rejection when a chapter exceeds the markup safety budget.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum XhtmlBoundsError {
+    /// Source bytes crossed the inclusive chapter budget.
+    #[error("chapter is {bytes} bytes, beyond the {limit} byte limit")]
+    SourceTooLarge { bytes: usize, limit: usize },
     /// The source carries more markup openings than the node budget allows.
     ///
     /// The count runs over raw bytes before any tree allocation, so a hostile
@@ -81,16 +85,51 @@ pub enum XhtmlBoundsError {
         /// Inclusive policy limit that was exceeded.
         limit: usize,
     },
+    /// Source nesting crossed the conversion depth policy.
+    #[error("chapter nesting depth {depth} exceeds the {limit} depth limit")]
+    TooDeep { depth: usize, limit: usize },
+    /// Produced model work crossed an explicit output boundary.
+    #[error("chapter produced {observed} {kind}, beyond the {limit} limit")]
+    WorkLimit {
+        kind: &'static str,
+        observed: usize,
+        limit: usize,
+    },
+    /// Conversion produced an invalid block-local range.
+    #[error("chapter conversion produced an invalid semantic range")]
+    InvalidRange,
+    /// Active XML declarations are never accepted in chapter content.
+    #[error("chapter contains a forbidden DTD or entity declaration")]
+    DtdDeclaration,
 }
 
-/// Recursion guard: hostile nesting deeper than this contributes nothing.
-///
-/// Browsers cap element depth similarly; a stack overflow would crash the
-/// reader before any policy check could run.
-const MAX_XHTML_DEPTH: usize = 128;
+/// Recursion guard aligned with the archive XML policy.
+pub const MAX_XHTML_DEPTH: usize = 256;
 
 /// Markup-node safety budget from the EPUB limits table (inclusive).
 pub const MAX_XHTML_NODES: usize = 1_000_000;
+
+/// Injectable XHTML conversion boundaries.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct XhtmlLimits {
+    pub max_source_bytes: usize,
+    pub max_depth: usize,
+    pub max_nodes: usize,
+    pub max_blocks: usize,
+    pub max_output_bytes: usize,
+}
+
+impl Default for XhtmlLimits {
+    fn default() -> Self {
+        Self {
+            max_source_bytes: 32 * 1024 * 1024,
+            max_depth: MAX_XHTML_DEPTH,
+            max_nodes: MAX_XHTML_NODES,
+            max_blocks: MAX_XHTML_NODES,
+            max_output_bytes: 64 * 1024 * 1024,
+        }
+    }
+}
 
 /// Converts one chapter's XHTML source into semantic blocks.
 ///
@@ -104,7 +143,7 @@ pub const MAX_XHTML_NODES: usize = 1_000_000;
 /// Returns [`XhtmlBoundsError::TooManyNodes`] when the source declares more
 /// markup than [`MAX_XHTML_NODES`] allows; parsing never starts in that case.
 pub fn convert_xhtml(source: &str) -> Result<Vec<SemanticBlock>, XhtmlBoundsError> {
-    convert_xhtml_with_limits(source, MAX_XHTML_NODES)
+    convert_xhtml_bounded(source, XhtmlLimits::default())
 }
 
 /// Converts one chapter with an explicit node budget for boundary testing.
@@ -117,23 +156,133 @@ pub fn convert_xhtml_with_limits(
     source: &str,
     max_nodes: usize,
 ) -> Result<Vec<SemanticBlock>, XhtmlBoundsError> {
+    convert_xhtml_bounded(
+        source,
+        XhtmlLimits {
+            max_nodes,
+            ..XhtmlLimits::default()
+        },
+    )
+}
+
+/// Converts XHTML under explicit source, structure, and model-work limits.
+///
+/// # Errors
+///
+/// Returns the first source, structure, work, declaration, or range boundary
+/// crossed by the chapter.
+pub fn convert_xhtml_bounded(
+    source: &str,
+    limits: XhtmlLimits,
+) -> Result<Vec<SemanticBlock>, XhtmlBoundsError> {
+    if source.len() > limits.max_source_bytes {
+        return Err(XhtmlBoundsError::SourceTooLarge {
+            bytes: source.len(),
+            limit: limits.max_source_bytes,
+        });
+    }
     // Every element, comment, and processing instruction consumes at least
     // one '<', while plain text never does. The count therefore bounds the
     // tree the builder can allocate without parsing anything.
     let openings = source.bytes().filter(|byte| *byte == b'<').count();
-    if openings > max_nodes {
+    if openings > limits.max_nodes {
         return Err(XhtmlBoundsError::TooManyNodes {
             nodes: openings,
-            limit: max_nodes,
+            limit: limits.max_nodes,
         });
+    }
+    match validate_xml_structure(
+        source.as_bytes(),
+        XmlLimits {
+            max_depth: limits.max_depth,
+            max_nodes: limits.max_nodes,
+        },
+    ) {
+        Ok(()) => {}
+        Err(XmlStructureError::TooDeep { depth, limit }) => {
+            return Err(XhtmlBoundsError::TooDeep { depth, limit });
+        }
+        Err(XmlStructureError::TooManyNodes { nodes, limit }) => {
+            return Err(XhtmlBoundsError::TooManyNodes { nodes, limit });
+        }
+        Err(XmlStructureError::DtdDeclaration) => {
+            return Err(XhtmlBoundsError::DtdDeclaration);
+        }
+        Err(XmlStructureError::Malformed { .. }) => unreachable!("tolerant scan is not strict"),
     }
 
     let document = Html::parse_document(source);
     let root = document.tree.root();
     let mut blocks = Vec::new();
     let mut pending_anchors = Vec::new();
-    walk(root, 0, &mut blocks, &mut pending_anchors);
-    Ok(retain_nonempty_blocks(blocks))
+    walk(root, 0, limits.max_depth, &mut blocks, &mut pending_anchors);
+    let blocks = retain_nonempty_blocks(blocks);
+    let output_bytes = blocks
+        .iter()
+        .try_fold(0usize, |total, block| total.checked_add(block.text.len()))
+        .unwrap_or(usize::MAX);
+    if blocks.len() > limits.max_blocks {
+        return Err(XhtmlBoundsError::WorkLimit {
+            kind: "blocks",
+            observed: blocks.len(),
+            limit: limits.max_blocks,
+        });
+    }
+    if output_bytes > limits.max_output_bytes {
+        return Err(XhtmlBoundsError::WorkLimit {
+            kind: "output bytes",
+            observed: output_bytes,
+            limit: limits.max_output_bytes,
+        });
+    }
+    if blocks.iter().all(valid_block_ranges) {
+        Ok(blocks)
+    } else {
+        Err(XhtmlBoundsError::InvalidRange)
+    }
+}
+
+fn valid_block_ranges(block: &SemanticBlock) -> bool {
+    let valid = |range: &Range<usize>| {
+        range.start <= range.end
+            && range.end <= block.text.len()
+            && block.text.is_char_boundary(range.start)
+            && block.text.is_char_boundary(range.end)
+    };
+    block.inline.iter().all(|inline| valid(&inline.range))
+        && block
+            .inline
+            .windows(2)
+            .all(|pair| pair[0].range.end <= pair[1].range.start)
+        && block.cells.iter().all(valid)
+        && block
+            .anchors
+            .iter()
+            .all(|(_, offset)| *offset <= block.text.len() && block.text.is_char_boundary(*offset))
+        && (block.kind == BlockKind::Image) == block.image.is_some()
+}
+
+fn is_active_content(name: &str) -> bool {
+    matches!(
+        name,
+        "script"
+            | "style"
+            | "head"
+            | "template"
+            | "iframe"
+            | "object"
+            | "embed"
+            | "audio"
+            | "video"
+            | "source"
+            | "track"
+            | "form"
+            | "button"
+            | "input"
+            | "link"
+            | "meta"
+            | "base"
+    )
 }
 
 fn retain_nonempty_blocks(blocks: Vec<SemanticBlock>) -> Vec<SemanticBlock> {
@@ -152,19 +301,21 @@ fn retain_nonempty_blocks(blocks: Vec<SemanticBlock>) -> Vec<SemanticBlock> {
     retained
 }
 
+#[allow(clippy::too_many_lines)]
 fn walk(
     node: ego_tree::NodeRef<'_, Node>,
     depth: usize,
+    max_depth: usize,
     blocks: &mut Vec<SemanticBlock>,
     pending_anchors: &mut Vec<String>,
 ) {
-    if depth > MAX_XHTML_DEPTH {
+    if depth > max_depth {
         return;
     }
     match node.value() {
         Node::Element(element) => {
             let name = element.name();
-            if matches!(name, "script" | "style" | "head" | "template") {
+            if is_active_content(name) {
                 return;
             }
             if let Some(level) = heading_level(name) {
@@ -201,9 +352,17 @@ fn walk(
                 for child in node.children() {
                     match child.value() {
                         Node::Element(child_element) if child_element.name() == "li" => {
-                            push_list_item(&child, depth, 0, ordered, blocks, pending_anchors);
+                            push_list_item(
+                                &child,
+                                depth,
+                                max_depth,
+                                0,
+                                ordered,
+                                blocks,
+                                pending_anchors,
+                            );
                         }
-                        _ => walk(child, depth + 1, blocks, pending_anchors),
+                        _ => walk(child, depth + 1, max_depth, blocks, pending_anchors),
                     }
                 }
                 return;
@@ -250,12 +409,12 @@ fn walk(
             }
             queue_element_anchor(element, pending_anchors);
             for child in node.children() {
-                walk(child, depth + 1, blocks, pending_anchors);
+                walk(child, depth + 1, max_depth, blocks, pending_anchors);
             }
         }
         _ => {
             for child in node.children() {
-                walk(child, depth + 1, blocks, pending_anchors);
+                walk(child, depth + 1, max_depth, blocks, pending_anchors);
             }
         }
     }
@@ -392,12 +551,13 @@ fn queue_element_anchor(element: &scraper::node::Element, pending: &mut Vec<Stri
 fn push_list_item(
     node: &ego_tree::NodeRef<'_, Node>,
     depth: usize,
+    max_depth: usize,
     list_depth: u8,
     ordered: bool,
     blocks: &mut Vec<SemanticBlock>,
     pending_anchors: &mut Vec<String>,
 ) {
-    if depth > MAX_XHTML_DEPTH {
+    if depth > max_depth {
         return;
     }
     // The item's own text skips nested lists so they become their own
@@ -427,13 +587,14 @@ fn push_list_item(
                     push_list_item(
                         &child,
                         depth + 1,
+                        max_depth,
                         nested_depth,
                         nested_ordered,
                         blocks,
                         pending_anchors,
                     );
                 }
-                _ => walk(child, depth + 1, blocks, pending_anchors),
+                _ => walk(child, depth + 1, max_depth, blocks, pending_anchors),
             }
         }
     }
@@ -1097,11 +1258,80 @@ mod tests {
     #[test]
     fn epub_009_scripts_and_styles_never_contribute_text() {
         let source = "<body><script>alert('x')</script><style>p{color:red}</style>\
-                      <p>visible</p></body>";
+                      <iframe>frame secret</iframe><object>object secret</object>\
+                      <form><button>submit secret</button></form><video>media secret</video>\
+                      <meta http-equiv='refresh' content='0;url=file:///etc/passwd'/>\
+                      <p onload='run()'>visible</p></body>";
         assert_eq!(
             texts(&convert_xhtml(source).expect("within node budget")),
             ["visible"]
         );
+    }
+
+    #[test]
+    fn epub_005_fixed_tag_entity_and_attribute_mutations_preserve_valid_ranges() {
+        let seeds = [
+            "<p>a &amp; <em>b</em></p>",
+            "<table><tr><td>λ</td><td>x</td></tr></table>",
+            "<p id='a'>before <img src='../blocked' alt='x'/> after</p>",
+        ];
+        for seed in seeds {
+            let mut mutations = vec![seed.as_bytes().to_vec()];
+            for offset in 0..seed.len().min(24) {
+                let mut flipped = seed.as_bytes().to_vec();
+                flipped[offset] ^= 1;
+                mutations.push(flipped);
+                mutations.push(seed.as_bytes()[..offset].to_vec());
+            }
+            for mutation in mutations {
+                let Ok(source) = std::str::from_utf8(&mutation) else {
+                    continue;
+                };
+                match convert_xhtml(source) {
+                    Ok(blocks) => assert!(blocks.iter().all(valid_block_ranges)),
+                    Err(
+                        XhtmlBoundsError::TooDeep { .. }
+                        | XhtmlBoundsError::TooManyNodes { .. }
+                        | XhtmlBoundsError::DtdDeclaration,
+                    ) => {}
+                    Err(other) => panic!("unexpected bounded result: {other:?}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn epub_005_wide_output_work_boundaries_are_inclusive() {
+        let source = "<p>one</p><p>two</p>";
+        let limits = XhtmlLimits {
+            max_blocks: 2,
+            max_output_bytes: 6,
+            ..XhtmlLimits::default()
+        };
+        convert_xhtml_bounded(source, limits).expect("exact block/output limits accept");
+        assert!(matches!(
+            convert_xhtml_bounded(
+                source,
+                XhtmlLimits {
+                    max_blocks: 1,
+                    ..limits
+                }
+            ),
+            Err(XhtmlBoundsError::WorkLimit { kind: "blocks", .. })
+        ));
+        assert!(matches!(
+            convert_xhtml_bounded(
+                source,
+                XhtmlLimits {
+                    max_output_bytes: 5,
+                    ..limits
+                }
+            ),
+            Err(XhtmlBoundsError::WorkLimit {
+                kind: "output bytes",
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -1111,10 +1341,13 @@ mod tests {
             "<div>".repeat(4_000),
             "</div>".repeat(4_000)
         );
-        let blocks = convert_xhtml(&deep).expect("within node budget");
-        // The innermost paragraph sits far beyond the depth cap and is
-        // dropped deterministically instead of overflowing the stack.
-        assert!(blocks.is_empty(), "{:?}", texts(&blocks));
+        assert!(matches!(
+            convert_xhtml(&deep),
+            Err(XhtmlBoundsError::TooDeep {
+                depth: 257,
+                limit: MAX_XHTML_DEPTH
+            })
+        ));
 
         let shallow = format!("{}<p>kept</p>{}", "<div>".repeat(8), "</div>".repeat(8));
         assert_eq!(
