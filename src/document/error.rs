@@ -50,6 +50,15 @@ pub enum DocumentError {
         cause: String,
     },
 
+    /// Structured text produced a malformed or over-budget event stream.
+    #[error("could not parse '{path}' safely: {detail}; the document may be hostile or damaged")]
+    InvalidStructure {
+        /// Safe display path of the rejected file.
+        path: String,
+        /// Stable bounded conversion reason.
+        detail: String,
+    },
+
     /// An I/O failure occurred while reading bounded source bytes.
     #[error("could not read '{path}': {source}")]
     Read {

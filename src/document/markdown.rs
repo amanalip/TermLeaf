@@ -7,7 +7,7 @@
 //! budget matches plain text (`DEC-TEST-012`): metadata first, then a
 //! guarded read, then strict UTF-8 decoding.
 
-use std::{fs::File, io::Read, ops::Range, path::Path};
+use std::{fs::File, io::Read, ops::Range, path::Path, sync::Arc};
 
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
@@ -48,7 +48,7 @@ pub fn load_markdown_file(path: &Path, limits: &TextLimits) -> Result<Document, 
 
     let mut bytes = Vec::new();
     (&mut file)
-        .take(limits.max_bytes + 1)
+        .take(limits.max_bytes.saturating_add(1))
         .read_to_end(&mut bytes)
         .map_err(|source| DocumentError::Read {
             path: display.clone(),
@@ -87,16 +87,33 @@ pub fn load_markdown_bytes(
         offset: error.valid_up_to(),
         cause: "invalid UTF-8 sequence".to_owned(),
     })?;
-    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
-
     let id = DocumentId::new(format!("{path}:markdown"));
     parse_markdown(id, Some(file_stem_title(path)), source).map_err(|detail| {
-        DocumentError::InvalidEncoding {
+        DocumentError::InvalidStructure {
             path: path.to_owned(),
-            offset: 0,
-            cause: detail,
+            detail,
         }
     })
+}
+
+/// Inclusive event-to-model conversion limits.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MarkdownWorkLimits {
+    pub max_events: usize,
+    pub max_nesting: usize,
+    pub max_output_bytes: usize,
+    pub max_blocks: usize,
+}
+
+impl Default for MarkdownWorkLimits {
+    fn default() -> Self {
+        Self {
+            max_events: 2_000_000,
+            max_nesting: 256,
+            max_output_bytes: 64 * 1024 * 1024,
+            max_blocks: 1_000_000,
+        }
+    }
 }
 
 /// One block under construction from the event stream.
@@ -202,7 +219,7 @@ impl PendingBlock {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct InlineMark {
     kind: InlineKind,
-    destination: Option<String>,
+    destination: Option<Arc<str>>,
     syntax_range: Option<Range<usize>>,
 }
 
@@ -324,7 +341,7 @@ impl Assembled {
             let mut span = InlineSpan::with_metadata(
                 mark.kind,
                 start + range.start..start + range.end,
-                mark.destination,
+                mark.destination.map(|destination| destination.to_string()),
                 contiguous_source_range(&local_mappings, &range),
             );
             span.set_syntax_range(mark.syntax_range);
@@ -429,6 +446,7 @@ struct ParserState {
     /// When set, text events feed the alt-text capture instead of the open
     /// block; tables keep the legacy plain-text behavior instead.
     alt_capture: Option<String>,
+    structure: Vec<TagEnd>,
 }
 
 impl ParserState {
@@ -519,7 +537,7 @@ impl ParserState {
             })),
             Tag::Link { dest_url, .. } => self.inline_stack.push(Some(InlineMark {
                 kind: InlineKind::Link,
-                destination: Some(dest_url.as_ref().to_owned()),
+                destination: Some(Arc::from(dest_url.as_ref())),
                 syntax_range: Some(source_range),
             })),
             // Images split the open flow and capture their alt text; inside
@@ -643,7 +661,23 @@ impl ParserState {
 
 /// Parses one Markdown source into the shared logical document.
 fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result<Document, String> {
-    let parser = Parser::new_ext(source, Options::ENABLE_TABLES).into_offset_iter();
+    let (parsed, source_base) = source
+        .strip_prefix('\u{feff}')
+        .map_or((source, 0), |parsed| (parsed, '\u{feff}'.len_utf8()));
+    let parser = Parser::new_ext(parsed, Options::ENABLE_TABLES)
+        .into_offset_iter()
+        .map(|(event, range)| (event, source_base + range.start..source_base + range.end));
+    convert_events(id, title, source, parser, MarkdownWorkLimits::default())
+}
+
+#[allow(clippy::too_many_lines)]
+fn convert_events<'a>(
+    id: DocumentId,
+    title: Option<String>,
+    source: &'a str,
+    events: impl IntoIterator<Item = (Event<'a>, Range<usize>)>,
+    limits: MarkdownWorkLimits,
+) -> Result<Document, String> {
     let mut state = ParserState {
         out: Assembled::default(),
         pending: None,
@@ -652,12 +686,63 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
         table: None,
         image_stack: Vec::new(),
         alt_capture: None,
+        structure: Vec::new(),
     };
 
-    for (event, source_range) in parser {
+    let mut event_count = 0usize;
+    let mut output_work = 0usize;
+    for (event, source_range) in events {
+        event_count = event_count
+            .checked_add(1)
+            .ok_or_else(|| "Markdown event count overflowed".to_owned())?;
+        if event_count > limits.max_events {
+            return Err(format!(
+                "Markdown event count {event_count} exceeds the {} event limit",
+                limits.max_events
+            ));
+        }
+        if source_range.start > source_range.end
+            || source_range.end > source.len()
+            || !source.is_char_boundary(source_range.start)
+            || !source.is_char_boundary(source_range.end)
+        {
+            return Err("Markdown parser produced an invalid source range".to_owned());
+        }
+        let cost = match &event {
+            Event::Text(text)
+            | Event::Code(text)
+            | Event::InlineMath(text)
+            | Event::DisplayMath(text) => text.len(),
+            Event::SoftBreak | Event::HardBreak => 1,
+            Event::Rule => 5,
+            _ => 0,
+        };
+        output_work = output_work
+            .checked_add(cost)
+            .ok_or_else(|| "Markdown output work overflowed".to_owned())?;
+        if output_work > limits.max_output_bytes {
+            return Err(format!(
+                "Markdown output work {output_work} exceeds the {} byte limit",
+                limits.max_output_bytes
+            ));
+        }
         match event {
-            Event::Start(tag) => state.start(&tag, source_range),
-            Event::End(tag) => state.end(tag),
+            Event::Start(tag) => {
+                if state.structure.len() >= limits.max_nesting {
+                    return Err(format!(
+                        "Markdown nesting exceeds the {} level limit",
+                        limits.max_nesting
+                    ));
+                }
+                state.structure.push(tag.to_end());
+                state.start(&tag, source_range);
+            }
+            Event::End(tag) => {
+                if state.structure.pop() != Some(tag) {
+                    return Err("Markdown event stream has mismatched structure".to_owned());
+                }
+                state.end(tag);
+            }
             Event::Text(text) => {
                 if let Some(capture) = state.alt_capture.as_mut() {
                     capture.push_str(&text);
@@ -710,7 +795,30 @@ fn parse_markdown(id: DocumentId, title: Option<String>, source: &str) -> Result
             _ => {}
         }
     }
+    if !state.structure.is_empty()
+        || !state.inline_stack.is_empty()
+        || !state.list_stack.is_empty()
+        || state.table.is_some()
+        || !state.image_stack.is_empty()
+    {
+        return Err("Markdown event stream ended with unfinished structure".to_owned());
+    }
     state.flush();
+
+    if state.out.blocks.len() > limits.max_blocks {
+        return Err(format!(
+            "Markdown produced {} blocks beyond the {} block limit",
+            state.out.blocks.len(),
+            limits.max_blocks
+        ));
+    }
+    if state.out.canonical.len() > limits.max_output_bytes {
+        return Err(format!(
+            "Markdown produced {} bytes beyond the {} byte limit",
+            state.out.canonical.len(),
+            limits.max_output_bytes
+        ));
+    }
 
     Document::from_single_section(id, title, state.out.canonical, state.out.blocks)?
         .with_inline(state.out.inline)
@@ -768,6 +876,7 @@ fn markdown_image_resource(dest: &str) -> ImageResource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pulldown_cmark::CowStr;
 
     fn kinds_of(document: &Document) -> Vec<(String, InlineKind)> {
         let canonical = document.canonical();
@@ -1008,6 +1117,126 @@ mod tests {
             second.canonical(),
             "identical sources produce identical logical text"
         );
+    }
+
+    #[test]
+    fn md_009_malformed_event_streams_return_typed_errors() {
+        let id = || DocumentId::new("malformed-events".to_owned());
+        let unmatched = [(Event::End(TagEnd::Strong), 0..0)];
+        assert!(
+            convert_events(id(), None, "", unmatched, MarkdownWorkLimits::default())
+                .unwrap_err()
+                .contains("mismatched")
+        );
+
+        let unfinished = [(Event::Start(Tag::Strong), 0..0)];
+        assert!(
+            convert_events(id(), None, "", unfinished, MarkdownWorkLimits::default())
+                .unwrap_err()
+                .contains("unfinished")
+        );
+
+        let mismatched = [
+            (Event::Start(Tag::Emphasis), 0..0),
+            (Event::End(TagEnd::Strong), 0..0),
+        ];
+        assert!(
+            convert_events(id(), None, "", mismatched, MarkdownWorkLimits::default())
+                .unwrap_err()
+                .contains("mismatched")
+        );
+    }
+
+    #[test]
+    fn md_010_invalid_event_offsets_and_bom_offsets_are_exact() {
+        let reversed = Range { start: 2, end: 1 };
+        for range in [reversed, 0..3, 1..2] {
+            let events = [(Event::Text(CowStr::Borrowed("λ")), range)];
+            assert!(
+                convert_events(
+                    DocumentId::new("bad-offset".to_owned()),
+                    None,
+                    "λ",
+                    events,
+                    MarkdownWorkLimits::default()
+                )
+                .unwrap_err()
+                .contains("invalid source range")
+            );
+        }
+
+        let source = "\u{feff}[λ](target.md)";
+        let document = parse_markdown(DocumentId::new("bom-offset".to_owned()), None, source)
+            .expect("BOM source parses");
+        let link = &document.inline_spans()[0];
+        assert_eq!(&source[link.source_range().unwrap().clone()], "λ");
+        assert_eq!(
+            &source[link.syntax_range().unwrap().clone()],
+            "[λ](target.md)"
+        );
+        assert!(link.source_range().unwrap().start >= '\u{feff}'.len_utf8());
+    }
+
+    #[test]
+    fn md_012_event_nesting_output_and_block_work_limits_are_exact() {
+        let source = "x";
+        let text = [(Event::Text(CowStr::Borrowed("x")), 0..1)];
+        convert_events(
+            DocumentId::new("work-at".to_owned()),
+            None,
+            source,
+            text.clone(),
+            MarkdownWorkLimits {
+                max_events: 1,
+                max_nesting: 0,
+                max_output_bytes: 1,
+                max_blocks: 0,
+            },
+        )
+        .expect("an uncontained text event creates no block and meets exact limits");
+        assert!(
+            convert_events(
+                DocumentId::new("work-over".to_owned()),
+                None,
+                source,
+                text,
+                MarkdownWorkLimits {
+                    max_events: 0,
+                    ..MarkdownWorkLimits::default()
+                },
+            )
+            .unwrap_err()
+            .contains("event count")
+        );
+
+        let nested = [(Event::Start(Tag::Paragraph), 0..1)];
+        assert!(
+            convert_events(
+                DocumentId::new("nest-over".to_owned()),
+                None,
+                source,
+                nested,
+                MarkdownWorkLimits {
+                    max_nesting: 0,
+                    ..MarkdownWorkLimits::default()
+                },
+            )
+            .unwrap_err()
+            .contains("nesting")
+        );
+    }
+
+    #[test]
+    fn md_008_registered_hostile_fixture_is_inert_and_deterministic() {
+        let source = include_str!("../../tests/fixtures/markdown/hostile.md");
+        let first = parse_markdown(DocumentId::new("hostile".to_owned()), None, source)
+            .expect("hostile Markdown stays a bounded model");
+        let second = parse_markdown(DocumentId::new("hostile".to_owned()), None, source)
+            .expect("repeat parse succeeds");
+        assert_eq!(first.canonical(), second.canonical());
+        assert!(!first.canonical().contains("fetch("));
+        assert!(!first.canonical().contains("/etc/passwd"));
+        assert!(image_blocks(&first).is_empty());
     }
 
     #[test]
