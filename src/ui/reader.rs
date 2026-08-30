@@ -92,11 +92,17 @@ pub fn render(frame: &mut Frame<'_>, area: Rect, app: &mut App, native: &mut Nat
     app.set_content_viewport(content_width, content_height);
 
     let backend = app.image_backend();
+    let cell_pixels = app.cell_pixel_size();
     let background = image_background(&theme);
     let Some((rows, overlays)) = app.reader_mut().map(|session| {
         let rows = session.plan_rows(content_width, content_height);
-        let overlays =
-            session.prepare_visible_images(content_width, content_height, backend, background);
+        let overlays = session.prepare_visible_images(
+            content_width,
+            content_height,
+            backend,
+            background,
+            cell_pixels,
+        );
         (rows, overlays)
     }) else {
         return;
@@ -171,7 +177,7 @@ fn render_image_overlay(
                 }
             }
         }
-        ImageVisual::Native(image)
+        ImageVisual::Native { image, .. }
             if y.saturating_add(image.rows()) <= content.bottom()
                 && content.x.saturating_add(image.columns()) <= content.right() =>
         {
@@ -181,7 +187,11 @@ fn render_image_overlay(
                 image,
             });
         }
-        ImageVisual::Native(_) => {}
+        ImageVisual::Native { caption, .. } => frame.render_widget(
+            Paragraph::new(format!("(partially outside viewport) {caption}"))
+                .style(theme.style(Role::Warning)),
+            Rect::new(content.x, y, content.width, 1),
+        ),
     }
 }
 

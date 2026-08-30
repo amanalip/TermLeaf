@@ -9,14 +9,17 @@ use crossterm::{
     cursor::{Hide, Show},
     event::{self, DisableBracketedPaste, EnableBracketedPaste, Event},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, WindowSize, disable_raw_mode, enable_raw_mode,
+        window_size,
+    },
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::{
     app::{Action, App, KeyMapper},
     interrupt,
-    terminal_image::{NativeFramePlan, NativeGraphicsSession},
+    terminal_image::{CellPixelSize, NativeFramePlan, NativeGraphicsSession},
     ui,
 };
 
@@ -271,6 +274,11 @@ fn run_loop(
             app.update(crate::app::Action::Quit);
             continue;
         }
+        app.set_cell_pixel_size(
+            window_size()
+                .ok()
+                .and_then(|size| cell_pixels_from_window(&size)),
+        );
         let mut native = NativeFramePlan::default();
         terminal.draw(|frame| ui::render_with_native(frame, app, &mut native))?;
         if graphics.requires_full_redraw(&native) {
@@ -286,6 +294,12 @@ fn run_loop(
         }
     }
     Ok(())
+}
+
+fn cell_pixels_from_window(size: &WindowSize) -> Option<CellPixelSize> {
+    let width = size.width.checked_div(size.columns)?;
+    let height = size.height.checked_div(size.rows)?;
+    CellPixelSize::new(width, height)
 }
 
 /// Converts one terminal event into an application action.
@@ -470,6 +484,37 @@ mod tests {
             ]
         );
         Ok(())
+    }
+
+    #[test]
+    fn sixel_cell_pixels_use_measured_window_geometry_only() {
+        assert_eq!(
+            cell_pixels_from_window(&WindowSize {
+                columns: 120,
+                rows: 40,
+                width: 960,
+                height: 800,
+            }),
+            CellPixelSize::new(8, 20)
+        );
+        assert_eq!(
+            cell_pixels_from_window(&WindowSize {
+                columns: 0,
+                rows: 40,
+                width: 960,
+                height: 800,
+            }),
+            None
+        );
+        assert_eq!(
+            cell_pixels_from_window(&WindowSize {
+                columns: 120,
+                rows: 40,
+                width: 0,
+                height: 0,
+            }),
+            None
+        );
     }
 
     #[test]

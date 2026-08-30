@@ -14,7 +14,7 @@ use ratatui::{
     style::{Color, Modifier},
 };
 use termleaf::app::{Action, App, StartupOptions, View};
-use termleaf::terminal_image::{ImageBackend, NativeFramePlan};
+use termleaf::terminal_image::{CellPixelSize, ImageBackend, NativeFramePlan};
 use termleaf::ui::theme::ColorMode;
 use termleaf::ui::{status::MESSAGE_LIFETIME, theme::ThemeName};
 
@@ -369,6 +369,7 @@ fn img_008_native_backends_collect_one_protocol_without_escape_cells() -> Result
     ] {
         let (_directory, mut app) = markdown_image_app(&png, "native plate")?;
         app.set_image_backend(Some(backend));
+        app.set_cell_pixel_size(CellPixelSize::new(8, 16));
         let mut result = None;
         for _ in 0..100 {
             let rendered = draw_with_native(&mut app, 80, 30)?;
@@ -428,6 +429,61 @@ fn img_008_native_backends_collect_one_protocol_without_escape_cells() -> Result
             );
         }
     }
+    Ok(())
+}
+
+#[test]
+fn native_sixel_missing_geometry_and_partial_images_render_explicit_fallbacks() -> Result<()> {
+    let png = red_png()?;
+    let (_directory, mut sixel) = markdown_image_app(&png, "sixel plate")?;
+    sixel.set_image_backend(Some(ImageBackend::Sixel));
+    let failed = draw_until(&mut sixel, 80, 30, |buffer| {
+        contents(buffer).contains("requires measured termi")
+    })?;
+    assert!(contents(&failed).contains("sixel plate"));
+    assert!(!contents(&failed).contains('▀'));
+
+    let tall = {
+        let source = image::RgbaImage::from_pixel(2, 20, image::Rgba([220, 10, 20, 255]));
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(source).write_to(&mut cursor, image::ImageFormat::Png)?;
+        cursor.into_inner()
+    };
+    let (_directory, mut app) = markdown_image_app(&tall, "tall plate")?;
+    app.set_image_backend(Some(ImageBackend::Kitty));
+    let mut partial = None;
+    for _ in 0..100 {
+        let candidate = draw_with_native(&mut app, 30, 8)?;
+        if contents(&candidate.0).contains("partially outside viewport") {
+            partial = Some(candidate);
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let (buffer, plan) = partial.context("partial native image fallback")?;
+    assert!(
+        plan.placements().is_empty(),
+        "partial native output cannot scroll"
+    );
+    assert!(contents(&buffer).contains("partially outside viewport"));
+
+    app.update(Action::NextLine);
+    let mut visible = None;
+    for _ in 0..100 {
+        let candidate = draw_with_native(&mut app, 30, 8)?;
+        if !candidate.1.placements().is_empty() {
+            visible = Some(candidate.1);
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(
+        visible
+            .context("fully visible after scroll")?
+            .placements()
+            .len(),
+        1
+    );
     Ok(())
 }
 

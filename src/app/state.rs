@@ -13,9 +13,10 @@ use crate::{
     layout::PageLayout,
     reader::{self, Mode},
     terminal_image::{
-        CellColorMode, CellRenderError, HalfBlockCell, HalfBlockFrame, ImageBackend,
-        ImageCapabilities, ImageId, NativeEncodeError, NativeImage, Rgb, encode_native_image,
-        failure_caption, render_decoded_half_blocks, select_backend,
+        CellColorMode, CellPixelSize, CellRenderError, HalfBlockFrame, ImageBackend,
+        ImageCapabilities, ImageId, NativeEncodeError, NativeImage, Rgb,
+        encode_native_image_cancellable, failure_caption, render_decoded_half_blocks,
+        select_backend,
     },
     ui::status::StatusMessage,
     ui::theme::{ColorMode, ThemeName},
@@ -80,7 +81,16 @@ struct ImageJob {
     rows: u16,
     background: Rgb,
     backend: ImageBackend,
+    cell_pixels: Option<CellPixelSize>,
     declared: Option<DeclaredImageFormat>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ImageRenderTarget {
+    width: u16,
+    backend: ImageBackend,
+    background: Rgb,
+    cell_pixels: Option<CellPixelSize>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -99,6 +109,18 @@ struct ImageOutput {
 enum PreparedImage {
     Cells(Arc<HalfBlockFrame>),
     Native(Arc<NativeImage>),
+}
+
+/// Paintable current state of one visible image placeholder.
+#[derive(Clone, Debug)]
+pub enum ImageVisual {
+    Loading(String),
+    ReadyCells(Arc<HalfBlockFrame>),
+    Native {
+        image: Arc<NativeImage>,
+        caption: String,
+    },
+    Failed(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -155,15 +177,6 @@ impl ImageFailure {
 pub struct ImageOverlay {
     pub row: u16,
     pub visual: ImageVisual,
-}
-
-/// Paintable current state of one visible image placeholder.
-#[derive(Clone, Debug)]
-pub enum ImageVisual {
-    Loading(String),
-    ReadyCells(Arc<HalfBlockFrame>),
-    Native(Arc<NativeImage>),
-    Failed(String),
 }
 
 impl ReaderSession {
@@ -413,6 +426,7 @@ impl ReaderSession {
         height: u16,
         backend: ImageBackend,
         background: Rgb,
+        cell_pixels: Option<CellPixelSize>,
     ) -> Vec<ImageOverlay> {
         self.drain_image_work();
         if height == 0 {
@@ -455,16 +469,17 @@ impl ReaderSession {
             }
             locations
         };
+        let target = ImageRenderTarget {
+            width,
+            backend,
+            background,
+            cell_pixels,
+        };
         let mut visible = Vec::new();
         for (screen_row, section_index, block_index) in locations {
-            if let Some(overlay) = self.prepare_image_overlay(
-                screen_row,
-                section_index,
-                block_index,
-                width,
-                backend,
-                background,
-            ) {
+            if let Some(overlay) =
+                self.prepare_image_overlay(screen_row, section_index, block_index, target)
+            {
                 visible.push(overlay);
             }
         }
@@ -476,9 +491,7 @@ impl ReaderSession {
         row: u16,
         section: usize,
         block: usize,
-        width: u16,
-        backend: ImageBackend,
-        background: Rgb,
+        target: ImageRenderTarget,
     ) -> Option<ImageOverlay> {
         let block_model = self.document.sections().get(section)?.blocks().get(block)?;
         if block_model.kind() != crate::document::BlockKind::Image {
@@ -495,7 +508,7 @@ impl ReaderSession {
         };
         if !self.images.contains_key(&key) {
             if let Some(id) = self.image_id(&key) {
-                self.submit_image(key.clone(), id, resource, width, backend, background);
+                self.submit_image(key.clone(), id, resource, target);
             } else {
                 let generation = self.image_workers.generation();
                 let caption = self.failure_for(&key, None, "image identifier limit reached");
@@ -518,7 +531,10 @@ impl ReaderSession {
             {
                 match image.as_ref() {
                     PreparedImage::Cells(frame) => ImageVisual::ReadyCells(Arc::clone(frame)),
-                    PreparedImage::Native(image) => ImageVisual::Native(Arc::clone(image)),
+                    PreparedImage::Native(image) => ImageVisual::Native {
+                        image: Arc::clone(image),
+                        caption: caption.clone(),
+                    },
                 }
             }
             Some(ImageState::Failed {
@@ -548,9 +564,7 @@ impl ReaderSession {
         key: ImageKey,
         id: ImageId,
         resource: ImageResource,
-        width: u16,
-        backend: ImageBackend,
-        background: Rgb,
+        target: ImageRenderTarget,
     ) {
         let generation = self.image_workers.generation();
         if !resource.is_fetchable() {
@@ -564,7 +578,7 @@ impl ReaderSession {
             );
             return;
         }
-        if backend == ImageBackend::Caption {
+        if target.backend == ImageBackend::Caption {
             let caption = self.failure_for(&key, None, "terminal image backend unavailable");
             self.images.insert(
                 key,
@@ -585,10 +599,11 @@ impl ReaderSession {
             id,
             provider: self.resources.clone(),
             resource,
-            columns: width,
+            columns: target.width,
             rows: u16::try_from(crate::layout::IMAGE_PLACEHOLDER_ROWS).unwrap_or(u16::MAX),
-            background,
-            backend,
+            background: target.background,
+            backend: target.backend,
+            cell_pixels: target.cell_pixels,
             declared: declared_image_format(&key.reference),
         };
         let bytes = usize::try_from(charged)
@@ -684,22 +699,28 @@ fn process_image(
                     })
                 })?
         }
-        ImageBackend::Kitty | ImageBackend::Sixel | ImageBackend::Iterm2 => encode_native_image(
-            job.backend,
-            job.id,
-            &decoded,
-            job.columns,
-            job.rows,
-            job.background,
-        )
-        .map(|image| PreparedImage::Native(Arc::new(image)))
-        .map_err(|reason| {
-            TaskError::Decode(ImageJobError {
-                key: job.key.clone(),
-                dimensions: Some((decoded.width(), decoded.height())),
-                reason: ImageFailure::Native(reason),
-            })
-        })?,
+        ImageBackend::Kitty | ImageBackend::Sixel | ImageBackend::Iterm2 => {
+            match encode_native_image_cancellable(
+                job.backend,
+                job.id,
+                &decoded,
+                job.columns,
+                job.rows,
+                job.background,
+                job.cell_pixels,
+                || token.is_cancelled(),
+            ) {
+                Ok(image) => PreparedImage::Native(Arc::new(image)),
+                Err(NativeEncodeError::Cancelled) => return Err(TaskError::Cancelled),
+                Err(reason) => {
+                    return Err(TaskError::Decode(ImageJobError {
+                        key: job.key,
+                        dimensions: Some((decoded.width(), decoded.height())),
+                        reason: ImageFailure::Native(reason),
+                    }));
+                }
+            }
+        }
         ImageBackend::Caption => {
             return Err(TaskError::Decode(ImageJobError {
                 key: job.key,
@@ -762,10 +783,7 @@ fn image_output_size(output: &ImageOutput) -> usize {
     size_of::<ImageOutput>()
         .saturating_add(output.key.reference.capacity())
         .saturating_add(match &output.image {
-            PreparedImage::Cells(frame) => frame
-                .cells()
-                .len()
-                .saturating_mul(size_of::<HalfBlockCell>()),
+            PreparedImage::Cells(frame) => frame.allocation_bytes(),
             PreparedImage::Native(image) => image.allocation_bytes(),
         })
 }
@@ -865,6 +883,7 @@ pub struct App {
     no_color: bool,
     color_mode: ColorMode,
     image_backend_override: Option<ImageBackend>,
+    cell_pixels: Option<CellPixelSize>,
     theme_cursor: usize,
     toc_cursor: usize,
     message: Option<StatusMessage>,
@@ -937,6 +956,7 @@ impl App {
                 env_value("TERM").as_deref(),
             ),
             image_backend_override: options.image_backend,
+            cell_pixels: None,
             theme_cursor: options.theme as usize,
             toc_cursor: 0,
             message: None,
@@ -1055,6 +1075,21 @@ impl App {
                 reader.roll_image_generation();
             }
         }
+    }
+
+    /// Updates measured terminal cell geometry for pixel-addressed protocols.
+    pub fn set_cell_pixel_size(&mut self, cell_pixels: Option<CellPixelSize>) {
+        if self.cell_pixels != cell_pixels {
+            self.cell_pixels = cell_pixels;
+            if let Some(reader) = self.reader.as_mut() {
+                reader.roll_image_generation();
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn cell_pixel_size(&self) -> Option<CellPixelSize> {
+        self.cell_pixels
     }
 
     /// The reader session, when a book is open.
@@ -1395,6 +1430,7 @@ mod tests {
             no_color: false,
             color_mode: ColorMode::TrueColor,
             image_backend_override: None,
+            cell_pixels: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,
             message: None,
@@ -1600,8 +1636,13 @@ mod tests {
         let provider = ResourceProvider::markdown(&book)?;
         let mut session = ReaderSession::new(document, provider)?;
 
-        let overlays =
-            session.prepare_visible_images(80, 100, ImageBackend::TrueColorCells, Rgb(0, 0, 0));
+        let overlays = session.prepare_visible_images(
+            80,
+            100,
+            ImageBackend::TrueColorCells,
+            Rgb(0, 0, 0),
+            None,
+        );
         assert_eq!(overlays.len(), 12);
         std::thread::sleep(std::time::Duration::from_millis(100));
         for _ in 0..100 {
@@ -1628,6 +1669,65 @@ mod tests {
                 || session.image_workers.stats().dropped_completions > 0,
             "the fixture must cross at least one coordinator capacity boundary"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn con_001_native_and_cell_completion_accounting_includes_arc_allocations() -> Result<()> {
+        let cell_frame = Arc::new(crate::terminal_image::render_half_blocks(
+            2,
+            2,
+            &[255; 16],
+            2,
+            1,
+            Rgb(0, 0, 0),
+            CellColorMode::TrueColor,
+        )?);
+        let key = ImageKey {
+            section: 0,
+            block: 0,
+            reference: String::from("cell.png"),
+        };
+        let key_capacity = key.reference.capacity();
+        let expected = size_of::<ImageOutput>()
+            .saturating_add(key_capacity)
+            .saturating_add(cell_frame.allocation_bytes());
+        let output = ImageOutput {
+            key,
+            image: PreparedImage::Cells(cell_frame),
+        };
+        assert_eq!(image_output_size(&output), expected);
+
+        let png = {
+            let source = image::RgbaImage::from_pixel(2, 2, image::Rgba([5, 6, 7, 255]));
+            let mut cursor = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(source)
+                .write_to(&mut cursor, image::ImageFormat::Png)?;
+            cursor.into_inner()
+        };
+        let decoded = decode_image_bytes(&png, &crate::document::ImageLimits::default(), None)?;
+        let native = Arc::new(crate::terminal_image::encode_native_image(
+            ImageBackend::Kitty,
+            ImageId::new(1).expect("id"),
+            &decoded,
+            2,
+            1,
+            Rgb(0, 0, 0),
+            None,
+        )?);
+        let key = ImageKey {
+            section: 0,
+            block: 0,
+            reference: String::from("native.png"),
+        };
+        let expected = size_of::<ImageOutput>()
+            .saturating_add(key.reference.capacity())
+            .saturating_add(native.allocation_bytes());
+        let output = ImageOutput {
+            key,
+            image: PreparedImage::Native(native),
+        };
+        assert_eq!(image_output_size(&output), expected);
         Ok(())
     }
 
@@ -1698,6 +1798,7 @@ mod toc_tests {
             no_color: false,
             color_mode: ColorMode::TrueColor,
             image_backend_override: None,
+            cell_pixels: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,
             message: None,

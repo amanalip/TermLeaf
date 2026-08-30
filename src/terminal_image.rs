@@ -21,6 +21,9 @@ pub const NATIVE_OUTPUT_LIMIT_BYTES: usize = 16 * 1024 * 1024;
 pub const NATIVE_CHUNK_LIMIT: usize = 4096;
 const KITTY_PAYLOAD_BYTES: usize = 4096;
 const STREAM_CHUNK_BYTES: usize = 64 * 1024;
+const KITTY_RAW_CHUNK_BYTES: usize = KITTY_PAYLOAD_BYTES / 4 * 3;
+const ITERM_RAW_PART_BYTES: usize = STREAM_CHUNK_BYTES / 4 * 3;
+const ARC_ALLOCATION_OVERHEAD: usize = size_of::<usize>() * 2;
 
 /// A terminal image output path, in automatic preference order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -54,6 +57,24 @@ impl ImageId {
     #[must_use]
     pub const fn get(self) -> u32 {
         self.0
+    }
+}
+
+/// Measured pixel dimensions of one terminal cell.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CellPixelSize {
+    pub width: u16,
+    pub height: u16,
+}
+
+impl CellPixelSize {
+    #[must_use]
+    pub const fn new(width: u16, height: u16) -> Option<Self> {
+        if width == 0 || height == 0 {
+            None
+        } else {
+            Some(Self { width, height })
+        }
     }
 }
 
@@ -101,7 +122,8 @@ impl NativeImage {
     #[must_use]
     pub fn allocation_bytes(&self) -> usize {
         self.chunks.iter().map(Vec::capacity).fold(
-            size_of::<Self>()
+            ARC_ALLOCATION_OVERHEAD
+                .saturating_add(size_of::<Self>())
                 .saturating_add(self.chunks.capacity().saturating_mul(size_of::<Vec<u8>>())),
             usize::saturating_add,
         )
@@ -146,6 +168,10 @@ pub enum NativeEncodeError {
     TooManyChunks { limit: usize },
     #[error("native PNG encoding failed")]
     Png,
+    #[error("native image encoding was cancelled")]
+    Cancelled,
+    #[error("Sixel output requires measured terminal cell pixel geometry")]
+    MissingCellPixelSize,
     #[error("the selected image backend is not native")]
     NotNative,
 }
@@ -258,22 +284,70 @@ pub fn encode_native_image(
     max_columns: u16,
     max_rows: u16,
     background: Rgb,
+    cell_pixels: Option<CellPixelSize>,
+) -> Result<NativeImage, NativeEncodeError> {
+    encode_native_image_cancellable(
+        backend,
+        id,
+        image,
+        max_columns,
+        max_rows,
+        background,
+        cell_pixels,
+        || false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn encode_native_image_cancellable(
+    backend: ImageBackend,
+    id: ImageId,
+    image: &crate::document::DecodedImage,
+    max_columns: u16,
+    max_rows: u16,
+    background: Rgb,
+    cell_pixels: Option<CellPixelSize>,
+    mut cancelled: impl FnMut() -> bool,
 ) -> Result<NativeImage, NativeEncodeError> {
     if !backend.is_native() {
         return Err(NativeEncodeError::NotNative);
     }
-    let (width, height, rgba) = fitted_rgba(image, max_columns, max_rows, background)?;
-    let columns = u16::try_from(width).map_err(|_| NativeEncodeError::OutputTooLarge {
-        limit: NATIVE_OUTPUT_LIMIT_BYTES,
-    })?;
-    let rows =
-        u16::try_from(height.div_ceil(2)).map_err(|_| NativeEncodeError::OutputTooLarge {
+    checkpoint(&mut cancelled)?;
+    let (pixel_width, pixel_height, cell_width, cell_height) = match backend {
+        ImageBackend::Sixel => {
+            let cell = cell_pixels.ok_or(NativeEncodeError::MissingCellPixelSize)?;
+            (
+                u32::from(max_columns) * u32::from(cell.width),
+                u32::from(max_rows) * u32::from(cell.height),
+                u32::from(cell.width),
+                u32::from(cell.height),
+            )
+        }
+        ImageBackend::Kitty | ImageBackend::Iterm2 => {
+            (u32::from(max_columns), u32::from(max_rows) * 2, 1, 2)
+        }
+        _ => return Err(NativeEncodeError::NotNative),
+    };
+    let (width, height, rgba) =
+        fitted_rgba(image, pixel_width, pixel_height, background, &mut cancelled)?;
+    let columns = u16::try_from(width.div_ceil(cell_width)).map_err(|_| {
+        NativeEncodeError::OutputTooLarge {
             limit: NATIVE_OUTPUT_LIMIT_BYTES,
-        })?;
+        }
+    })?;
+    let rows = u16::try_from(height.div_ceil(cell_height)).map_err(|_| {
+        NativeEncodeError::OutputTooLarge {
+            limit: NATIVE_OUTPUT_LIMIT_BYTES,
+        }
+    })?;
     let chunks = match backend {
-        ImageBackend::Kitty => kitty_chunks(id, width, height, columns, rows, &rgba)?,
-        ImageBackend::Sixel => sixel_chunks(width, height, &rgba)?,
-        ImageBackend::Iterm2 => iterm2_chunks(id, columns, rows, width, height, &rgba)?,
+        ImageBackend::Kitty => {
+            kitty_chunks(id, width, height, columns, rows, &rgba, &mut cancelled)?
+        }
+        ImageBackend::Sixel => sixel_chunks(width, height, &rgba, &mut cancelled)?,
+        ImageBackend::Iterm2 => {
+            iterm2_chunks(id, columns, rows, width, height, &rgba, &mut cancelled)?
+        }
         _ => return Err(NativeEncodeError::NotNative),
     };
     Ok(NativeImage {
@@ -287,11 +361,12 @@ pub fn encode_native_image(
 
 fn fitted_rgba(
     image: &crate::document::DecodedImage,
-    max_columns: u16,
-    max_rows: u16,
+    max_width: u32,
+    max_height: u32,
     background: Rgb,
+    cancelled: &mut impl FnMut() -> bool,
 ) -> Result<(u32, u32, Vec<u8>), NativeEncodeError> {
-    if image.width() == 0 || image.height() == 0 || max_columns == 0 || max_rows == 0 {
+    if image.width() == 0 || image.height() == 0 || max_width == 0 || max_height == 0 {
         return Err(NativeEncodeError::EmptyGeometry);
     }
     let expected = u64::from(image.width())
@@ -302,7 +377,8 @@ fn fitted_rgba(
     if image.rgba().len() != expected {
         return Err(NativeEncodeError::InvalidBuffer);
     }
-    let (width, height) = fit_dimensions(image.width(), image.height(), max_columns, max_rows);
+    let (width, height) =
+        fit_native_dimensions(image.width(), image.height(), max_width, max_height);
     let output_len = u64::from(width)
         .checked_mul(u64::from(height))
         .and_then(|pixels| pixels.checked_mul(4))
@@ -317,6 +393,7 @@ fn fitted_rgba(
     }
     let mut output = Vec::with_capacity(output_len);
     for y in 0..height {
+        checkpoint(cancelled)?;
         for x in 0..width {
             let pixel = sample(
                 image.rgba(),
@@ -332,6 +409,33 @@ fn fitted_rgba(
         }
     }
     Ok((width, height, output))
+}
+
+fn fit_native_dimensions(width: u32, height: u32, max_width: u32, max_height: u32) -> (u32, u32) {
+    if u64::from(width) * u64::from(max_height) > u64::from(height) * u64::from(max_width) {
+        let fitted_height = u32::try_from(
+            ((u64::from(height) * u64::from(max_width) + u64::from(width) / 2) / u64::from(width))
+                .clamp(1, u64::from(max_height)),
+        )
+        .unwrap_or(max_height);
+        (max_width, fitted_height)
+    } else {
+        let fitted_width = u32::try_from(
+            ((u64::from(width) * u64::from(max_height) + u64::from(height) / 2)
+                / u64::from(height))
+            .clamp(1, u64::from(max_width)),
+        )
+        .unwrap_or(max_width);
+        (fitted_width, max_height)
+    }
+}
+
+fn checkpoint(cancelled: &mut impl FnMut() -> bool) -> Result<(), NativeEncodeError> {
+    if cancelled() {
+        Err(NativeEncodeError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn encoded_len(input: usize) -> Result<usize, NativeEncodeError> {
@@ -351,6 +455,7 @@ fn kitty_chunks(
     columns: u16,
     rows: u16,
     rgba: &[u8],
+    cancelled: &mut impl FnMut() -> bool,
 ) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
     let base64_len = encoded_len(rgba.len())?;
     if base64_len > NATIVE_OUTPUT_LIMIT_BYTES {
@@ -358,15 +463,16 @@ fn kitty_chunks(
             limit: NATIVE_OUTPUT_LIMIT_BYTES,
         });
     }
-    let encoded = STANDARD.encode(rgba);
-    let count = encoded.len().div_ceil(KITTY_PAYLOAD_BYTES);
+    let count = rgba.len().div_ceil(KITTY_RAW_CHUNK_BYTES);
     if count > NATIVE_CHUNK_LIMIT {
         return Err(NativeEncodeError::TooManyChunks {
             limit: NATIVE_CHUNK_LIMIT,
         });
     }
     let mut chunks = Vec::with_capacity(count);
-    for (index, payload) in encoded.as_bytes().chunks(KITTY_PAYLOAD_BYTES).enumerate() {
+    for (index, raw) in rgba.chunks(KITTY_RAW_CHUNK_BYTES).enumerate() {
+        checkpoint(cancelled)?;
+        let payload = STANDARD.encode(raw);
         let more = usize::from(index + 1 < count);
         let prefix = if index == 0 {
             format!(
@@ -379,7 +485,7 @@ fn kitty_chunks(
         };
         let mut chunk = Vec::with_capacity(prefix.len() + payload.len() + 2);
         chunk.extend_from_slice(prefix.as_bytes());
-        chunk.extend_from_slice(payload);
+        chunk.extend_from_slice(payload.as_bytes());
         chunk.extend_from_slice(b"\x1b\\");
         chunks.push(chunk);
     }
@@ -387,19 +493,62 @@ fn kitty_chunks(
     Ok(chunks)
 }
 
-fn png_bytes(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, NativeEncodeError> {
+struct BoundedPngWriter<'a, F> {
+    bytes: Vec<u8>,
+    cancelled: &'a mut F,
+    was_cancelled: bool,
+    exceeded: bool,
+}
+
+impl<F: FnMut() -> bool> Write for BoundedPngWriter<'_, F> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if (self.cancelled)() {
+            self.was_cancelled = true;
+            return Err(io::Error::other("cancelled"));
+        }
+        if self.bytes.len().saturating_add(bytes.len()) > NATIVE_OUTPUT_LIMIT_BYTES {
+            self.exceeded = true;
+            return Err(io::Error::new(io::ErrorKind::FileTooLarge, "PNG limit"));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn png_bytes(
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+    cancelled: &mut impl FnMut() -> bool,
+) -> Result<Vec<u8>, NativeEncodeError> {
     use image::ImageEncoder as _;
 
-    let mut png = Vec::new();
-    image::codecs::png::PngEncoder::new(&mut png)
-        .write_image(rgba, width, height, image::ExtendedColorType::Rgba8)
-        .map_err(|_| NativeEncodeError::Png)?;
-    if png.len() > NATIVE_OUTPUT_LIMIT_BYTES {
+    let mut writer = BoundedPngWriter {
+        bytes: Vec::new(),
+        cancelled,
+        was_cancelled: false,
+        exceeded: false,
+    };
+    let result = image::codecs::png::PngEncoder::new(&mut writer).write_image(
+        rgba,
+        width,
+        height,
+        image::ExtendedColorType::Rgba8,
+    );
+    if writer.was_cancelled {
+        return Err(NativeEncodeError::Cancelled);
+    }
+    if writer.exceeded {
         return Err(NativeEncodeError::OutputTooLarge {
             limit: NATIVE_OUTPUT_LIMIT_BYTES,
         });
     }
-    Ok(png)
+    result.map_err(|_| NativeEncodeError::Png)?;
+    Ok(writer.bytes)
 }
 
 fn iterm2_chunks(
@@ -409,24 +558,26 @@ fn iterm2_chunks(
     width: u32,
     height: u32,
     rgba: &[u8],
+    cancelled: &mut impl FnMut() -> bool,
 ) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
-    let png = png_bytes(width, height, rgba)?;
+    let png = png_bytes(width, height, rgba, cancelled)?;
     if encoded_len(png.len())? > NATIVE_OUTPUT_LIMIT_BYTES {
         return Err(NativeEncodeError::OutputTooLarge {
             limit: NATIVE_OUTPUT_LIMIT_BYTES,
         });
     }
-    let encoded = STANDARD.encode(&png);
     let name = STANDARD.encode(format!("termleaf-{}.png", id.get()));
     let mut chunks = vec![format!(
         "\x1b]1337;MultipartFile=inline=1;size={};width={columns};height={rows};preserveAspectRatio=1;name={name}\x07",
         png.len()
     )
     .into_bytes()];
-    for part in encoded.as_bytes().chunks(STREAM_CHUNK_BYTES) {
+    for raw in png.chunks(ITERM_RAW_PART_BYTES) {
+        checkpoint(cancelled)?;
+        let part = STANDARD.encode(raw);
         let mut chunk = Vec::with_capacity(part.len() + 23);
         chunk.extend_from_slice(b"\x1b]1337;FilePart=");
-        chunk.extend_from_slice(part);
+        chunk.extend_from_slice(part.as_bytes());
         chunk.push(0x07);
         chunks.push(chunk);
     }
@@ -435,13 +586,19 @@ fn iterm2_chunks(
     Ok(chunks)
 }
 
-fn sixel_chunks(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
-    let indices = rgba
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .map(|pixel| nearest_xterm_index(Rgb(pixel[0], pixel[1], pixel[2])))
-        .collect::<Vec<_>>();
+fn sixel_chunks(
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+    cancelled: &mut impl FnMut() -> bool,
+) -> Result<Vec<Vec<u8>>, NativeEncodeError> {
+    let mut indices = Vec::with_capacity(rgba.len() / 4);
+    for (index, pixel) in rgba.as_chunks::<4>().0.iter().enumerate() {
+        if index % 1024 == 0 {
+            checkpoint(cancelled)?;
+        }
+        indices.push(nearest_xterm_index(Rgb(pixel[0], pixel[1], pixel[2])));
+    }
     let mut palette = BTreeMap::new();
     for index in &indices {
         let next = u8::try_from(palette.len()).unwrap_or(u8::MAX);
@@ -467,11 +624,16 @@ fn sixel_chunks(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<Vec<u8>>, Na
         limit: NATIVE_OUTPUT_LIMIT_BYTES,
     })?;
     for band in (0..height).step_by(6) {
+        checkpoint(cancelled)?;
         for (palette_index, local) in &palette {
+            checkpoint(cancelled)?;
             append_native(&mut output, format!("#{local}").as_bytes())?;
             let mut run_byte = 0_u8;
             let mut run_len = 0_usize;
             for column in 0..width {
+                if column % 1024 == 0 {
+                    checkpoint(cancelled)?;
+                }
                 let mut mask = 0_u8;
                 for bit in 0..6_u32 {
                     let row = band + bit;
@@ -726,6 +888,17 @@ impl HalfBlockFrame {
     #[must_use]
     pub fn cells(&self) -> &[HalfBlockCell] {
         &self.cells
+    }
+
+    #[must_use]
+    pub(crate) fn allocation_bytes(&self) -> usize {
+        ARC_ALLOCATION_OVERHEAD
+            .saturating_add(size_of::<Self>())
+            .saturating_add(
+                self.cells
+                    .capacity()
+                    .saturating_mul(size_of::<HalfBlockCell>()),
+            )
     }
 
     /// Serializes the frame as SGR-colored upper-half block rows.
@@ -1032,6 +1205,15 @@ pub fn failure_caption(alt: Option<&str>, dimensions: Option<(u32, u32)>, reason
 mod tests {
     use super::*;
 
+    fn decoded(width: u32, height: u32, pixels: Vec<u8>) -> crate::document::DecodedImage {
+        let source = image::RgbaImage::from_raw(width, height, pixels).expect("pixel dimensions");
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(source)
+            .write_to(&mut cursor, image::ImageFormat::Png)
+            .expect("encode PNG");
+        crate::document::image::decode_bounded(&cursor.into_inner()).expect("decode PNG")
+    }
+
     #[test]
     fn explicit_override_wins_and_negative_evidence_is_typed() {
         let capabilities = ImageCapabilities {
@@ -1227,7 +1409,7 @@ mod tests {
     fn native_kitty_chunks_are_bounded_identified_and_protocol_exclusive() {
         let id = ImageId::new(7).expect("nonzero");
         let rgba = vec![255; 4_000];
-        let chunks = kitty_chunks(id, 1_000, 1, 1_000, 1, &rgba).expect("bounded");
+        let chunks = kitty_chunks(id, 1_000, 1, 1_000, 1, &rgba, &mut || false).expect("bounded");
 
         assert_eq!(chunks.len(), 2, "payload crosses one 4096-byte boundary");
         assert!(chunks[0].starts_with(b"\x1b_Ga=T,t=d,f=32,s=1000,v=1,i=7,p=7"));
@@ -1241,7 +1423,7 @@ mod tests {
 
     #[test]
     fn native_sixel_has_one_balanced_dcs_and_correct_top_pixel_bit() {
-        let chunks = sixel_chunks(1, 1, &[255, 0, 0, 255]).expect("sixel");
+        let chunks = sixel_chunks(1, 1, &[255, 0, 0, 255], &mut || false).expect("sixel");
         let wire = chunks.concat();
 
         assert!(wire.starts_with(b"\x1bP0;0;0q\"1;1;1;1"));
@@ -1253,9 +1435,114 @@ mod tests {
     }
 
     #[test]
+    fn native_sixel_requires_and_uses_measured_cell_pixel_geometry() {
+        let image = decoded(16, 32, vec![255; 16 * 32 * 4]);
+        let id = ImageId::new(1).expect("id");
+        assert_eq!(
+            encode_native_image(ImageBackend::Sixel, id, &image, 2, 1, Rgb(0, 0, 0), None,),
+            Err(NativeEncodeError::MissingCellPixelSize)
+        );
+
+        let encoded = encode_native_image(
+            ImageBackend::Sixel,
+            id,
+            &image,
+            2,
+            1,
+            Rgb(0, 0, 0),
+            CellPixelSize::new(8, 16),
+        )
+        .expect("measured Sixel");
+        assert_eq!((encoded.columns(), encoded.rows()), (1, 1));
+        assert!(
+            encoded
+                .chunks()
+                .concat()
+                .windows(b"\"1;1;8;16".len())
+                .any(|window| window == b"\"1;1;8;16"),
+            "Sixel raster dimensions are pixels, not terminal cells"
+        );
+    }
+
+    #[test]
+    fn native_encoding_cancels_during_fitting_png_and_sixel_work() {
+        let image = decoded(64, 64, vec![128; 64 * 64 * 4]);
+        let mut checks = 0;
+        let result = encode_native_image_cancellable(
+            ImageBackend::Kitty,
+            ImageId::new(1).expect("id"),
+            &image,
+            64,
+            32,
+            Rgb(0, 0, 0),
+            None,
+            || {
+                checks += 1;
+                checks > 3
+            },
+        );
+        assert_eq!(result, Err(NativeEncodeError::Cancelled));
+
+        assert_eq!(
+            png_bytes(1, 1, &[255; 4], &mut || true),
+            Err(NativeEncodeError::Cancelled)
+        );
+        assert_eq!(
+            sixel_chunks(1, 1, &[255; 4], &mut || true),
+            Err(NativeEncodeError::Cancelled)
+        );
+    }
+
+    #[test]
+    fn native_png_writer_rejects_before_allocating_one_byte_over_limit() {
+        let mut never = || false;
+        let mut writer = BoundedPngWriter {
+            bytes: vec![0; NATIVE_OUTPUT_LIMIT_BYTES],
+            cancelled: &mut never,
+            was_cancelled: false,
+            exceeded: false,
+        };
+        assert_eq!(writer.write(&[]).expect("inclusive boundary"), 0);
+        let error = writer.write(&[0]).expect_err("one over rejects");
+        assert_eq!(error.kind(), io::ErrorKind::FileTooLarge);
+        assert_eq!(writer.bytes.len(), NATIVE_OUTPUT_LIMIT_BYTES);
+        assert!(writer.exceeded);
+    }
+
+    #[test]
+    fn native_sixel_multicolor_bands_are_balanced_and_advance() {
+        let mut rgba = Vec::new();
+        for row in 0..7 {
+            for column in 0..2 {
+                rgba.extend_from_slice(if (row + column) % 2 == 0 {
+                    &[255, 0, 0, 255]
+                } else {
+                    &[0, 0, 255, 255]
+                });
+            }
+        }
+        let wire = sixel_chunks(2, 7, &rgba, &mut || false)
+            .expect("sixel")
+            .concat();
+        assert_eq!(wire.windows(2).filter(|part| *part == b"\x1bP").count(), 1);
+        assert_eq!(wire.windows(2).filter(|part| *part == b"\x1b\\").count(), 1);
+        assert!(wire.contains(&b'-'), "second six-pixel band advances");
+        assert!(wire.windows(2).any(|part| part == b"#0"));
+        assert!(wire.windows(2).any(|part| part == b"#1"));
+    }
+
+    #[test]
     fn native_iterm2_uses_bounded_multipart_framing_and_generated_name() {
-        let chunks =
-            iterm2_chunks(ImageId::new(9).expect("id"), 2, 1, 2, 2, &[255; 16]).expect("multipart");
+        let chunks = iterm2_chunks(
+            ImageId::new(9).expect("id"),
+            2,
+            1,
+            2,
+            2,
+            &[255; 16],
+            &mut || false,
+        )
+        .expect("multipart");
 
         assert!(chunks[0].starts_with(b"\x1b]1337;MultipartFile=inline=1;"));
         assert!(chunks[0].windows(5).any(|part| part == b"name="));
@@ -1338,6 +1625,84 @@ mod tests {
         output.clear();
         session.cleanup(&mut output).expect("cleanup");
         assert!(output.windows(4).any(|part| part == b"a=d,"));
+    }
+
+    #[derive(Default)]
+    struct FailingWriter {
+        writes: usize,
+        fail_write_at: Option<usize>,
+        fail_flush: bool,
+        bytes: Vec<u8>,
+    }
+
+    impl Write for FailingWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            let call = self.writes;
+            self.writes += 1;
+            if self.fail_write_at == Some(call) {
+                return Err(io::Error::other("injected write failure"));
+            }
+            self.bytes.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            if self.fail_flush {
+                Err(io::Error::other("injected flush failure"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[test]
+    fn native_lifecycle_failures_keep_every_attempted_id_cleanup_safe() {
+        let plan = NativeFramePlan {
+            placements: vec![NativePlacement {
+                column: 0,
+                row: 0,
+                image: native_for_test(3, ImageBackend::Kitty, b'K'),
+            }],
+        };
+        for mut writer in [
+            FailingWriter {
+                fail_write_at: Some(0),
+                ..FailingWriter::default()
+            },
+            FailingWriter {
+                fail_flush: true,
+                ..FailingWriter::default()
+            },
+        ] {
+            let mut session = NativeGraphicsSession::default();
+            assert!(session.synchronize(&mut writer, plan.clone()).is_err());
+            let mut cleanup = Vec::new();
+            session.cleanup(&mut cleanup).expect("retry cleanup");
+            assert!(
+                cleanup.windows(4).any(|part| part == b"a=d,"),
+                "partially written IDs remain tracked"
+            );
+        }
+
+        let mut session = NativeGraphicsSession::default();
+        session
+            .synchronize(&mut Vec::new(), plan)
+            .expect("initial placement");
+        let replacement = NativeFramePlan {
+            placements: vec![NativePlacement {
+                column: 1,
+                row: 1,
+                image: native_for_test(3, ImageBackend::Kitty, b'R'),
+            }],
+        };
+        let mut writer = FailingWriter {
+            fail_write_at: Some(0),
+            ..FailingWriter::default()
+        };
+        assert!(session.synchronize(&mut writer, replacement).is_err());
+        let mut cleanup = Vec::new();
+        session.cleanup(&mut cleanup).expect("replacement cleanup");
+        assert!(cleanup.windows(4).any(|part| part == b"a=d,"));
     }
 
     #[test]

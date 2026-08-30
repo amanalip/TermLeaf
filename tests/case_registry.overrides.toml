@@ -966,8 +966,10 @@ location = [
     "src/document/resource.rs::img_012_markdown_provider_rejects_symlink_escape",
     "src/document/resource.rs::img_012_markdown_provider_never_follows_concurrently_swapped_escape",
     "tests/render.rs::img_012_decoder_failure_keeps_text_and_reports_alt_dimensions_reason",
+    "tests/render.rs::native_sixel_missing_geometry_and_partial_images_render_explicit_fallbacks",
     "src/ui/reader.rs::img_012_caption_controls_are_sanitized_before_ratatui_buffer_write",
     "src/terminal_image.rs::native_output_and_chunk_boundaries_reject_one_over",
+    "src/terminal_image.rs::native_png_writer_rejects_before_allocating_one_byte_over_limit",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
@@ -1054,7 +1056,10 @@ location = [
     "src/terminal_image.rs::automatic_selection_requires_positive_evidence_in_locked_order",
     "src/terminal_image.rs::native_kitty_chunks_are_bounded_identified_and_protocol_exclusive",
     "src/terminal_image.rs::native_sixel_has_one_balanced_dcs_and_correct_top_pixel_bit",
+    "src/terminal_image.rs::native_sixel_multicolor_bands_are_balanced_and_advance",
+    "src/terminal_image.rs::native_sixel_requires_and_uses_measured_cell_pixel_geometry",
     "src/terminal_image.rs::native_iterm2_uses_bounded_multipart_framing_and_generated_name",
+    "src/terminal.rs::sixel_cell_pixels_use_measured_window_geometry_only",
     "tests/render.rs::img_008_native_backends_collect_one_protocol_without_escape_cells",
 ]
 last_evidence = ["testreport.md#complete-structured-rendering-and-native-transports"]
@@ -1116,6 +1121,7 @@ location = [
     "src/app/worker.rs::completion_queue_is_bounded_and_never_blocks_workers",
     "src/app/worker.rs::queued_output_consumes_budget_and_oversized_completion_is_dropped",
     "src/app/worker.rs::successful_output_bytes_remain_charged_until_receive_or_stale_clear",
+    "src/app/state.rs::con_001_native_and_cell_completion_accounting_includes_arc_allocations",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
@@ -1132,6 +1138,7 @@ status = "Implemented"
 location = [
     "src/app/worker.rs::con_003_navigation_cancels_queued_and_running_work",
     "src/app/state.rs::con_002_003_production_navigation_and_resize_roll_image_generation",
+    "src/terminal_image.rs::native_encoding_cancels_during_fitting_png_and_sixel_work",
 ]
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
@@ -1195,6 +1202,7 @@ location = ["src/terminal_image.rs::reports_parse_without_promoting_malformed_va
 location = [
     "src/terminal_image.rs::native_lifecycle_replaces_deletes_and_suppresses_unchanged_frames",
     "src/terminal_image.rs::legacy_lifecycle_requires_redraw_then_clears_on_shutdown",
+    "src/terminal_image.rs::native_lifecycle_failures_keep_every_attempted_id_cleanup_safe",
 ]
 
 [cases.TERM-009]
