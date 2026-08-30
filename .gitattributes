@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Fixtures are byte-exact test artifacts, regardless of filename extension.
+tests/fixtures/** -text
