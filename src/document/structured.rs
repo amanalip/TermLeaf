@@ -40,6 +40,57 @@ pub enum XmlStructureError {
     /// A DTD declaration was present.
     #[error("DTD and entity declarations are not allowed")]
     DtdDeclaration,
+    /// A control document is not well-formed XML.
+    #[error("malformed XML near byte offset {offset}")]
+    Malformed {
+        /// Reader position at the first malformed construct.
+        offset: usize,
+    },
+}
+
+/// Validates control-document well-formedness without resolving entities.
+///
+/// This strict pass is reserved for container, OPF, NCX, and navigation
+/// controls. XHTML chapters retain tolerant HTML5 recovery after the common
+/// declaration/depth/node gate.
+///
+/// # Errors
+///
+/// Returns the first common structure, declaration, encoding, or XML
+/// well-formedness rejection.
+pub fn validate_control_xml(source: &[u8], limits: XmlLimits) -> Result<(), XmlStructureError> {
+    validate_xml_structure(source, limits)?;
+    if std::str::from_utf8(source).is_err() {
+        return Err(XmlStructureError::Malformed { offset: 0 });
+    }
+    let mut reader = quick_xml::Reader::from_reader(source);
+    reader.config_mut().check_end_names = true;
+    let mut depth = 0usize;
+    loop {
+        match reader.read_event() {
+            Ok(quick_xml::events::Event::Start(_)) => depth = depth.saturating_add(1),
+            Ok(quick_xml::events::Event::End(_)) => {
+                depth = depth.checked_sub(1).ok_or(XmlStructureError::Malformed {
+                    offset: usize::try_from(reader.buffer_position()).unwrap_or(usize::MAX),
+                })?;
+            }
+            Ok(quick_xml::events::Event::Eof) if depth == 0 => return Ok(()),
+            Ok(quick_xml::events::Event::Eof) => {
+                return Err(XmlStructureError::Malformed {
+                    offset: usize::try_from(reader.buffer_position()).unwrap_or(usize::MAX),
+                });
+            }
+            Ok(quick_xml::events::Event::DocType(_)) => {
+                return Err(XmlStructureError::DtdDeclaration);
+            }
+            Ok(_) => {}
+            Err(_) => {
+                return Err(XmlStructureError::Malformed {
+                    offset: usize::try_from(reader.error_position()).unwrap_or(usize::MAX),
+                });
+            }
+        }
+    }
 }
 
 /// Checks XML structure without building a tree or resolving declarations.
@@ -132,4 +183,39 @@ fn tag_end(source: &[u8], start: usize) -> (usize, bool) {
         cursor += 1;
     }
     (source.len(), false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sec_009_control_xml_mutation_table_is_strict_and_never_resolves_declarations() {
+        let malformed: [&[u8]; 8] = [
+            b"<container>",
+            b"<package><item></package>",
+            b"<ncx attr='unterminated></ncx>",
+            b"<nav><a></nav>",
+            b"<!-- unterminated",
+            b"<?pi unterminated",
+            b"<root><",
+            b"\xff<root/>",
+        ];
+        for source in malformed {
+            assert!(
+                matches!(
+                    validate_control_xml(source, XmlLimits::default()),
+                    Err(XmlStructureError::Malformed { .. })
+                ),
+                "mutation unexpectedly accepted: {source:?}"
+            );
+        }
+        assert_eq!(
+            validate_control_xml(
+                b"<!DOCTYPE root SYSTEM 'file:///etc/passwd'><root/>",
+                XmlLimits::default()
+            ),
+            Err(XmlStructureError::DtdDeclaration)
+        );
+    }
 }

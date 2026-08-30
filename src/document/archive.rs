@@ -14,11 +14,14 @@ use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::sync::Arc;
 
+use unicode_normalization::UnicodeNormalization;
 use zip::CompressionMethod;
 use zip::read::ZipArchive;
 
 use super::sanitize_path;
-use super::structured::{XmlLimits, XmlStructureError, validate_xml_structure};
+use super::structured::{
+    XmlLimits, XmlStructureError, validate_control_xml, validate_xml_structure,
+};
 
 /// Inclusive archive policy limits; application choices rather than EPUB spec
 /// limits. They mirror the initial safety table and only become configurable
@@ -141,6 +144,8 @@ pub enum NameRejection {
     ColonInSegment,
     /// Every segment was empty or dot, leaving no usable name.
     EmptyName,
+    /// A segment aliases a reserved Windows device name.
+    ReservedDevice,
 }
 
 impl NameRejection {
@@ -152,6 +157,7 @@ impl NameRejection {
             Self::ParentEscape => "the member name leaves the archive root",
             Self::ColonInSegment => "a member name segment contains a colon",
             Self::EmptyName => "the member has no usable name",
+            Self::ReservedDevice => "a member name segment is a reserved device name",
         }
     }
 }
@@ -181,13 +187,28 @@ pub fn canonical_key(name: &str) -> Result<String, NameRejection> {
     for segment in name.split(['/', '\\']) {
         match segment {
             "" | "." => {}
-            ".." => return Err(NameRejection::ParentEscape),
+            ".." => {
+                if segments.pop().is_none() {
+                    return Err(NameRejection::ParentEscape);
+                }
+            }
             _ => {
                 if segment.contains(':') {
                     return Err(NameRejection::ColonInSegment);
                 }
                 let trimmed = segment.trim_end_matches(['.', ' ']);
                 if !trimmed.is_empty() {
+                    let stem = trimmed.split('.').next().unwrap_or_default();
+                    let upper = stem.to_ascii_uppercase();
+                    let numbered_device = upper
+                        .strip_prefix("COM")
+                        .or_else(|| upper.strip_prefix("LPT"))
+                        .is_some_and(|number| {
+                            matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+                        });
+                    if matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered_device {
+                        return Err(NameRejection::ReservedDevice);
+                    }
                     segments.push(trimmed.to_owned());
                 }
             }
@@ -197,6 +218,42 @@ pub fn canonical_key(name: &str) -> Result<String, NameRejection> {
         return Err(NameRejection::EmptyName);
     }
     Ok(segments.join("/"))
+}
+
+fn collision_key(key: &str) -> String {
+    key.nfkc().flat_map(char::to_lowercase).collect()
+}
+
+fn validate_eocd_termination(bytes: &[u8], display_path: &str) -> Result<(), ArchiveError> {
+    const EOCD_SIGNATURE: [u8; 4] = 0x0605_4B50_u32.to_le_bytes();
+    const EOCD_FIXED: usize = 22;
+    let search_start = bytes
+        .len()
+        .saturating_sub(EOCD_FIXED + usize::from(u16::MAX));
+    let Some(relative) = bytes[search_start..]
+        .windows(EOCD_SIGNATURE.len())
+        .rposition(|window| window == EOCD_SIGNATURE)
+    else {
+        return Err(ArchiveError::Malformed {
+            path: display_path.to_owned(),
+            detail: "the archive has no end-of-central-directory record".to_owned(),
+        });
+    };
+    let start = search_start + relative;
+    let Some(comment_bytes) = bytes.get(start + 20..start + 22) else {
+        return Err(ArchiveError::Malformed {
+            path: display_path.to_owned(),
+            detail: "the end-of-central-directory record is truncated".to_owned(),
+        });
+    };
+    let comment_len = usize::from(u16::from_le_bytes([comment_bytes[0], comment_bytes[1]]));
+    if start.checked_add(EOCD_FIXED + comment_len) != Some(bytes.len()) {
+        return Err(ArchiveError::Malformed {
+            path: display_path.to_owned(),
+            detail: "unexpected data follows the end-of-central-directory record".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 /// Typed archive-policy failures; each names its book, the reason, and one
@@ -532,7 +589,9 @@ impl PreflightedArchive {
                 limit: limits.max_compressed_bytes,
             });
         }
-        let (members, by_key) = scan_members(&bytes, display_path, limits)?;
+        validate_eocd_termination(&bytes, display_path)?;
+        let (mut members, by_key) = scan_members(&bytes, display_path, limits)?;
+        discover_control_members(&bytes, display_path, limits, &by_key, &mut members)?;
         verify_actual_sizes(&bytes, display_path, limits, &members)?;
         verify_xml_structures(&bytes, display_path, limits, &members)?;
 
@@ -601,7 +660,7 @@ impl PreflightedArchive {
             })?;
         let mut out = Vec::new();
         (&mut entry)
-            .take(limit + 1)
+            .take(limit.saturating_add(1))
             .read_to_end(&mut out)
             .map_err(|error| ArchiveError::Malformed {
                 path: self.display_path.clone(),
@@ -616,6 +675,12 @@ impl PreflightedArchive {
                 limit,
             });
         }
+        if out.len() as u64 != info.declared_size {
+            return Err(ArchiveError::DishonestMetadata {
+                path: self.display_path.clone(),
+                member: sanitize_path(key),
+            });
+        }
         Ok(out)
     }
 
@@ -624,6 +689,208 @@ impl PreflightedArchive {
     pub fn shared_bytes(&self) -> SharedBookBytes {
         SharedBookBytes(Arc::clone(&self.bytes))
     }
+}
+
+fn read_preflight_member(
+    bytes: &[u8],
+    display_path: &str,
+    info: &MemberInfo,
+    limit: u64,
+) -> Result<Vec<u8>, ArchiveError> {
+    let mut archive = open_archive(bytes, display_path)?;
+    let mut entry = archive
+        .by_index(info.index)
+        .map_err(|error| ArchiveError::Malformed {
+            path: display_path.to_owned(),
+            detail: malformed_detail(error),
+        })?;
+    let mut source = Vec::new();
+    (&mut entry)
+        .take(limit.saturating_add(1))
+        .read_to_end(&mut source)
+        .map_err(|error| ArchiveError::Malformed {
+            path: display_path.to_owned(),
+            detail: format!(
+                "could not decompress '{}': {error}",
+                sanitize_path(&info.key)
+            ),
+        })?;
+    if source.len() as u64 > limit {
+        return Err(ArchiveError::MemberTooLarge {
+            path: display_path.to_owned(),
+            member: sanitize_path(&info.key),
+            kind: MemberClass::Control.name().to_owned(),
+            size: source.len() as u64,
+            limit,
+        });
+    }
+    if source.len() as u64 != info.declared_size {
+        return Err(ArchiveError::DishonestMetadata {
+            path: display_path.to_owned(),
+            member: sanitize_path(&info.key),
+        });
+    }
+    Ok(source)
+}
+
+fn xml_attributes(source: &[u8], element: &[u8]) -> Result<Vec<BTreeMap<String, String>>, ()> {
+    use quick_xml::events::Event;
+
+    let mut reader = quick_xml::Reader::from_reader(source);
+    reader.config_mut().check_end_names = true;
+    let mut found = Vec::new();
+    loop {
+        match reader.read_event().map_err(|_| ())? {
+            Event::Start(tag) | Event::Empty(tag)
+                if tag.local_name().as_ref().eq_ignore_ascii_case(element) =>
+            {
+                let mut values = BTreeMap::new();
+                for attribute in tag.attributes().with_checks(true) {
+                    let attribute = attribute.map_err(|_| ())?;
+                    let key = std::str::from_utf8(attribute.key.local_name().as_ref())
+                        .map_err(|_| ())?
+                        .to_ascii_lowercase();
+                    let value = attribute
+                        .decoded_and_normalized_value(
+                            quick_xml::XmlVersion::Implicit1_0,
+                            reader.decoder(),
+                        )
+                        .map_err(|_| ())?
+                        .into_owned();
+                    values.insert(key, value);
+                }
+                found.push(values);
+            }
+            Event::Eof => return Ok(found),
+            _ => {}
+        }
+    }
+}
+
+fn resolved_control_key(base: &str, href: &str) -> Result<String, NameRejection> {
+    let href = href.split(['#', '?']).next().unwrap_or_default();
+    let joined = if base.is_empty() {
+        href.to_owned()
+    } else {
+        format!("{base}/{href}")
+    };
+    canonical_key(&joined)
+}
+
+fn mark_control(
+    key: &str,
+    display_path: &str,
+    limits: &ArchiveLimits,
+    by_key: &BTreeMap<String, usize>,
+    members: &mut [MemberInfo],
+) -> Result<Option<usize>, ArchiveError> {
+    let Some(index) = by_key.get(key).copied() else {
+        return Ok(None);
+    };
+    let info = &mut members[index];
+    if info.declared_size > limits.max_control_member {
+        return Err(ArchiveError::MemberTooLarge {
+            path: display_path.to_owned(),
+            member: sanitize_path(key),
+            kind: MemberClass::Control.name().to_owned(),
+            size: info.declared_size,
+            limit: limits.max_control_member,
+        });
+    }
+    info.class = MemberClass::Control;
+    Ok(Some(index))
+}
+
+/// Discovers arbitrary legal package, NCX, and EPUB 3 nav paths before the
+/// semantic parser, so suffix tricks cannot evade the control-member limit.
+fn discover_control_members(
+    bytes: &[u8],
+    display_path: &str,
+    limits: &ArchiveLimits,
+    by_key: &BTreeMap<String, usize>,
+    members: &mut [MemberInfo],
+) -> Result<(), ArchiveError> {
+    let Some(container_index) = members
+        .iter()
+        .position(|info| info.key.eq_ignore_ascii_case("META-INF/container.xml"))
+    else {
+        return Ok(());
+    };
+    let container = read_preflight_member(
+        bytes,
+        display_path,
+        &members[container_index],
+        limits.max_control_member,
+    )?;
+    validate_control_xml(&container, limits.xml).map_err(|source| {
+        ArchiveError::UnsafeXmlStructure {
+            path: display_path.to_owned(),
+            member: sanitize_path(&members[container_index].key),
+            source,
+        }
+    })?;
+    let rootfiles =
+        xml_attributes(&container, b"rootfile").map_err(|()| ArchiveError::UnsafeXmlStructure {
+            path: display_path.to_owned(),
+            member: sanitize_path(&members[container_index].key),
+            source: XmlStructureError::Malformed { offset: 0 },
+        })?;
+    for rootfile in rootfiles {
+        let Some(path) = rootfile.get("full-path") else {
+            continue;
+        };
+        let key = canonical_key(path).map_err(|rejection| ArchiveError::UnsafeMemberName {
+            path: display_path.to_owned(),
+            member: sanitize_path(path),
+            reason: rejection.reason().to_owned(),
+        })?;
+        let Some(package_index) = mark_control(&key, display_path, limits, by_key, members)? else {
+            continue;
+        };
+        let package = read_preflight_member(
+            bytes,
+            display_path,
+            &members[package_index],
+            limits.max_control_member,
+        )?;
+        validate_control_xml(&package, limits.xml).map_err(|source| {
+            ArchiveError::UnsafeXmlStructure {
+                path: display_path.to_owned(),
+                member: sanitize_path(&key),
+                source,
+            }
+        })?;
+        let base = key.rsplit_once('/').map_or("", |(base, _)| base);
+        let items =
+            xml_attributes(&package, b"item").map_err(|()| ArchiveError::UnsafeXmlStructure {
+                path: display_path.to_owned(),
+                member: sanitize_path(&key),
+                source: XmlStructureError::Malformed { offset: 0 },
+            })?;
+        for item in items {
+            let is_ncx = item
+                .get("media-type")
+                .is_some_and(|value| value.eq_ignore_ascii_case("application/x-dtbncx+xml"));
+            let is_nav = item
+                .get("properties")
+                .is_some_and(|value| value.split_whitespace().any(|part| part == "nav"));
+            if !(is_ncx || is_nav) {
+                continue;
+            }
+            let Some(href) = item.get("href") else {
+                continue;
+            };
+            let target = resolved_control_key(base, href).map_err(|rejection| {
+                ArchiveError::UnsafeMemberName {
+                    path: display_path.to_owned(),
+                    member: sanitize_path(href),
+                    reason: rejection.reason().to_owned(),
+                }
+            })?;
+            mark_control(&target, display_path, limits, by_key, members)?;
+        }
+    }
+    Ok(())
 }
 
 /// Validates one raw member name and reduces it to its canonical key.
@@ -677,6 +944,7 @@ fn validate_identity(
 }
 
 /// Walks the central directory once, enforcing every metadata-level policy.
+#[allow(clippy::too_many_lines)]
 fn scan_members(
     bytes: &[u8],
     display_path: &str,
@@ -684,6 +952,7 @@ fn scan_members(
 ) -> Result<(Vec<MemberInfo>, BTreeMap<String, usize>), ArchiveError> {
     let mut members: Vec<MemberInfo> = Vec::new();
     let mut by_key: BTreeMap<String, usize> = BTreeMap::new();
+    let mut identities: BTreeMap<String, (String, bool)> = BTreeMap::new();
     let mut data_regions: Vec<(u64, u64)> = Vec::new();
     let mut advertised_total = 0u64;
     let mut archive = open_archive(bytes, display_path)?;
@@ -729,7 +998,18 @@ fn scan_members(
         }
 
         if let Some(start) = entry.data_start() {
-            let end = start.saturating_add(compressed);
+            let Some(end) = start.checked_add(compressed) else {
+                return Err(ArchiveError::DishonestMetadata {
+                    path: display_path.to_owned(),
+                    member: sanitize_path(&key),
+                });
+            };
+            if end > bytes.len() as u64 {
+                return Err(ArchiveError::DishonestMetadata {
+                    path: display_path.to_owned(),
+                    member: sanitize_path(&key),
+                });
+            }
             if data_regions
                 .iter()
                 .any(|(seen_start, seen_end)| start < *seen_end && *seen_start < end)
@@ -740,6 +1020,11 @@ fn scan_members(
                 });
             }
             data_regions.push((start, end));
+        } else {
+            return Err(ArchiveError::DishonestMetadata {
+                path: display_path.to_owned(),
+                member: sanitize_path(&key),
+            });
         }
 
         let class = classify_member(&key);
@@ -765,12 +1050,19 @@ fn scan_members(
         };
         advertised_total = next_total;
 
-        if by_key.contains_key(&key) {
+        let identity = collision_key(&key);
+        let is_dir = entry.is_dir();
+        let prefix_collision = identities.values().any(|(seen, seen_is_dir)| {
+            (identity.starts_with(&format!("{seen}/")) && !seen_is_dir)
+                || (seen.starts_with(&format!("{identity}/")) && !is_dir)
+        });
+        if by_key.contains_key(&key) || identities.contains_key(&identity) || prefix_collision {
             return Err(ArchiveError::AmbiguousMemberName {
                 path: display_path.to_owned(),
                 member: sanitize_path(&key),
             });
         }
+        identities.insert(identity, (collision_key(&key), is_dir));
         by_key.insert(key.clone(), members.len());
         members.push(MemberInfo {
             index,
@@ -815,7 +1107,7 @@ fn verify_actual_sizes(
 ) -> Result<(), ArchiveError> {
     let mut archive = open_archive(bytes, display_path)?;
     for info in members {
-        if info.class == MemberClass::Other || info.declared_size == 0 {
+        if info.class == MemberClass::Other {
             continue;
         }
         let limit = info.class.limit(limits);
@@ -840,7 +1132,16 @@ fn verify_actual_sizes(
             if read == 0 {
                 break;
             }
-            counted += read as u64;
+            counted =
+                counted
+                    .checked_add(read as u64)
+                    .ok_or_else(|| ArchiveError::MemberTooLarge {
+                        path: display_path.to_owned(),
+                        member: sanitize_path(&info.key),
+                        kind: info.class.name().to_owned(),
+                        size: u64::MAX,
+                        limit,
+                    })?;
             if counted > limit {
                 return Err(ArchiveError::MemberTooLarge {
                     path: display_path.to_owned(),
@@ -892,12 +1193,15 @@ fn verify_xml_structures(
                     sanitize_path(&info.key)
                 ),
             })?;
-        validate_xml_structure(&source, limits.xml).map_err(|source| {
-            ArchiveError::UnsafeXmlStructure {
-                path: display_path.to_owned(),
-                member: sanitize_path(&info.key),
-                source,
-            }
+        let validation = if info.class == MemberClass::Control {
+            validate_control_xml(&source, limits.xml)
+        } else {
+            validate_xml_structure(&source, limits.xml)
+        };
+        validation.map_err(|source| ArchiveError::UnsafeXmlStructure {
+            path: display_path.to_owned(),
+            member: sanitize_path(&info.key),
+            source,
         })?;
     }
     Ok(())
@@ -938,7 +1242,7 @@ pub fn open_book_archive(
 
     let mut bytes = Vec::new();
     (&mut file)
-        .take(limits.max_compressed_bytes + 1)
+        .take(limits.max_compressed_bytes.saturating_add(1))
         .read_to_end(&mut bytes)
         .map_err(|source| ArchiveError::Read {
             path: display.clone(),
@@ -1075,7 +1379,7 @@ mod tests {
         out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
         out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
         out.extend_from_slice(&(directory.len() as u32).to_le_bytes());
-        out.extend_from_slice(&directory_offset.to_le_bytes());
+        out.extend_from_slice(&(directory_offset as u32).to_le_bytes());
         out.extend_from_slice(&0_u16.to_le_bytes());
         out
     }
@@ -1283,13 +1587,13 @@ mod tests {
             max_control_member: 8,
             ..tiny_limits()
         };
-        let exact = [HandEntry::stored("OEBPS/content.opf", &[0u8; 8])];
+        let exact = [HandEntry::stored("OEBPS/content.opf", b"<a></a> ")];
         assert!(
             open(&exact, &limits).is_ok(),
             "exact control boundary passes"
         );
 
-        let over = [HandEntry::stored("OEBPS/content.opf", &[0u8; 9])];
+        let over = [HandEntry::stored("OEBPS/content.opf", b"<a>xx</a>")];
         let error = open(&over, &limits).expect_err("declared control size rejects");
         let ArchiveError::MemberTooLarge {
             kind, size, limit, ..
@@ -1306,6 +1610,60 @@ mod tests {
         let ncx_over = [HandEntry::stored("OEBPS/toc.ncx", &[0u8; 12])];
         let error = open(&ncx_over, &limits).expect_err("NCX bound applies");
         assert!(matches!(error, ArchiveError::MemberTooLarge { .. }));
+    }
+
+    #[test]
+    fn sec_006_package_discovery_bounds_extensionless_package_and_nav_members() {
+        let container = br#"<container><rootfiles><rootfile full-path="OEBPS/package"/></rootfiles></container>"#;
+        let package = br#"<package><manifest><item id="nav" href="navigation" media-type="application/xhtml+xml" properties="nav"/></manifest></package>"#;
+        let nav = |size: usize| {
+            let mut source = String::from("<nav>");
+            source.push_str(&"x".repeat(size - "<nav></nav>".len()));
+            source.push_str("</nav>");
+            source
+        };
+        let limits = ArchiveLimits {
+            max_control_member: 256,
+            max_chapter_member: 512,
+            max_advertised_expansion: 4096,
+            ..tiny_limits()
+        };
+        let exact_nav = nav(256);
+        let archive = PreflightedArchive::open(
+            build_archive(&[
+                HandEntry::stored("META-INF/container.xml", container),
+                HandEntry::stored("OEBPS/package", package),
+                HandEntry::stored("OEBPS/navigation", exact_nav.as_bytes()),
+            ]),
+            PATH,
+            &limits,
+        )
+        .expect("discovered controls accept at the exact byte limit");
+        assert_eq!(
+            archive.member("OEBPS/package").map(MemberInfo::class),
+            Some(MemberClass::Control)
+        );
+        assert_eq!(
+            archive.member("OEBPS/navigation").map(MemberInfo::class),
+            Some(MemberClass::Control)
+        );
+
+        let over_nav = nav(257);
+        let error = PreflightedArchive::open(
+            build_archive(&[
+                HandEntry::stored("META-INF/container.xml", container),
+                HandEntry::stored("OEBPS/package", package),
+                HandEntry::stored("OEBPS/navigation", over_nav.as_bytes()),
+            ]),
+            PATH,
+            &limits,
+        )
+        .expect_err("discovered nav over its control limit rejects");
+        assert!(matches!(
+            error,
+            ArchiveError::MemberTooLarge { kind, size: 257, limit: 256, .. }
+                if kind == "control"
+        ));
     }
 
     #[test]
@@ -1368,6 +1726,12 @@ mod tests {
             .expect_err("truncation rejects");
         assert!(matches!(error, ArchiveError::Malformed { .. }), "{error:?}");
 
+        let mut trailing = build_archive(&[HandEntry::stored("a.txt", b"data")]);
+        trailing.extend_from_slice(b"trailing");
+        let error = PreflightedArchive::open(trailing, PATH, &tiny_limits())
+            .expect_err("data after EOCD rejects");
+        assert!(matches!(error, ArchiveError::Malformed { .. }), "{error:?}");
+
         // Corrupt central directory signature.
         let mut corrupt = build_archive(&[HandEntry::stored("a.txt", b"data")]);
         let position = corrupt
@@ -1428,7 +1792,7 @@ mod tests {
 
     #[test]
     fn sec_011_host_dependent_spellings_reduce_to_one_canonical_key() {
-        use NameRejection::{ColonInSegment, ContainsNul, EmptyName, ParentEscape};
+        use NameRejection::{ColonInSegment, ContainsNul, EmptyName, ParentEscape, ReservedDevice};
         assert_eq!(canonical_key("/abs/path").unwrap_err(), ParentEscape);
         assert_eq!(canonical_key("//server/share/x").unwrap_err(), ParentEscape);
         assert_eq!(canonical_key("./a/./b/").as_deref(), Ok("a/b"));
@@ -1438,10 +1802,27 @@ mod tests {
         );
         assert_eq!(canonical_key("name. . ").as_deref(), Ok("name"));
         assert_eq!(canonical_key("C:/temp/x").unwrap_err(), ColonInSegment);
+        assert_eq!(canonical_key("a/../b").as_deref(), Ok("b"));
+        assert_eq!(canonical_key("NUL.txt").unwrap_err(), ReservedDevice);
+        assert_eq!(canonical_key("dir/COM1").unwrap_err(), ReservedDevice);
         assert_eq!(canonical_key("a\0b").unwrap_err(), ContainsNul);
         assert_eq!(canonical_key(". / . /").unwrap_err(), EmptyName);
-        // Case and Unicode spellings each keep exactly one canonical form.
-        assert_ne!(canonical_key("A.txt"), canonical_key("a.txt"));
+        for names in [
+            ["A.txt", "a.txt"],
+            ["caf\u{e9}.txt", "cafe\u{301}.txt"],
+            ["a", "a/b"],
+            ["a/b", "a"],
+        ] {
+            let error = open(
+                &[
+                    HandEntry::stored(names[0], b"one"),
+                    HandEntry::stored(names[1], b"two"),
+                ],
+                &tiny_limits(),
+            )
+            .expect_err("host-dependent collision rejects");
+            assert!(matches!(error, ArchiveError::AmbiguousMemberName { .. }));
+        }
 
         // Deterministic pseudo-random hostile names never panic and always
         // resolve to either a valid key or one typed rejection.

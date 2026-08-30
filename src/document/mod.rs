@@ -24,7 +24,7 @@ pub use epub::EpubSnapshot;
 pub use error::{DocumentError, Format, PositionError, detect_format, sanitize_path};
 pub use image::{DecodedImage, ImageLimits, ImageResourceError};
 pub use resource::{ResourceProvider, ResourceReadError};
-pub use structured::{XmlLimits, XmlStructureError, validate_xml_structure};
+pub use structured::{XmlLimits, XmlStructureError, validate_control_xml, validate_xml_structure};
 pub use vector::{
     VectorFormat, VectorImageError, VectorLimits, VectorWork, decode_vector_bounded,
     decode_vector_bounded_with_limits, sniff_vector_format,

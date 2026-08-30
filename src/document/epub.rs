@@ -136,14 +136,18 @@ fn build_document(display: &str, snapshot: &PreflightedArchive) -> Result<Docume
             .iter()
             .find(|entry| entry.key == key)
             .map(|entry| entry.label.clone());
-        let blocks = xhtml::convert_xhtml(source).map_err(
-            |XhtmlBoundsError::TooManyNodes { nodes, limit }| DocumentError::ChapterTooComplex {
+        let blocks = xhtml::convert_xhtml(source).map_err(|error| match error {
+            XhtmlBoundsError::TooManyNodes { nodes, limit } => DocumentError::ChapterTooComplex {
                 path: display.to_owned(),
                 member: sanitize_path(&key),
                 nodes,
                 limit,
             },
-        )?;
+            other => DocumentError::InvalidPackage {
+                path: display.to_owned(),
+                detail: format!("chapter '{}' was rejected: {other}", sanitize_path(&key)),
+            },
+        })?;
         chapters.push(ChapterContent { title, key, blocks });
     }
 
