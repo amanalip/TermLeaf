@@ -48,10 +48,11 @@ Books and annotations remain local, and TermLeaf never rewrites the source book.
 Phase 0 and Phase 1 are complete. Phase 2's local implementation now includes
 bounded Markdown and EPUB semantics, exact internal navigation, archive and XML
 security gates, static raster/SVG decoding, bounded generation-aware workers,
-terminal image capability selection, half-block and caption fallbacks, and a
-responsive table of contents. Hosted environment, deterministic robustness, and
-native graphics-protocol evidence is tracked separately and is not claimed
-before it runs. The plan now treats coverage-guided fuzzing as optional
+terminal image capability selection, a Kitty/Sixel/iTerm2 transport foundation,
+half-block and caption fallbacks, and a responsive table of contents. Active
+capability probing, hosted environment journeys, and native protocol acceptance
+evidence are tracked separately and are not claimed before they run. The plan
+now treats coverage-guided fuzzing as optional
 scheduled discovery rather than mandatory duration-based gate work, and the
 executable registry and gate manifests enforce that policy.
 

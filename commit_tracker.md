@@ -1,6 +1,6 @@
 # Commit Tracker
 
-**Last updated:** August 29, 2026
+**Last updated:** August 30, 2026
 
 ## Table of Contents
 
@@ -25,6 +25,27 @@ otherwise have to reconstruct.
    then check both against Git history after the commit lands.
 
 ## Pending Commit
+
+### Complete structured rendering and native transports
+
+**Intended subject:** `feat: add native graphics transport foundation`
+
+- Add direct wide/narrow Ratatui evidence for Markdown and EPUB tables, code,
+  images, captions, fallback text, and surrounding source order.
+- Preserve interior blank code lines and reserve image paint rows below wrapped
+  captions so successful pixels cannot erase caption text or following content.
+- Encode Kitty, Sixel, and iTerm2 payloads on image workers with stable
+  session-local IDs, checked output/chunk limits, and one selected protocol.
+- Carry native placements outside the Ratatui cell buffer, replace or clear stale
+  graphics across resize/navigation, suppress unchanged retransmission, and
+  clean graphics before terminal restoration without skipping worker joins.
+- Keep task 11 open for exact Sixel pixel geometry, cooperative encoding
+  cancellation, bounded PNG allocation, and edge-placement hardening. Active
+  probing, hosted PTY journeys, and manual `IMG-018` acceptance remain later;
+  serializer tests do not promote those claims.
+
+Validation is recorded in
+`testreport.md#complete-structured-rendering-and-native-transports`.
 
 ### Add deterministic robustness evidence
 

@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 23, 2026
+**Last updated:** August 30, 2026
 
 ## Table of Contents
 
@@ -33,13 +33,17 @@ links, exact internal chapter/fragment/TOC navigation, code/tables, immutable
 archive reads, and structural gates for chapters plus every control-document
 class. Raster and static SVG/SVGZ resources share byte, geometry, pixel,
 allocation, active-content, resolver, and work limits. Terminal presentation
-has positive-evidence backend selection, typed override conflicts, bounded
-true-color/256-color half-block frames, and informative caption fallbacks.
+has positive-evidence backend selection, typed override conflicts,
+Kitty/Sixel/iTerm2 serializers, true-color/256-color half-block frames, and
+informative caption fallbacks. Native payloads use stable local IDs, bounded
+chunks, post-Ratatui placement, replacement, navigation/resize invalidation, and
+shutdown cleanup.
 Two generation-aware workers enforce fixed queue and in-flight-byte budgets,
 cancel stale work, contain failures, and shut down without blocking terminal
 restoration. Wide TOC navigation preserves passage context in a side panel.
-Native graphics transport emission and active capability probing still need to
-replace selection-only caption behavior. The local implementation suite and
+Exact Sixel pixel geometry, cancellation and allocation hardening, active
+capability probing, and native-terminal acceptance remain before the transports
+are complete. The local implementation suite and
 security target pass; the Phase 2 gate remains evidence-in-progress until the
 deterministic policy and manifests are reconciled, the remaining robustness and
 hosted evidence passes, and native `IMG-018` results are recorded. DD-026
@@ -47,9 +51,8 @@ continues to own frozen members whose actual features land in later phases.
 
 ## Delivery Phases
 
-**Implementation progress:** 2 of 6 phase gates complete. Phase 2 native
-graphics transport, probing, deterministic robustness, and external gate
-evidence are in progress.
+**Implementation progress:** 2 of 6 phase gates complete. Phase 2 probing,
+native acceptance, and external gate evidence are in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -64,7 +67,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, raster/SVG decoding, bounded worker coordination, backend selection, cell/caption presentation, and responsive TOC pass. Native transport/probing, deterministic policy and robustness suites, hosted rows, and native protocol procedure evidence remain. |
+| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, and responsive TOC pass. Capability probing, hosted PTY rows, native protocol procedures, and gate evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
