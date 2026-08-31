@@ -26,6 +26,16 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Limit required test environments to Linux
+
+**Intended subject:** `ci: limit test matrix to Linux`
+
+- Run every hosted profile family only on Ubuntu 24.04.
+- Make `ENV-LINUX-PTY` the sole required phase-gate environment while retaining
+  macOS and Windows IDs as Deferred historical tuples.
+- Regenerate the case registry and all cumulative phase-gate manifests from the
+  Linux-only source policy.
+
 ### Implement terminal graphics probing and PTY lifecycle evidence
 
 **Intended subject:** `feat: probe terminal graphics capabilities`

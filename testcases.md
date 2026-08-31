@@ -222,8 +222,8 @@ reason in the test report.
 
 All automated cases use one shared harness contract:
 
-- Redirect `HOME`, XDG config/data/state/cache variables, Windows AppData, and
-  platform temp paths into one case-owned temporary root.
+- Redirect `HOME`, XDG config/data/state/cache variables, and platform temp
+  paths into one case-owned temporary root.
 - Deny network access and record attempted sockets, DNS, process launches, and
   filesystem operations for privacy or parser cases.
 - Start from a minimal environment allowlist. Record every extra variable needed
@@ -321,8 +321,8 @@ claims require the real environments below before release.
 
 | Dimension | Required values |
 | --- | --- |
-| Operating system | Linux, macOS, Windows |
-| Terminal | GNOME Terminal, Konsole, system macOS Terminal, Windows Terminal, Kitty or WezTerm |
+| Operating system | Linux |
+| Terminal | GNOME Terminal, Konsole, Kitty or WezTerm |
 | Session | Direct, SSH, and tmux where practical |
 | Viewport | `120x40`, `80x24`, `40x10`, minimum supported, and below minimum |
 | Color | True color, 256 color, 16 color or terminal default, and `NO_COLOR` |
@@ -341,14 +341,14 @@ Informational, or Deferred before the corresponding platform can be claimed.
 | Environment ID | Candidate tuple | Initial gate state |
 | --- | --- | --- |
 | `ENV-LINUX-PTY` | Ubuntu 24.04 x86-64; kernel PTY; `TERM=xterm-256color` | Required for Phase 0 lifecycle evidence |
-| `ENV-MAC-PTY` | macOS 15 arm64; native PTY; `TERM=xterm-256color` | Required for Phase 0 lifecycle evidence |
-| `ENV-WIN-PTY` | Windows Server 2025 x86-64; ConPTY | Required for Phase 0 lifecycle evidence |
+| `ENV-MAC-PTY` | macOS 15 arm64; native PTY; `TERM=xterm-256color` | Deferred outside Linux-only scope; historical evidence retained |
+| `ENV-WIN-PTY` | Windows Server 2025 x86-64; ConPTY | Deferred outside Linux-only scope; historical evidence retained |
 | `ENV-LINUX-GNOME` | Supported Linux and GNOME Terminal version unselected; direct session | Deferred; no compatibility claim |
 | `ENV-LINUX-KONSOLE` | Supported Linux and Konsole version unselected; direct session | Deferred; no compatibility claim |
 | `ENV-LINUX-MODERN` | Supported Linux and Kitty or WezTerm version unselected; direct, SSH, and tmux rows | Deferred to terminal/version decision |
-| `ENV-MAC-TERM` | Supported macOS and system Terminal version unselected | Deferred; no compatibility claim |
-| `ENV-MAC-ITERM` | Supported macOS and iTerm2 version unselected; image-capability row | Deferred to image protocol decision |
-| `ENV-WIN-WT` | Supported Windows and Windows Terminal version unselected | Deferred; no compatibility claim |
+| `ENV-MAC-TERM` | macOS and system Terminal version unselected | Deferred outside Linux-only scope; no compatibility claim |
+| `ENV-MAC-ITERM` | macOS and iTerm2 version unselected; image-capability row | Deferred outside Linux-only scope; no compatibility claim |
+| `ENV-WIN-WT` | Windows and Windows Terminal version unselected | Deferred outside Linux-only scope; no compatibility claim |
 | `ENV-SIXEL` | Native OS, terminal, and Sixel implementation unselected | Deferred until an implementation is selected |
 
 Every finalized row records artifact type, terminal version, session nesting,
@@ -690,7 +690,7 @@ keyboard protocols.
 | `CFG-001` | P1 | Load no config. | Documented built-in defaults are used. | Unit / `pr-core` |
 | `CFG-002` | P1 | Load valid TOML then apply explicit CLI options. | Precedence is defaults, config, then only supplied CLI values. | Unit / `pr-core` |
 | `CFG-003` | P1 | Load unknown keys, invalid types, syntax errors, and inaccessible config. | Defined warning or typed error names the setting without losing valid state. | Unit / `pr-core` |
-| `CFG-004` | P1 | Resolve paths on Linux, macOS, and Windows. | Configuration, state, data, and cache use platform-native locations. | Unit/native / `phase-gate` |
+| `CFG-004` | P1 | Resolve paths on Linux. | Configuration, state, data, and cache use Linux-native locations. | Unit/native / `phase-gate` |
 | `STATE-001` | P0 | Serialize then deserialize every supported state value. | Schema version and all supported values round-trip exactly. | Property / `pr-core` |
 | `STATE-002` | P0 | Save over an existing valid state file. | Temp file is same-directory, data and file are synced per policy, and replacement is atomic. | Integration / `pr-core` |
 | `STATE-003` | P0 | Inject failure through file sync and before successful rename. | Previous valid state remains byte-identical and readable; case-owned temporary debris follows registered cleanup policy. | Integration / `security` |
@@ -807,7 +807,7 @@ assertions.
 | `LINK-001` | P0 | Parse HTTP, HTTPS, mail, file, JavaScript, data, malformed, and unknown schemes. | Only explicitly supported external schemes become openable; all remain inert during parsing. | Unit / `security` |
 | `LINK-002` | P0 | Activate a supported external link. | Full destination is visible and browser launch requires explicit confirmation. | Integration / `pr-render` |
 | `LINK-003` | P0 | Cancel external-link confirmation. | No process or network activity occurs and reader returns to exact passage. | Integration / `security` |
-| `LINK-004` | P1 | Confirm on Linux, macOS, and Windows. | Correct system launcher receives exactly one validated URL with no shell interpolation. | Integration/native / `release` |
+| `LINK-004` | P1 | Confirm on Linux. | The Linux system launcher receives exactly one validated URL with no shell interpolation. | Integration/native / `release` |
 | `LINK-005` | P0 | Activate internal EPUB target. | Navigation stays inside document and never invokes browser confirmation. | Integration / `pr-core` |
 | `LINK-006` | P0 | Classify mixed-case/obfuscated schemes, whitespace, CR/LF, NUL, tabs, escapes, encoded delimiters, user-info, IDN, ports, fragments, leading dash, and boundary-length URLs. | Final `DEC-TEST-008` table yields one typed decision; display is terminal-safe and parsing launches nothing. | Unit / `security` |
 | `LINK-007` | P0 | Display a validated URL, mutate source state, then confirm with rapid repeated activation. | Exact displayed validated bytes are passed once as one fake-launcher argument; no shell, option injection, or duplicate launch occurs. | Integration / `security` |
@@ -850,7 +850,7 @@ assertions.
 | `A11Y-006` | P1 | Exercise supported screen readers on each claimed platform. | Documented journeys are understandable; limitations are recorded without unsupported claims. | Manual / `release` |
 | `A11Y-007` | P1 | Use non-Latin layout and AltGr while editing search or notes. | Text entry is not consumed as commands and essential controls retain accessible alternatives. | Manual/native / `release` |
 | `A11Y-008` | P1 | Observe redraw behavior during ordinary reading. | No unnecessary animation or flashing occurs; content changes only in response to state. | Manual/render / `phase-gate` |
-| `A11Y-009` | P1 | Run scripted open/read, navigation, search, error, help, confirmation, and exit journeys with VoiceOver/macOS, Narrator or NVDA/Windows, and Orca/Linux on finalized terminal rows. | Tester records comprehensibility checkpoints and exact limitations; absence of a tested combination cannot support a claim. | Manual / `release` |
+| `A11Y-009` | P1 | Run scripted open/read, navigation, search, error, help, confirmation, and exit journeys with Orca/Linux on finalized terminal rows. | Tester records comprehensibility checkpoints and exact limitations; absence of a tested combination cannot support a claim. | Manual / `release` |
 | `A11Y-010` | P1 | Use representative terminal-default light/dark palettes and `NO_COLOR`. | Automated tests assert only non-color distinctions and absence of decorative forced colors; manual evidence records palette-specific readability without universal contrast claims. | Render/manual / `release` |
 
 ## Performance Cases

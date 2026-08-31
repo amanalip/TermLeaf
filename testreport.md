@@ -77,6 +77,33 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Limit required test environments to Linux
+
+**Commit subject:** `ci: limit test matrix to Linux`
+
+**Revision:** This commit
+
+**Recorded:** August 30, 2026
+
+**Behavior and risks.** Linux is now the sole required tested platform. All
+hosted profile families run only on `ubuntu-24.04`, and every generated phase
+gate requires only `ENV-LINUX-PTY`. macOS and Windows environment IDs remain
+Deferred so historical evidence stays interpretable; their code paths and prior
+reports are not promoted into current support claims.
+
+**Checks.** Passed: `python3 tools/case_registry.py generate`, `python3
+tools/case_registry.py check`, `python3 tools/fixture_corpus.py check` (29
+files), and `git diff --check`. `actionlint` and local YAML parser modules were
+unavailable; workflow changes only reduce the six existing matrices to their
+existing Ubuntu row. No Rust behavior changed, so Cargo profiles were not
+selected. Hosted Linux remains pending a pushed revision; the existing
+fixture-reproducibility failure is not promoted or waived by this scope change.
+
+**Changed paths and selection.** Policy and evidence paths: CI workflow,
+`tools/case_registry.py`, `testcases.md`, environment/case/gate manifests,
+commit tracker, and test report. Selected evidence: all generated phase gates
+and `ENV-LINUX-PTY`. macOS/Windows historical records remain unchanged.
+
 ### Implement terminal graphics probing and PTY lifecycle evidence
 
 **Commit subject:** Pending

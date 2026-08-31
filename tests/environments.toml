@@ -10,19 +10,19 @@ purpose = "Phase 0 process and terminal lifecycle evidence"
 
 [[environment]]
 id = "ENV-MAC-PTY"
-status = "Required"
+status = "Deferred"
 operating_system = "macOS 15 arm64"
 terminal = "native PTY with TERM=xterm-256color"
 runner = "macos-15"
-purpose = "Phase 0 build, process, and terminal lifecycle evidence"
+purpose = "Outside the Linux-only support and test scope; retained for historical evidence"
 
 [[environment]]
 id = "ENV-WIN-PTY"
-status = "Required"
+status = "Deferred"
 operating_system = "Windows Server 2025 x86-64"
 terminal = "ConPTY through Windows Terminal-compatible console APIs"
 runner = "windows-2025"
-purpose = "Phase 0 build, process, and terminal lifecycle evidence"
+purpose = "Outside the Linux-only support and test scope; retained for historical evidence"
 
 [[environment]]
 id = "ENV-LINUX-GNOME"
@@ -54,7 +54,7 @@ status = "Deferred"
 operating_system = "unselected supported macOS release"
 terminal = "system Terminal version unselected"
 runner = "manual"
-purpose = "Release compatibility; no Phase 0 support claim"
+purpose = "Outside the Linux-only support and test scope"
 
 [[environment]]
 id = "ENV-MAC-ITERM"
@@ -62,7 +62,7 @@ status = "Deferred"
 operating_system = "unselected supported macOS release"
 terminal = "iTerm2 version unselected"
 runner = "manual"
-purpose = "Image protocol compatibility"
+purpose = "Outside the Linux-only support and test scope"
 
 [[environment]]
 id = "ENV-WIN-WT"
@@ -70,7 +70,7 @@ status = "Deferred"
 operating_system = "unselected supported Windows release"
 terminal = "Windows Terminal version unselected"
 runner = "manual"
-purpose = "Release compatibility; no Phase 0 support claim"
+purpose = "Outside the Linux-only support and test scope"
 
 [[environment]]
 id = "ENV-SIXEL"

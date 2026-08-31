@@ -354,7 +354,7 @@ def build_gates(cases: list[CatalogCase]) -> str:
                 f"phase = {phase}",
                 f"includes = {array([f'phase-gate-{phase - 1}'] if phase else [])}",
                 f"case_ids = {array(case_ids)}",
-                'required_environment_ids = ["ENV-LINUX-PTY", "ENV-MAC-PTY", "ENV-WIN-PTY"]',
+                'required_environment_ids = ["ENV-LINUX-PTY"]',
                 f"manual_procedure_ids = {array(manual_ids)}",
                 f"benchmark_ids = {array(benchmark_ids)}",
                 'membership_status = "Frozen"',
