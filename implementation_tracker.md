@@ -45,8 +45,9 @@ restoration. Wide TOC navigation preserves passage context in a side panel.
 Native transport and one-shot capability probing are complete. Deterministic PTY
 journeys cover response handling, protocol exclusivity, replacement, scrolling,
 fallback, and cleanup. The complete Linux core, render, security, dependency,
-MSRV, and native PTY matrix passes at revision `1ca9a17`. The Phase 2 gate
-remains evidence-in-progress until native `IMG-018` results are recorded and the
+MSRV, and native PTY matrix passes at revision `1ca9a17`. `IMG-018` is limited
+to automated protocol and lifecycle behavior; native pixel fidelity is outside
+the support claim. The Phase 2 gate remains evidence-in-progress until the
 remaining forward-owned Planned rows are resolved. DD-026
 continues to own frozen members whose actual features land in later phases.
 
@@ -67,10 +68,10 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | Phase | Status | Exit gate summary |
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
-| 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, capability probing, PTY lifecycle journeys, responsive TOC, and the complete hosted Linux matrix pass. Native protocol observations and remaining Planned gate rows remain. |
-| 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
-| 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
+| 1. Plain-text reading loop | Complete | Frozen automated gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (historical run `32535725291`); cross-phase members remain owned forward by DD-026. |
+| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, protocol transports, capability probing, PTY lifecycle journeys, responsive TOC, and the complete hosted Linux matrix pass. Remaining Planned automated gate rows remain. |
+| 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and automated PTY/render accessibility evidence pass. |
+| 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, scripted interaction, automated accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
 
 ## UI Delivery
@@ -84,8 +85,8 @@ already inside the six phases; it does not add another phase.
 | 1 | Reader modes, responsive classes, status foundation, core keys, all themes, Paper, help skeleton, errors, and too-small state |
 | 2 | TOC, link focus, semantic code/tables, image placement/fallbacks, loading/cancellation, and resource errors |
 | 3 | Recents, open path, search/history, text selection, annotation dialogs/editor/list, complete help, and persistence feedback |
-| 4 | Metadata refinement, annotation recovery, links, long-value inspection, usability, accessibility, performance, and guidance |
-| 5 | Native UI matrix, install journeys, terminal captures, limitations, and release documentation |
+| 4 | Metadata refinement, annotation recovery, links, long-value inspection, scripted interaction, automated accessibility, performance, and guidance |
+| 5 | Automated native-runner/PTY matrix, install journeys, generated captures, limitations, and release documentation |
 
 ## Groundwork
 
@@ -110,14 +111,14 @@ already inside the six phases; it does not add another phase.
 | Feature | Status | What remains |
 | --- | --- | --- |
 | Plain-text rendering | Complete | Document model, bounded TXT decoding, wrapping layout with source mapping, viewport rendering, PTY render journeys, and the reviewed `tests/render.rs` assertion suite pass locally and on all hosted rows. |
-| Responsive layout | Complete | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites pass on the gate rows; real-terminal visual review joins the release matrix. |
+| Responsive layout | Complete | Width-keyed layout cache with reuse/invalidation tests, cell-level Paper collapse order, resize transients over PTY, and deterministic property suites pass; host-font visual fidelity is unclaimed. |
 | Navigation | In progress | Line/page/start/end/section steps move one validated anchor with clamped boundaries; the TOC overlay jumps sections on Enter with exact return stacking; search-result jumps arrive with later phases. |
 | Saved position | Not started | Reopen each book at the last stable location. |
 | Search | Not started | Search in both directions with smart-case matching and visible results. |
 | Plain-text format | Complete | BOM detection, strict UTF-8, marked UTF-16, UTF-32 rejection, newline normalization, paragraph preservation, exact byte limits, hostile fixtures, fixed-seed raw-byte properties, and bounded mutations produce a valid model or typed bounded error. |
 | EPUB format | Complete | Bounded archive and control-document gates, package/spine/metadata semantics, canonical reading order, tolerant semantic XHTML, exact internal links/TOC positions, encryption/fixed-layout errors, lazy resources, no-extraction evidence, and immutable inspected bytes pass locally. |
 | Markdown format | Complete | Source-aware parsing maps full block/inline semantics, code languages and copy ranges, inert link targets, original source ranges, and images into the shared bounded model. |
-| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, bounded one-shot capability probing, native and half-block output, Paper-safe pixels, caption errors, and PTY lifecycle journeys pass locally. Native-terminal execution remains. |
+| Inline images | Complete | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, bounded one-shot capability probing, protocol and half-block output, Paper-safe pixels, caption errors, and PTY lifecycle journeys pass. Native pixel-display fidelity is unclaimed. |
 
 ## The Bookshelf
 
@@ -135,13 +136,13 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Keyboard controls | Complete | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs on all hosted rows; manual GUI halves are documented in `manual_procedures.md` and owned by the release matrix (DD-026). |
+| Keyboard controls | Complete | Full KEY-001 matrix, flow-control paging, paste inertness, Escape/Alt scope, and resize journeys pass over native PTYs on all hosted rows; host input-method behavior is unclaimed. |
 | Open-path screen | Not started | Accept typed/pasted local paths with focused validation and no directory scanning. |
 | Table of contents | Complete | Standard/narrow screens use the full-screen list; wide screens retain passage context beside a TOC panel. Both jump exact validated navigation points with cursor memory and confirmation messages. |
 | Responsive UI states | In progress | Wide/standard/compact/narrow classes drive Paper chrome and status collapse; below-minimum suspends safely and recovers; full matrix review remains. |
-| Loading and cancellation UI | In progress | Bounded generations, cancellation, stale-result rejection, fallback states, and anchor-independent work coordination pass at the model boundary; final protocol-specific native presentation evidence remains. |
+| Loading and cancellation UI | Complete | Bounded generations, cancellation, stale-result rejection, fallback states, and anchor-independent work coordination pass at model, render, and PTY boundaries. |
 | Help screen | In progress | Skeleton lists every registered binding and returns to the invoking view; contextual/mode-scoped help arrives later. |
-| Themes | Complete | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; real-terminal visual review joins the Deferred release rows. |
+| Themes | Complete | All five themes ship with semantic roles, `NO_COLOR` fallback, session switching, tested Paper contrast, TOML-backed startup choice with CLI override, nearest-256 output, a three-mode by five-viewport capability matrix, true-color role checks, and anchor-preserving switches mid-passage; terminal-specific palette readability is unclaimed. |
 | Detailed status | In progress | Priority-ordered collapse, floored percent, logical location, dynamic page, UTC clock, tick-lifetime messages on every screen including the home status, and theme confirmations ship; failed-save states arrive with persistence. |
 | External links | Not started | Show destinations and confirm before opening the system browser. |
 | Error messages | Complete | Typed document errors name path, reason, and recovery before terminal setup, and diagnostics escape control bytes so hostile paths cannot inject terminal sequences; the in-app recoverable-error view is later-phase scope. |

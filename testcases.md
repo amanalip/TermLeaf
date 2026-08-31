@@ -59,9 +59,8 @@ Stable IDs survive test file moves and allow a commit, defect, benchmark, phase
 gate, or release report to identify exactly what ran. The complete catalog is
 materialized in `tests/case_registry.toml`. Cases remain **Planned** until
 reviewed evidence changes their status; package existence or a partial test
-alone does not make a case Passing. A case becomes **Passing** only after an
-automated test or recorded manual procedure exists and passes in its required
-environment.
+alone does not make a case Passing. A case becomes **Passing** only after its
+automated test exists and passes in every required automated environment.
 
 ## Sources of Truth
 
@@ -88,7 +87,7 @@ or the test report:
 | ID | Stable area prefix and three digits, such as `TXT-001` |
 | Requirement | Behavior, limit, risk, or regression being proved |
 | Priority | `P0`, `P1`, or `P2` |
-| Layer | Unit, property, render, integration, PTY, fuzz, benchmark, or manual |
+| Layer | Unit, property, render, integration, PTY, fuzz, benchmark, or tool |
 | Preconditions | State, platform, terminal capability, and fixture |
 | Action | Input or user journey performed by the test |
 | Oracle | Directly asserted result and forbidden side effects |
@@ -146,14 +145,14 @@ owns each case unless a row says otherwise. The registry contains these fields:
 | `status` | Planned, Implemented, Passing, Blocked, or Retired |
 | `owner` | Delivery phase plus current responsible contributor or team |
 | `implements` | Product requirement and related behavioral case IDs |
-| `location` | Rust test, fuzz target, benchmark, or manual procedure path |
+| `location` | Rust test, executable tool, fuzz target, or benchmark path |
 | `profiles` | Exact executable suite manifests containing the case |
 | `environments` | Named required environment IDs |
 | `fixtures` | Registered fixture IDs and hashes or generator versions |
 | `last_evidence` | Revision and report or CI artifact reference |
 
 CI must reject duplicate, malformed, unknown, and orphaned IDs. Every executable
-test, manual procedure, benchmark, and fuzz target must map back to at least one
+test, tool, benchmark, and fuzz target must map back to at least one
 catalog ID, and every Implemented or Passing ID must map to executable evidence.
 Property and fuzz cases record `implements` links to the behavioral cases they
 support. `FUZZ-*` IDs are optional discovery metadata: they may appear only as
@@ -163,8 +162,8 @@ profiles. Retired IDs remain reserved and name their replacement when one exists
 
 Status changes follow these rules:
 
-- Planned to Implemented requires an executable test or reviewed manual
-  procedure and registered fixtures.
+- Planned to Implemented requires executable automated evidence and registered
+  fixtures.
 - Implemented to Passing requires every named profile and environment to pass.
 - Any status to Blocked requires an owner, reason, compensating evidence,
   removal condition, and review date.
@@ -179,17 +178,19 @@ Status changes follow these rules:
 | --- | --- | --- |
 | Unit | One module or pure operation | No terminal, network, user directories, or wall-clock dependence |
 | Property | Invariants over generated values | Fixed seed on failure and minimal reproducible input retained |
-| Render | Application cell grid or Ratatui test backend | Direct cell and width assertions accompany reviewed snapshots |
+| Render | Application cell grid or Ratatui test backend | Deterministic baselines accompany direct cell, width, contrast, and state assertions |
 | Integration | Filesystem, parser stack, configuration, or process boundary | Isolated temporary directories and deterministic environment |
 | PTY | Real process and terminal lifecycle | Strict timeout, child cleanup, fixed locale and `TERM`, low parallelism |
 | Fuzz | Optional coverage-guided discovery at untrusted boundaries | Bounded harness, seed corpus, crash artifact retention; never substitutes for deterministic evidence |
 | Benchmark | Responsiveness and memory budgets | Release profile, recorded hardware, stable fixtures, no shared-runner gate |
-| Manual | Hardware, terminal, assistive technology, or packaging behavior | Written steps, expected result, tester, platform, and date |
+| Tool | Registry, source, artifact, dependency, or workflow validation | Deterministic command with machine-checkable output and failure status |
 
-`Tool` and `Review` are evidence methods, not test layers. `CI`, `Scheduled`, and
-`Native` are execution environments. Combined rows name one primary layer and
-list additional evidence in the case registry rather than inventing new layer
-values.
+`Review` is an evidence method, not a test layer, and cannot satisfy a gate
+without a deterministic tool result. `CI`, `Scheduled`, and `Native` are
+execution environments. Combined rows name one primary layer and list additional
+evidence in the case registry rather than inventing new layer values. Optional
+human observations may inform future tests, but never gate status, support, a
+phase, or a release.
 
 Tests should run at the lowest layer that can prove the behavior. P0 behavior
 crossing process or terminal boundaries also needs evidence at that boundary.
@@ -199,7 +200,7 @@ crossing process or terminal boundaries also needs evidence at that boundary.
 | Profile | Trigger | Executable manifest |
 | --- | --- | --- |
 | `pr-core` | Every Rust change | `cargo fmt --check`; `cargo clippy --all-targets --all-features -- -D warnings`; `cargo test --locked`; `cargo test --doc --locked`; `cargo deny check` |
-| `pr-render` | UI, layout, theme, status, help, or terminal cell changes | `pr-core`; render integration target; snapshot review with direct assertions |
+| `pr-render` | UI, layout, theme, status, help, or terminal cell changes | `pr-core`; render integration target; deterministic baselines with direct assertions |
 | `native-pty` | Terminal lifecycle, input, signal, or release changes | `pr-core`; serial PTY integration target with named `ENV-*` rows and 30-second per-case timeout |
 | `security` | Parser, archive, image, URL, path, state, dependency, worker, or allocation changes | `pr-core`; security integration target; deterministic boundary, malformed-input, hostile-fixture, property, and bounded-mutation cases; side-effect inventory |
 | `scheduled` | Nightly | `pr-core`; all properties at extended case count; local licensed corpus; leak and retained-memory checks |
@@ -316,17 +317,19 @@ on ignored files; equivalent core assertions use committed small fixtures.
 
 ## Environment Matrix
 
-Automated tests parameterize deterministic dimensions and capabilities. Native
-claims require the real environments below before release.
+Automated tests parameterize deterministic dimensions and capabilities. Public
+claims are limited to behavior proved by required automated environments; named
+terminal pixel fidelity, host fonts, input methods, and screen-reader usability
+are not claimed.
 
 | Dimension | Required values |
 | --- | --- |
 | Operating system | Linux |
-| Terminal | GNOME Terminal, Konsole, Kitty or WezTerm |
-| Session | Direct, SSH, and tmux where practical |
+| Terminal | Kernel PTY with explicit capability inputs |
+| Session | Direct PTY, plus isolated SSH and tmux harnesses when implemented |
 | Viewport | `120x40`, `80x24`, `40x10`, minimum supported, and below minimum |
 | Color | True color, 256 color, 16 color or terminal default, and `NO_COLOR` |
-| Image capability | Kitty, Sixel, iTerm2, true-color cells, and caption only |
+| Image capability | Kitty/Sixel framing, true-color cells, and caption fallback |
 | Locale | UTF-8 English, one CJK locale, and deterministic `C` where suitable |
 | Input | Conventional keys, Vim-style keys, paste, resize, focus, Ctrl-C |
 | Filesystem | Read-only source, missing source, denied permission, moved source, full or failed state destination |
@@ -343,19 +346,12 @@ Informational, or Deferred before the corresponding platform can be claimed.
 | `ENV-LINUX-PTY` | Ubuntu 24.04 x86-64; kernel PTY; `TERM=xterm-256color` | Required for Phase 0 lifecycle evidence |
 | `ENV-MAC-PTY` | macOS 15 arm64; native PTY; `TERM=xterm-256color` | Deferred outside Linux-only scope; historical evidence retained |
 | `ENV-WIN-PTY` | Windows Server 2025 x86-64; ConPTY | Deferred outside Linux-only scope; historical evidence retained |
-| `ENV-LINUX-GNOME` | Supported Linux and GNOME Terminal version unselected; direct session | Deferred; no compatibility claim |
-| `ENV-LINUX-KONSOLE` | Supported Linux and Konsole version unselected; direct session | Deferred; no compatibility claim |
-| `ENV-LINUX-MODERN` | Supported Linux and Kitty or WezTerm version unselected; direct, SSH, and tmux rows | Deferred to terminal/version decision |
-| `ENV-MAC-TERM` | macOS and system Terminal version unselected | Deferred outside Linux-only scope; no compatibility claim |
-| `ENV-MAC-ITERM` | macOS and iTerm2 version unselected; image-capability row | Deferred outside Linux-only scope; no compatibility claim |
-| `ENV-WIN-WT` | Windows and Windows Terminal version unselected | Deferred outside Linux-only scope; no compatibility claim |
-| `ENV-SIXEL` | Native OS, terminal, and Sixel implementation unselected | Deferred until an implementation is selected |
 
-Every finalized row records artifact type, terminal version, session nesting,
-`TERM`, locale, font for Unicode manual checks, color/image capability, required
-case IDs, and evidence owner. `REL-006` passes only when every Required row
-passes. Waivers need an owner, reason, compensating evidence, and removal
-condition. Optional rows cannot support a public compatibility claim.
+Removed native GUI-terminal rows remain historical IDs only and support no
+compatibility claim. Every required row records artifact type, runner image,
+session nesting, `TERM`, locale, capability inputs, case IDs, and evidence owner.
+`REL-006` passes only when every Required automated row passes. Waivers need an
+owner, reason, compensating evidence, and removal condition.
 
 ## Open Test Decisions
 
@@ -513,10 +509,10 @@ commands, required environments, and every excluded mapped ID with its reason.
 | `TERM-007` | P1 | Send focus, mouse, unsupported key, and paste events in reading mode. | Unsupported input is inert; paste cannot enter modes that do not accept text. | Unit / `pr-core` |
 | `TERM-008` | P1 | Run ANSI output through `vt100`. | Final cells, cursor, clears, and alternate-screen exit match direct assertions. | Integration / `pr-render` |
 | `TERM-009` | P1 | Terminate while a worker is active. | Worker shutdown is bounded; no child or thread remains and terminal cleanup completes. | PTY / `native-pty` |
-| `TERM-010` | P1 | Repeat launch/quit through SSH and tmux. | Controls and restoration remain correct or a documented capability fallback activates. | Manual / `release` |
+| `TERM-010` | P1 | Repeat launch/quit through isolated SSH and tmux harnesses. | Scripted controls and restoration remain correct or a documented capability fallback activates. | Integration/PTY / `release` |
 | `TERM-011` | P0 | Deliver raw-mode Ctrl-C on every target and external `SIGINT` on POSIX during the foundation shell. | Supported paths dispatch the quit action, exit within timeout, and restore terminal state; other process events are explicitly excluded. | PTY / `native-pty` |
 | `TERM-012` | P0 | Start from the supported shell baseline and capture native kernel terminal attributes where available. | Canonical/echo and related kernel flags return to captured values; owned ANSI modes return to primary screen, visible cursor, and disabled paste/mouse/keyboard-enhancement baseline. | PTY / `native-pty` |
-| `TERM-013` | P1 | Run open, navigate, resize, search, help, error, Ctrl-C, and quit through finalized SSH/tmux rows. | Exact `ENV-*` tuple passes Unicode, color downgrade, image fallback, disconnect, detach, and restoration assertions. | Manual / `release` |
+| `TERM-013` | P1 | Script open, navigate, resize, search, help, error, Ctrl-C, and quit through isolated SSH/tmux rows. | Exact automated tuple passes Unicode, color downgrade, image fallback, disconnect, detach, and restoration assertions. | Integration/PTY / `release` |
 
 ## Native Keyboard Cases
 
@@ -526,12 +522,12 @@ keyboard protocols.
 
 | ID | Priority | Setup and action | Pass criteria | Layer/profile |
 | --- | --- | --- | --- | --- |
-| `KEY-001` | P1 | Send arrows, Page Up/Down, Home/End, F1, Escape, and quit/back on each Required `ENV-*` row. | Each produces the expected action exactly once and help shows the same binding. | PTY/manual / `native-pty` |
-| `KEY-002` | P1 | Send Ctrl-B/Ctrl-F with terminal flow control in documented state. | Page movement arrives reliably or Stage 1 selects and documents a conflict-free alternative. | PTY/manual / `native-pty` |
+| `KEY-001` | P1 | Send arrows, Page Up/Down, Home/End, F1, Escape, and quit/back through the required PTY row. | Each produces the expected action exactly once and help shows the same binding. | PTY / `native-pty` |
+| `KEY-002` | P1 | Send Ctrl-B/Ctrl-F through a PTY with terminal flow control in documented state. | Page movement arrives reliably or Stage 1 selects and documents a conflict-free alternative. | PTY / `native-pty` |
 | `KEY-003` | P1 | Send `gg`, lone `g`, delayed prefix, rapid prefix, and repeats. | Final `DEC-TEST-010` prefix policy is deterministic and never loses unrelated input. | PTY / `native-pty` |
 | `KEY-004` | P1 | Send press, repeat, and release events with keyboard enhancements present and absent. | Essential actions depend only on baseline press semantics; release is ignored safely. | PTY / `native-pty` |
-| `KEY-005` | P1 | Enter AltGr and non-Latin text in search and notes. | Characters are inserted exactly and no reading command fires. | Manual/native / `release` |
-| `KEY-006` | P1 | Exercise Escape-versus-Alt ambiguity and Ctrl-C during text entry. | Back/cancel and termination follow final mode policy with no stuck prefix or partial text corruption. | PTY/manual / `native-pty` |
+| `KEY-005` | P1 | Inject non-Latin and modified-character events into search and note editors. | Characters are inserted exactly and no reading command fires; host input-method behavior is not claimed. | Integration / `release` |
+| `KEY-006` | P1 | Exercise Escape-versus-Alt ambiguity and Ctrl-C during text entry over PTY. | Back/cancel and termination follow final mode policy with no stuck prefix or partial text corruption. | PTY / `native-pty` |
 | `KEY-007` | P0 | Paste normal, multiline, control-containing, and over-limit text in every mode. | Paste is accepted only in text modes, sanitized by policy, bounded by `DEC-TEST-012`, and rejected elsewhere. | PTY / `security` |
 
 ## Plain-Text Cases
@@ -623,7 +619,7 @@ keyboard protocols.
 | `IMG-015` | P0 | Feed truncated, corrupt, concatenated, false-size, and high-ratio SVGZ streams. | Actual decompressed XML enforces 8 MiB, checksum errors are typed, and no XML/resource work begins after violation. | Integration / `security` |
 | `IMG-016` | P0 | Deterministically feed SVG depth/node extremes and fixed pathological paths, filters, geometry, and transforms. | Parser/rasterizer respects recorded structural and work budgets, cancellation, and allocation limits. | Integration/property / `security` |
 | `IMG-017` | P1 | Feed malformed, partial, spoofed, delayed, and absent terminal capability responses. | Query times out by policy and falls back once without emitting competing graphics protocols. | Integration / `native-pty` |
-| `IMG-018` | P1 | On one finalized native terminal per claimed protocol, display, resize, scroll, replace, navigate away, fail, and exit. | Image appears correctly; framing/chunks/IDs are accepted; stale images are deleted and terminal remains clean. | Manual / `release` |
+| `IMG-018` | P1 | Capture selected-protocol bytes while displaying, resizing, scrolling, replacing, navigating away, failing, and exiting over PTY. | Framing, chunks, IDs, replacement/deletion order, fallback, bounds, cleanup, and protocol exclusivity match direct assertions; native pixel fidelity is not claimed. | PTY / `native-pty` |
 
 ## Layout and Unicode Cases
 
@@ -641,8 +637,8 @@ keyboard protocols.
 | `LAY-010` | P1 | Render code blocks with indentation and long lines. | Display follows selected wrap/pan policy while logical copied content remains original. | Render / `pr-render` |
 | `LAY-011` | P1 | Test ambiguous-width setting values. | Cache key and measured rows change deterministically without changing source positions. | Unit / `pr-core` |
 | `LAY-012` | P1 | Render below minimum supported terminal size, then recover. | Clear size message replaces unsafe layout; recovery returns to prior anchor. | Render / `pr-render` |
-| `LAY-013` | P1 | Render combining marks, CJK, ambiguous-width characters, ZWJ emoji, flags, and skin tones on every Required terminal row. | Recorded font/config and observed cell/cursor placement match support claims or the limitation is documented. | Manual / `release` |
-| `LAY-014` | P1 | Open Arabic, Hebrew, and mixed-direction samples. | No panic, hang, control injection, or invalid logical range; unsupported visual ordering/search/annotation behavior is clearly limited rather than claimed. | Integration/manual / `phase-gate` |
+| `LAY-013` | P1 | Render combining marks, CJK, ambiguous-width characters, ZWJ emoji, flags, and skin tones into deterministic cells. | Cell and cursor placement match width assertions; host-font glyph fidelity is not claimed. | Render / `release` |
+| `LAY-014` | P1 | Open Arabic, Hebrew, and mixed-direction samples. | No panic, hang, control injection, or invalid logical range; bidi visual ordering remains unsupported and unclaimed. | Integration / `phase-gate` |
 | `LAY-015` | P1 | Start under UTF-8 English, CJK, and non-UTF-8 `C` locales. | Deterministic Unicode behavior or one clear startup limitation occurs without byte corruption. | Integration/native / `phase-gate` |
 
 ## Navigation and Reading Mode Cases
@@ -842,16 +838,16 @@ assertions.
 
 | ID | Priority | Setup and action | Pass criteria | Layer/profile |
 | --- | --- | --- | --- | --- |
-| `A11Y-001` | P0 | Complete every essential journey using keyboard only. | Open, read, navigate, search, annotate, help, confirm, cancel, and exit need no mouse. | PTY/manual / `release` |
+| `A11Y-001` | P0 | Complete every essential journey through scripted keyboard events. | Open, read, navigate, search, annotate, help, confirm, cancel, and exit need no mouse event. | PTY / `release` |
 | `A11Y-002` | P1 | Render high-contrast and monochrome modes. | Essential text meets defined contrast and every state remains distinguishable without hue. | Render / `pr-render` |
 | `A11Y-003` | P1 | Set `NO_COLOR`. | Output uses terminal defaults and text attributes without raw decorative color sequences. | Integration / `pr-render` |
-| `A11Y-004` | P1 | Inspect errors, temporary messages, and focus movement. | Messages persist long enough by deterministic policy and keyboard focus is visible. | Render/manual / `phase-gate` |
+| `A11Y-004` | P1 | Render errors, temporary messages, and focus movement. | Tick policies and direct cell assertions prove message lifetime and a non-color focus cue. | Render / `phase-gate` |
 | `A11Y-005` | P1 | Run available plain-text or noninteractive output paths. | Useful content and errors remain available outside the full-screen visual UI. | Integration / `phase-gate` |
-| `A11Y-006` | P1 | Exercise supported screen readers on each claimed platform. | Documented journeys are understandable; limitations are recorded without unsupported claims. | Manual / `release` |
-| `A11Y-007` | P1 | Use non-Latin layout and AltGr while editing search or notes. | Text entry is not consumed as commands and essential controls retain accessible alternatives. | Manual/native / `release` |
-| `A11Y-008` | P1 | Observe redraw behavior during ordinary reading. | No unnecessary animation or flashing occurs; content changes only in response to state. | Manual/render / `phase-gate` |
-| `A11Y-009` | P1 | Run scripted open/read, navigation, search, error, help, confirmation, and exit journeys with Orca/Linux on finalized terminal rows. | Tester records comprehensibility checkpoints and exact limitations; absence of a tested combination cannot support a claim. | Manual / `release` |
-| `A11Y-010` | P1 | Use representative terminal-default light/dark palettes and `NO_COLOR`. | Automated tests assert only non-color distinctions and absence of decorative forced colors; manual evidence records palette-specific readability without universal contrast claims. | Render/manual / `release` |
+| `A11Y-006` | P1 | Validate accessibility and support documents against the automated evidence manifest. | Documents explicitly state that screen-reader usability is unverified and make no compatibility claim. | Tool / `release` |
+| `A11Y-007` | P1 | Inject non-Latin and modified-character events while editing search or notes. | Text entry is not consumed as commands and essential controls retain alternatives; host input methods are unclaimed. | Integration / `release` |
+| `A11Y-008` | P1 | Compare deterministic frame cells during ordinary reading and idle ticks. | Idle redraws are stable and content changes only in response to state. | Render / `phase-gate` |
+| `A11Y-009` | P1 | Validate release claims and scripted textual journeys against the accessibility evidence manifest. | No screen-reader compatibility claim is emitted; keyboard, text, focus, error, and confirmation evidence links are complete. | Tool / `release` |
+| `A11Y-010` | P1 | Render representative terminal-default modes and `NO_COLOR`. | Direct assertions prove non-color distinctions and absence of decorative forced colors without claiming palette-specific readability. | Render / `release` |
 
 ## Performance Cases
 
@@ -904,16 +900,16 @@ anchor preservation, and bounded allocation.
 | `SUP-009` | P1 | Validate enabled image-decoder registry. | Every decoder names feature, platforms, dependencies, unsafe/native status, license, limits, fixtures, fuzz corpus, and approval. | Review / `security` |
 | `SUP-010` | P0 | Inspect release workflow trigger and identity. | Artifacts can originate only from protected tags/commits and privileged jobs have minimum permissions. | Review / `release` |
 | `REL-001` | P0 | Build release artifacts natively on each promised OS. | Locked source builds, starts, reads a fixture, and exits cleanly. | Native CI / `release` |
-| `REL-002` | P0 | Install on clean supported OS accounts. | Published instructions install without undeclared tools and first reading journey passes. | Manual/native / `release` |
-| `REL-003` | P1 | Upgrade from previous supported release with existing config and state. | Migration preserves supported data and rollback procedure remains available. | Manual/native / `release` |
+| `REL-002` | P0 | Install in fresh supported Linux CI images. | Published instructions install without undeclared tools and a scripted first-reading journey passes. | Integration/native / `release` |
+| `REL-003` | P1 | Upgrade in an isolated fixture environment with existing config and state. | Migration preserves supported data and the scripted rollback path remains available. | Integration/native / `release` |
 | `REL-004` | P0 | Verify archive and installer checksums. | Published checksums match artifacts and tampered files fail verification. | CI / `release` |
 | `REL-005` | P1 | Trace artifact to tag, revision, lockfile, source, and notices. | Every artifact has complete provenance and version output matches tag. | Review / `release` |
-| `REL-006` | P0 | Run native terminal matrix smoke journeys. | Every claimed platform opens, navigates, resizes, restores terminal, and exits. | Manual/native / `release` |
+| `REL-006` | P0 | Run automated PTY smoke journeys on every required Linux runner tuple. | Every claimed automated tuple opens, navigates, resizes, restores terminal, and exits. | PTY / `release` |
 | `REL-007` | P1 | Review known limitations. | Unicode, bidi, image, terminal, and accessibility claims match passed evidence. | Review / `release` |
 | `REL-008` | P0 | For every Required `ENV-*` platform row, run native locked build, core/doctests, PTY lifecycle, installation, and first-reading journey. | Evidence manifest binds OS, architecture, terminal, artifact hash, revision, and exact passed IDs; a missing tuple blocks that platform claim. | Native CI / `release` |
 | `REL-009` | P1 | Enumerate expected archive, installer, checksum, manifest, source/build instructions, and notice files per platform. | Complete artifact set exists and embedded version/source references match protected tag. | Integration/review / `release` |
 | `REL-010` | P1 | Build the same protected source twice in controlled native environments. | Archive/binary differences are absent or retained and explained sufficiently to investigate reproducibility. | Integration / `release` |
-| `REL-011` | P1 | Upgrade from a named supported predecessor and execute rollback. | State/config migrate, supported data remains, rollback procedure works; explicitly Not applicable for first release without predecessor. | Manual/native / `release` |
+| `REL-011` | P1 | Upgrade from a versioned predecessor fixture and execute rollback in isolation. | State/config migrate, supported data remains, rollback assertions pass; explicitly Not applicable for a first release without predecessor. | Integration/native / `release` |
 | `REL-012` | P1 | Run `cargo-about` and reconcile Cargo plus asset provenance. | Distributed notice matches resolved graph and every shipped non-Cargo asset. | Integration/review / `release` |
 
 ## Property Test Catalog
@@ -976,7 +972,7 @@ rather than inheriting arbitrary libFuzzer defaults.
 | 1. Plain-text reading loop | Active `TXT`, `MODEL`, `LAY`, `NAV`, core `KEY`, all `THEME`, `RENDER`, `STATUS`, `ERR`, responsive `UI`, and registered provisional performance cases |
 | 2. Structured books and images | `MD`, `EPUB`, `SEC`, `IMG`, relevant `CON`/`UI`, TOC/link-focus, deterministic malformed/boundary/mutation cases, and licensed corpus journeys |
 | 3. Dependable reading | `CFG`, `STATE`, `RECENT`, `SEARCH`, `ANN`, selection/editor/history `UI`, complete `HELP`, required `KEY`/`A11Y`, and named native rows |
-| 4. Product refinement | `LINK`, relocation/return recovery, full Paper matrix, `PRIV`, usability, manual accessibility, and registered performance budgets |
+| 4. Product refinement | `LINK`, relocation/return recovery, full Paper matrix, `PRIV`, scripted interaction and accessibility checks, and registered performance budgets |
 | 5. Release | All deterministic P0/P1 behavioral cases, accepted P2 scope, `SUP`, `REL`, clean install, upgrade, notices, checksums, and known limitations; optional `FUZZ-*` discovery is not required |
 
 A phase cannot be Complete with a failing required case. A blocked P1 case needs
@@ -985,7 +981,7 @@ an explicit scope or support decision; a blocked P0 case prevents completion.
 `tests/phase_gates.toml` freezes each `phase-gate-N` membership as exact IDs and
 Required `ENV-*` rows. Every gate includes all earlier gate membership and
 permanent regressions. Passing evidence separately names revision, date,
-blocked cases, and CI/manual artifacts; frozen membership does not imply a gate
+blocked cases, and CI artifacts; frozen membership does not imply a gate
 passed. `FUZZ-*` IDs and default fuzz durations are prohibited from frozen gate
 manifests; the deterministic cases linked by each fuzz target remain required.
 “Applicable,” “base,” “depth,” or “accepted scope” may not appear in a frozen
@@ -1008,9 +1004,9 @@ fixture/privacy review, affected releases, backport decision, and retirement
 condition. Silent quarantine is prohibited. Temporary disablement is Blocked
 with approver and expiry; the stable ID and original failure remain visible.
 
-If a snapshot changes, review semantic and direct assertions before accepting
-the new snapshot. If the expected behavior changes, update the product contract
-and catalog instead of silently editing only the test.
+If a snapshot changes, semantic and direct assertions must pass before its
+deterministic baseline can change. If expected behavior changes, update the
+product contract and catalog instead of silently editing only the test.
 
 ## Per-Commit Selection
 
@@ -1025,7 +1021,7 @@ Selected case IDs: LAY-001..LAY-012, NAV-001..NAV-014, SEARCH-005,
 Profiles run: pr-core, pr-render
 Commands: exact manifest commands and feature flags
 Required environments: hermetic host render environment
-Cases skipped: A11Y-009 (release-only manual screen-reader matrix)
+Cases skipped: none; unsupported screen-reader compatibility is not a gate case
 Result: all selected automated cases passed
 Cleanup: cargo clean passed
 ```

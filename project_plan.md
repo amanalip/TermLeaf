@@ -364,7 +364,7 @@ Paper acceptance tests will cover true color, 256 color, terminal-default color,
 and `NO_COLOR` output at wide, ordinary, narrow, and minimum supported terminal
 sizes. Direct assertions will verify contrast roles, information-independent
 styling, logical-anchor preservation, and the order in which margins and the
-page boundary collapse. Reviewed render snapshots will cover reader, search,
+page boundary collapse. Deterministic render baselines will cover reader, search,
 selection, annotation, image-caption, help, status, and error states.
 
 ### Status and Progress
@@ -404,8 +404,8 @@ must return to the exact logical passage that opened it.
 ### Platform Promise
 
 The first release intends to provide Linux artifacts. Linux earns the promise
-only after native builds, core tests, PTY journeys, terminal restoration checks,
-and clean installation tests pass. A protocol such
+only after automated native builds, core tests, PTY journeys, terminal
+restoration checks, and isolated clean-installation tests pass. A protocol such
 as Sixel may be unavailable on a supported platform without making text reading
 unsupported; the image fallback chain is part of the platform contract.
 
@@ -459,18 +459,13 @@ guessed encoding can silently alter a book.
 
 Linux is the first-release engineering and support target. macOS and Windows
 remain outside the current test, packaging, and compatibility scope even where
-dependencies provide portable code paths. Native terminal integration,
-installation, and release packaging evidence is required for Linux.
+dependencies provide portable code paths. Automated native-runner build,
+installation, PTY, and release-packaging evidence is required for Linux.
 
-Representative terminal coverage should include:
-
-- At least GNOME Terminal and Konsole on Linux.
-- Kitty or WezTerm as a modern protocol-aware terminal.
-- A session through SSH.
-- A session inside tmux where practical.
-
-The exact supported matrix remains open until the first terminal test harness
-is running.
+The supported matrix contains reproducible runner and PTY tuples only. SSH and
+tmux claims require isolated scripted harnesses. Named terminal pixel fidelity,
+host fonts, input methods, and screen-reader usability are not compatibility
+claims because they lack deterministic automated oracles.
 
 ## Technical Direction
 
@@ -936,16 +931,17 @@ Required practices:
 - Avoid animation and unnecessary redraws.
 - Keep errors and status text available long enough to read.
 - Provide noninteractive commands or a plain-text output mode where useful.
-- Test real screen readers and platform terminals before claiming support.
+- Limit accessibility claims to deterministic keyboard, text, focus, non-color,
+  redraw, and output behavior.
 
-Automated cell snapshots can verify text and style placement, but they cannot
-prove screen-reader usability. Manual assistive-technology testing belongs in
-the release process.
+Automated cell baselines can verify text and style placement, but they cannot
+prove screen-reader usability. TermLeaf therefore makes no screen-reader
+compatibility claim and does not gate release on human observations.
 
 ## Testing Strategy
 
-Testing will follow the architecture from pure logic toward real terminals.
-Most behavior should be proven without spawning a terminal process.
+Testing follows the architecture from pure logic toward automated PTY and native
+runner boundaries. Most behavior is proven without spawning a terminal process.
 
 Every commit will record its exact checks, outcomes, environment, fixtures,
 skipped coverage, and cleanup status in `testreport.md`. A complete local Rust
@@ -1095,8 +1091,8 @@ polish phase.
 
 Every stage exit requires its frozen `phase-gate-N` manifest, every earlier
 phase-gate manifest, and all permanent regressions to pass. The manifest names
-exact case IDs, profiles, fixtures, environments, deterministic robustness
-suites, benchmarks, and manual procedures rather than broad families. Optional
+exact case IDs, profiles, fixtures, automated environments, deterministic
+robustness suites, and benchmarks rather than broad families. Optional
 fuzz configuration is recorded when a run is selected, but is not required gate
 membership. No failing required case or
 Blocked P0 case may pass a gate; a Blocked P1 case needs an explicit scope or
@@ -1208,7 +1204,7 @@ Work:
 - Add open-path, link-focus, text-selection, search-history, bookmark/highlight
   dialogs, note editor, theme view, and persistence-feedback states.
 - Add complete contextual help/status glossary and complete keyboard coverage.
-- Expand native terminal and accessibility testing.
+- Expand automated PTY, render, and accessibility testing.
 - Benchmark large books and remove avoidable relayout work.
 
 Exit gate:
@@ -1216,7 +1212,7 @@ Exit gate:
 - Interrupted writes do not destroy previous state.
 - Resizing and reopening return to the same logical passage.
 - Search results map correctly to wrapped output.
-- Claimed terminals pass native integration tests.
+- Claimed runner and session tuples pass automated integration tests.
 - Configuration precedence and current, old, future, corrupt, and interrupted
   state behavior pass without silent loss.
 - Recent-book reopen/remove/clear/no-scan, local search history, and bookmark,
@@ -1232,20 +1228,20 @@ Work:
 - Refine annotation recovery when source books move or change.
 - Verify external-link confirmation and browser launching on each platform.
 - Refine long critical-value inspection, return-stack behavior, theme/status
-  details, and destructive confirmations through reader usability sessions.
+  details, and destructive confirmations through scripted interaction journeys.
 - Keep automatic library indexing outside the first release.
-- Test the common paths with readers other than the author.
+- Add deterministic end-to-end journeys for common reader paths.
 - Finish user, troubleshooting, and contributor guides.
 
 Exit gate:
 
 - Returning to a book is quick and understandable.
 - Added storage has migration and recovery tests.
-- Accessibility and performance targets hold up under real use.
+- Automated accessibility and performance targets pass their exact budgets.
 - Annotation relocation/unresolved behavior and external scheme/display/launch
   policies pass without attaching unrelated text or invoking a shell.
 - The complete Paper color/viewport/state matrix, privacy/filesystem side-effect
-  audit, native accessibility checks, and representative performance budgets or
+  audit, automated accessibility checks, and representative performance budgets or
   documented exceptions pass.
 
 ### Stage 5: Ship It
@@ -1265,13 +1261,13 @@ Exit gate:
   the published instructions exactly.
 - Release artifacts are reproducible enough to investigate differences and are
   traceable to the tagged source and lockfile.
-- Every promised platform passes its native smoke tests.
+- Every promised automated Linux tuple passes its native-runner and PTY tests.
 - Every prior gate, permanent regression, required P0/P1 case, Required
   environment row, supply-chain manifest, and release manifest passes.
 - Install, first-run, checksum, provenance, notices, and rollback pass; upgrade
   is passed against a named predecessor or explicitly not applicable to the
   first release.
-- Published terminal captures and known limitations match the delivered UI and
+- Generated terminal captures and known limitations match the delivered UI and
   evidence for Unicode, bidi, images, terminals, and accessibility.
 
 ## When a Feature Is Finished
@@ -1294,7 +1290,7 @@ A feature earns **Complete** in the tracker when:
 
 | Question | Why it matters | Target stage |
 | --- | --- | --- |
-| Which OS versions and terminals are promised? | Release claims need native evidence and maintenance boundaries. | Stage 0 |
+| Which Linux runner and session tuples are promised? | Release claims need reproducible automated evidence and maintenance boundaries. | Stage 0 |
 | What exact hybrid key map avoids text-entry conflicts? | Defaults shape daily use and future configuration. | Stage 1 |
 | How should a document identity survive moves or edits? | Saved positions need stability without collecting unnecessary private data. | Stage 1 |
 | Which optional image decoders pass the security and platform review? | Broad format attempts must not add fragile native dependencies or unsafe allocation. | Stage 2 |
@@ -1309,13 +1305,13 @@ A feature earns **Complete** in the tracker when:
 | --- | --- | --- |
 | Archive resource exhaustion | A small EPUB expands into excessive memory or CPU work. | Preflight and count bounded reads before semantic parsing. |
 | Fragile saved positions | Resize or content changes return readers to the wrong passage. | Persist logical anchors and test relayout independently of page rows. |
-| Unicode width disagreement | Terminal output clips, drifts, or leaves stale cells. | Use grapheme and width crates, expose ambiguous-width policy, and test real terminals. |
+| Unicode width disagreement | Terminal output clips, drifts, or leaves stale cells. | Use grapheme and width crates, expose ambiguous-width policy, and test deterministic cell grids and PTYs. |
 | Incomplete bidi behavior | Right-to-left text displays or highlights incorrectly. | Defer support claims until the full logical-to-visual pipeline is tested. |
-| Terminal input ambiguity | AltGr, non-Latin layouts, or modifier combinations fail. | Keep essential bindings simple and test native keyboard paths. |
+| Terminal input ambiguity | AltGr, non-Latin layouts, or modifier combinations fail. | Keep essential bindings simple, test injected events and PTY bytes, and leave host input methods unclaimed. |
 | Broken terminal restoration | The shell remains in raw mode or hides the cursor. | Centralize lifecycle cleanup and cover normal, error, signal, and panic paths. |
 | Parser dependency defects | A trusted crate accepts unsafe or malformed input badly. | Keep limits at TermLeaf's boundary, run `cargo-deny`, use deterministic hostile and mutation suites, optionally fuzz for discovery, and update deliberately. |
-| Snapshot complacency | Updated snapshots approve a behavioral regression. | Pair snapshots with invariants and require focused review. |
-| Platform claims outrun testing | A binary builds but behaves poorly in a real terminal. | Require native interaction and installation tests before support claims. |
+| Snapshot complacency | Updated snapshots approve a behavioral regression. | Pair deterministic baselines with direct semantic and geometry invariants. |
+| Platform claims outrun testing | A binary builds but behaves poorly outside evidenced runners. | Limit claims to automated build, PTY, interaction, and installation tuples. |
 | Dependency growth | Convenience crates slow builds and widen the audit surface. | Add a crate only for a measured need and review features with `cargo tree`. |
 | License gaps | A release omits notices or includes an incompatible asset. | Review the resolved graph and non-Cargo assets before every release. |
 

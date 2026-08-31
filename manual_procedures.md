@@ -1,15 +1,15 @@
-# Manual Test Procedures
+# Optional Exploratory Procedures
 
-**Last updated:** August 30, 2026
+**Last updated:** August 31, 2026
 
-These procedures cover the catalog cases whose evidence requires a human at a
-real terminal. Automated PTY-layer equivalents run in CI on every required
-environment row; the steps below record what automation cannot see: real
-terminal fonts, input-method behavior, and host rendering.
+These optional procedures may help investigate real-terminal fonts, input
+methods, host rendering, and native pixel display that automation cannot see.
+They never gate case status, phase completion, support, or release. Automated
+PTY, render, integration, and tool evidence is authoritative; no compatibility
+claim is inferred from an unexecuted or successful exploratory observation.
 
-Each procedure ends with a recording block. A case becomes Passing only when
-a tester records tester, platform, terminal, date, and observed result for
-every step, per the completion rules in `testcases.md`.
+The recording template is retained only for reproducible bug reports. Any defect
+found here must become a deterministic regression before it is considered fixed.
 
 ## Recording template
 
@@ -64,9 +64,9 @@ or lost input occurs.
 
 ## KEY-005: AltGr and non-Latin entry in search and notes (Phase 3)
 
-Blocked forward to Phase 3 by DD-026: search entry and note editors do not
-exist yet. Execute this procedure when they land, before claiming their
-behavior:
+Search entry and note editors do not exist yet. These optional diagnostics may
+help reproduce a host input-method defect after they land, but they establish no
+compatibility claim:
 
 1. Open a book; enter search with `/`.
 2. Type AltGr characters and non-Latin words; confirm exact insertion.
@@ -163,14 +163,14 @@ fall back to text; and exit restores the terminal. Any missing observation,
 unsupported geometry, multiplexer rewrite, or cleanup defect is a failed or
 excluded tuple, not a partial compatibility claim.
 
-## Execution status
+## Optional Observation Status
 
-| Case | Automated PTY/render layer | Manual procedure |
+| Case | Automated PTY/render layer | Optional observation |
 | --- | --- | --- |
-| KEY-001 | Passing locally; hosted rows recorded with CI runs | Pending release matrix execution |
-| KEY-002 | Passing locally; hosted rows recorded with CI runs | Pending release matrix execution |
-| KEY-005 | Not applicable until Phase 3 features land | Blocked forward by DD-026 |
-| KEY-006 | Passing locally; hosted rows recorded with CI runs | Pending release matrix execution |
-| LAY-013 | Cell-level claims passing | Font-dependent half pending release matrix |
-| LAY-014 | Integration journey passing | Informational observation pending release matrix |
-| IMG-018 | Deterministic PTY byte/lifecycle support passing locally | Linux Kitty and Sixel native observations not executed; iTerm2 outside scope |
+| KEY-001 | Passing locally; hosted rows recorded with CI runs | Non-gating and not scheduled |
+| KEY-002 | Passing locally; hosted rows recorded with CI runs | Non-gating and not scheduled |
+| KEY-005 | Automated Phase 3 evidence not implemented | Host input-method compatibility unclaimed |
+| KEY-006 | Passing locally; hosted rows recorded with CI runs | Non-gating and not scheduled |
+| LAY-013 | Cell-level claims passing | Host-font fidelity unclaimed |
+| LAY-014 | Integration journey passing | Bidi visual ordering unsupported |
+| IMG-018 | Deterministic PTY byte/lifecycle support passing | Native pixel-display compatibility unclaimed |

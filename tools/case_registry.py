@@ -182,10 +182,14 @@ def direct_profile(case: CatalogCase) -> str:
 
 def primary_layer(case: CatalogCase) -> str:
     joined = " ".join(case.cells).lower()
-    for layer in ("property", "render", "integration", "pty", "fuzz", "benchmark", "unit", "manual"):
+    for layer in ("property", "render", "integration", "pty", "fuzz", "benchmark", "unit", "tool"):
         if re.search(rf"\b{layer}\b", joined):
             return layer
-    return "manual"
+    if re.search(r"\b(?:ci|review|static|scheduled)\b", joined):
+        return "tool"
+    if case.id.startswith("PROP-"):
+        return "property"
+    raise ValueError(f"{case.id}: catalog row has no automated test layer")
 
 
 def priority(case: CatalogCase) -> str:
@@ -343,9 +347,6 @@ def build_gates(cases: list[CatalogCase]) -> str:
             if not case.id.startswith("FUZZ-") and phase_for(case.id) <= phase
         ]
         case_ids = [case.id for case in owned_cases]
-        manual_ids = [
-            case.id for case in owned_cases if re.search(r"\bmanual\b", " ".join(case.cells), re.IGNORECASE)
-        ]
         benchmark_ids = [case.id for case in owned_cases if primary_layer(case) == "benchmark"]
         lines.extend(
             [
@@ -355,7 +356,6 @@ def build_gates(cases: list[CatalogCase]) -> str:
                 f"includes = {array([f'phase-gate-{phase - 1}'] if phase else [])}",
                 f"case_ids = {array(case_ids)}",
                 'required_environment_ids = ["ENV-LINUX-PTY"]',
-                f"manual_procedure_ids = {array(manual_ids)}",
                 f"benchmark_ids = {array(benchmark_ids)}",
                 'membership_status = "Frozen"',
                 'approver = "termleaf-maintainers"',
@@ -375,6 +375,13 @@ def expected_outputs() -> dict[Path, str]:
         raise ValueError(f"expected 336 catalog cases, found {len(ids)}")
     if len(ids) != len(set(ids)):
         raise ValueError("duplicate case IDs in testcases.md")
+    manual_cases = [
+        case.id
+        for case in cases
+        if re.search(r"\bmanual\b", " ".join(case.cells), re.IGNORECASE)
+    ]
+    if manual_cases:
+        raise ValueError("manual test methods are not supported: " + ", ".join(manual_cases))
     source_hash = hashlib.sha256(source.encode()).hexdigest()
     return {
         REGISTRY: build_registry(cases, source_hash),
@@ -525,10 +532,14 @@ def validate_registry() -> None:
     if set(profile_ids) != set(PROFILE_IDS):
         raise ValueError("profile manifest contains unexpected profile IDs")
     profile_map = {profile["id"]: profile for profile in profile_list}
-    environment_list = [environment["id"] for environment in environments_data["environment"]]
+    environments = environments_data["environment"]
+    environment_list = [environment["id"] for environment in environments]
     fixture_list = [fixture["id"] for fixture in fixtures_data["fixture"]]
     if len(environment_list) != len(set(environment_list)):
         raise ValueError("environment manifest contains duplicate IDs")
+    for environment in environments:
+        if str(environment.get("runner", "")).lower() == "manual":
+            raise ValueError(f"{environment['id']}: manual environment runners are not supported")
     if len(fixture_list) != len(set(fixture_list)):
         raise ValueError("fixture manifest contains duplicate IDs")
     environment_ids = set(environment_list)
@@ -559,6 +570,17 @@ def validate_registry() -> None:
             raise ValueError(f"{case['id']}: invalid status {case['status']}")
         if case["priority"] not in {"P0", "P1", "P2"}:
             raise ValueError(f"{case['id']}: invalid priority {case['priority']}")
+        if case["layer"] not in {
+            "unit",
+            "property",
+            "render",
+            "integration",
+            "pty",
+            "fuzz",
+            "benchmark",
+            "tool",
+        }:
+            raise ValueError(f"{case['id']}: invalid automated layer {case['layer']}")
         if case["status"] in {"Implemented", "Passing"} and not case["location"]:
             raise ValueError(f"{case['id']}: {case['status']} requires a location")
         if case["status"] in {"Implemented", "Passing"} and not case["last_evidence"]:
@@ -644,6 +666,8 @@ def validate_registry() -> None:
         gate_ids = set(gate["case_ids"])
         if any(case_id.startswith("FUZZ-") for case_id in gate_ids):
             raise ValueError(f"phase-gate-{phase}: fuzz IDs cannot be required gate cases")
+        if "manual_procedure_ids" in gate:
+            raise ValueError(f"phase-gate-{phase}: manual procedures cannot gate automation")
         if "fuzz_durations_seconds" in gate:
             raise ValueError(f"phase-gate-{phase}: must not define default fuzz durations")
         if not previous_ids.issubset(gate_ids):

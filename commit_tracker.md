@@ -26,6 +26,19 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Remove human release gates
+
+**Intended subject:** `test: remove human release gates`
+
+- Remove manual procedures and manual-runner environments from required profiles
+  and cumulative phase gates.
+- Convert automatable keyboard, layout, graphics, accessibility, installation,
+  migration, session, and release cases to executable evidence methods.
+- Remove irreducible visual, screen-reader, and usability-session work from the
+  queue while explicitly withholding those compatibility claims.
+- Keep optional exploratory procedures only as non-gating defect-reproduction
+  aids and require discovered defects to become deterministic regressions.
+
 ### Record Phase 2 gate evidence
 
 **Intended subject:** `docs: record Phase 2 gate evidence`

@@ -51,14 +51,14 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 18. ~~**Prove display, replacement, and scrolling.** Exercise native placement, unchanged frames, replacement IDs, viewport entry/exit, and stale-image deletion.~~
 19. ~~**Prove fallback and cancellation.** Exercise absent/malformed capability responses, missing geometry, decode or encode failure, navigation cancellation, and current-generation recovery.~~
 20. ~~**Prove shutdown and restoration.** Terminate during queued and active image work and assert bounded joins, cleanup attempts, terminal restoration, and no surviving child or worker.~~
-21. ~~**Register PTY lifecycle evidence.** Map the journeys to `TERM-009`, `IMG-017`, and supporting `IMG-018` locations while leaving manual acceptance Planned.~~
+21. ~~**Register PTY lifecycle evidence.** Map the journeys to `TERM-009`, `IMG-017`, and `IMG-018` protocol/lifecycle locations.~~
 
-### Write and execute the `IMG-018` native procedure
+### Reconcile automated native graphics evidence
 22. ~~**Write the protocol-neutral procedure.** Define prerequisites, fixture, dimensions, display, resize, scroll, replacement, failure, exit, capture, and cleanup observations.~~
-23. **Execute and record Kitty acceptance.** Run the procedure on one finalized claimed Kitty terminal and retain terminal/version evidence and results.
-24. **Execute and record Sixel acceptance.** Run the procedure on one finalized claimed Sixel terminal and retain geometry, terminal/version evidence, and results.
-25. ~~**Execute and record iTerm2 acceptance.** Removed from the Linux-only release scope; no iTerm2 compatibility claim.~~
-26. **Reconcile native claims.** Mark only evidenced Linux protocol tuples accepted, document exclusions precisely, and update `IMG-018` status and links.
+23. ~~**Execute and record Kitty acceptance.** Removed from automated-only scope because native pixel-display acceptance requires human visual observation; PTY protocol and lifecycle coverage makes no native compatibility claim.~~
+24. ~~**Execute and record Sixel acceptance.** Removed from automated-only scope because native pixel-display and geometry acceptance require human visual observation; PTY protocol and lifecycle coverage makes no native compatibility claim.~~
+25. ~~**Execute and record iTerm2 acceptance.** Removed from the Linux-only test and support scope; no iTerm2 compatibility claim.~~
+26. ~~**Reconcile automated graphics claims.** Limit claims to protocol framing, selection, lifecycle, fallback, and cleanup proved by deterministic PTY evidence; explicitly withhold native pixel-display compatibility.~~
 
 ### Run the complete Phase 2 hosted matrix
 27. ~~**Prepare one gate revision.** Ensure a clean pushed revision, fresh manifests, deterministic fixtures, and exact profile commands before triggering hosted jobs.~~
@@ -69,10 +69,10 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 32. ~~**Record the final hosted matrix.** Map every required environment row and profile to the passing revision without combining evidence from incompatible revisions.~~
 
 ### Close the Phase 2 gate
-33. ~~**Audit case status.** Compare every Phase 2 case with executable, hosted, and manual evidence; preserve Planned or Blocked status where evidence is incomplete.~~
+33. ~~**Audit case status.** Compare every Phase 2 case with executable and hosted evidence; preserve Planned or Blocked status where evidence is incomplete.~~
 34. ~~**Regenerate and verify gate artifacts.** Refresh case, profile, fixture, and phase-gate manifests and run every local gate command.~~
 35. ~~**Document limits and skips.** Record native-terminal boundaries, unsupported combinations, optional fuzz non-runs, and residual risks.~~
-36. **Update release-facing documents.** Reconcile README, implementation and commit trackers, test report, and manual procedures against the audited status.
+36. ~~**Update release-facing documents.** Reconcile README, implementation and commit trackers, test report, and automated-only limitations against the audited status.~~
 37. **Commit and push Phase 2 closure.** Review the complete diff, create logical commits, push the gate revision, and verify the branch and hosted links are synchronized.
 
 ## Phase 3
@@ -226,12 +226,12 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 139. **Add action-sequence properties.** Exercise focus, temporary views, search, selection, annotation, save, resize, and cancellation invariants.
 140. **Register deterministic replacements.** Map evidence replacing required `FUZZ-008` through `FUZZ-010` intent without claiming fuzz duration.
 
-### Pass the Phase 3 native and accessibility gate
-141. **Complete missing procedures.** Write exact keyboard-only, text-entry isolation, non-color, redraw, locale, and screen-reader steps and prerequisites.
-142. **Execute local native/accessibility journeys.** Record `KEY-005` and supported deterministic procedure halves with captures and environment identity.
+### Pass the automated Phase 3 accessibility gate
+141. **Complete automated accessibility coverage.** Add deterministic PTY/render tests for keyboard-only operation, text-entry isolation, non-color cues, redraw stability, and locale handling with reproducible fixtures.
+142. **Execute automated Phase 3 accessibility journeys.** Run registered PTY, render, and integration journeys at one revision and retain machine-generated logs, captures, and environment identity.
 143. **Run the hosted Phase 3 matrix.** Execute required Linux MSRV, dependency, render, security, and PTY profiles at one revision.
-144. **Record deferred human rows.** Execute available GUI/screen-reader rows and precisely mark unavailable environments without promotion.
-145. **Audit and close the Phase 3 gate.** Reconcile cases, manifests, reports, procedures, limits, and hosted links at the passing revision.
+144. ~~**Record deferred human rows.** Removed from automated-only scope; GUI, native input-method, and screen-reader observations support no release claim.~~
+145. **Audit and close the automated Phase 3 gate.** Reconcile automated cases, manifests, reports, limits, and hosted links while keeping native visual and screen-reader behavior unclaimed.
 
 ## Phase 4
 
@@ -281,7 +281,7 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 176. **Assert color and contrast.** Check semantic roles and required contrast for every supported Paper capability pairing.
 177. **Assert non-color identification.** Verify focus, matches, selection, annotations, warnings, loading, and errors remain distinguishable without color.
 178. **Assert responsive geometry.** Check every matrix state at wide, standard, compact, narrow, and below-minimum dimensions.
-179. **Record human accessibility rows.** Execute required keyboard, screen-reader, and visual procedures and retain environment-specific results.
+179. ~~**Record human accessibility rows.** Removed from automated-only scope; keyboard/input-method, screen-reader, and visual observations support no release claim.~~
 
 ### Build the benchmark framework
 180. **Freeze benchmark environments.** Register representative hardware, OS, terminal, toolchain, power assumptions, and noise controls.
@@ -298,12 +298,12 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 189. **Measure hostile cancellation and memory.** Baseline decoder/parser cancellation, worker shutdown, queues, image buffers, and cache steady state.
 190. **Reconcile budget exceptions.** Fix failures or document narrow measured exceptions with owner, impact, expiry, and removal condition.
 
-### Run usability sessions and finish guides
-191. **Write the usability protocol.** Define participant criteria, consent/privacy, common journeys, observations, severity, and stopping rules.
-192. **Run opening and reading sessions.** Observe installation/startup, opening books, navigation, layout, themes, and recovery with non-author readers.
-193. **Run search and annotation sessions.** Observe search, selection, bookmarks, highlights, notes, management, and persistence recovery.
-194. **Triage and fix usability findings.** Convert reproducible defects to tests and resolve release-blocking confusion or failure.
-195. **Revise reader-facing guides.** Update user, troubleshooting, accessibility, privacy, and known-limit documentation from findings.
+### Run scripted interaction journeys and finish guides
+191. ~~**Write the usability protocol.** Removed from automated-only scope because participant recruitment, consent, observation, and stopping rules require human-subject execution.~~
+192. ~~**Run opening and reading sessions.** Removed from automated-only scope because observation with non-author readers cannot be replaced by deterministic tests.~~
+193. ~~**Run search and annotation sessions.** Removed from automated-only scope because observation with non-author readers cannot be replaced by deterministic tests.~~
+194. **Triage and fix automated interaction findings.** Convert failures from scripted end-to-end, action-sequence, keyboard, responsive-layout, and error-recovery journeys into regressions.
+195. **Revise reader-facing guides.** Update user, troubleshooting, accessibility, privacy, and known-limit documentation from deterministic behavior and explicitly unsupported areas.
 196. **Revise contributor guidance.** Document architecture, fixtures, test profiles, evidence, release checks, and extension boundaries.
 
 ### Optionally add coverage-guided fuzzing
@@ -343,39 +343,39 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 220. **Record supply-chain evidence.** Retain commands, exceptions, owners, expiry, and removal conditions.
 
 ### Test clean installation and first run
-221. **Write clean-account procedures.** Define prerequisites, isolation, cache state, commands, expected paths, and cleanup for every package channel.
-222. **Test Linux installation.** Install on clean supported Linux accounts and verify help, version, fixture opening, reading, and clean exit.
+221. **Build clean-environment installation harnesses.** Define reproducible ephemeral Linux environments, cache state, commands, expected paths, assertions, and cleanup for every package channel.
+222. **Test Linux installation automatically.** Install each artifact in a fresh supported Linux CI image and script help, version, fixture opening, PTY reading, and clean-exit assertions.
 223. ~~**Test macOS installation.** Removed from the Linux-only test and support scope.~~
 224. ~~**Test Windows installation.** Removed from the Linux-only test and support scope.~~
-225. **Reconcile installation guides.** Fix package or documentation defects and retain final commands, artifacts, and environment evidence.
+225. **Reconcile installation guides.** Validate documented commands against automated clean-environment harnesses and retain artifact and environment evidence.
 
 ### Test upgrade and rollback disposition
 226. **Name predecessor and compatibility scope.** Select the prior release or explicitly record first-release non-applicability.
-227. **Test forward migration.** Install the new release over predecessor state/configuration and verify data, behavior, and failure recovery.
-228. **Test rollback behavior.** Reinstall the predecessor where supported and verify documented compatibility or refusal without silent loss.
-229. **Test interrupted upgrade.** Inject artifact, install, migration, and first-write failures and preserve a recoverable installation and state.
+227. **Automate forward migration.** Install the new release over versioned predecessor state/configuration in isolation and assert data, behavior, and failure recovery.
+228. **Automate rollback behavior.** Reinstall the predecessor in isolation where supported and assert compatibility or typed refusal without silent loss.
+229. **Test interrupted upgrade deterministically.** Inject artifact, install, migration, and first-write failures and assert a recoverable installation and state.
 230. **Publish upgrade/rollback procedure.** Record exact supported paths, backups, limitations, and future first-upgrade requirements.
 
-### Run the final native terminal matrix
+### Run the final automated Linux matrix
 231. **Freeze the final matrix revision.** Push one clean candidate with artifacts, manifests, procedures, and all local cumulative gates passing.
-232. **Run Linux terminal tuples.** Execute build, core, doctests, PTY, install, reading, feature, resize/session, image, restoration, and exit checks.
+232. **Run automated Linux tuples.** Execute build, core, doctests, PTY, isolated-install, scripted-reading, resize, session, protocol-byte, restoration, and exit checks.
 233. ~~**Run macOS terminal tuples.** Removed from the Linux-only test and support scope.~~
 234. ~~**Run Windows terminal tuples.** Removed from the Linux-only test and support scope.~~
-235. **Run SSH and multiplexer tuples.** Execute the promised remote and tmux/session combinations, including fallback and restoration.
-236. **Resolve and rerun failures.** Add deterministic regressions, fix defects, rebuild artifacts, and rerun every invalidated row at one candidate revision.
-237. **Publish final matrix evidence.** Link every promised tuple to exact revision, artifact, environment, result, capture, and known limitation.
+235. **Run automated SSH and multiplexer tuples.** Script promised SSH and tmux combinations in isolated CI and assert fallback, disconnect, detach, cleanup, and restoration.
+236. **Resolve and rerun automated failures.** Add deterministic regressions, fix defects, rebuild artifacts, and rerun every invalidated row at one candidate revision.
+237. **Publish automated matrix evidence.** Link every automated tuple to exact revision, artifact, reproducible environment, result, machine capture, and known limitation.
 
 ### Publish captures and known limitations
-238. **Capture representative UI.** Record delivered wide, narrow, search, selection, annotation, help, error, and image states from release artifacts.
-239. **Document text boundaries.** State evidenced Unicode, grapheme, width, bidi, locale, control, and screen-reader behavior precisely.
-240. **Document terminal boundaries.** State supported terminals, sessions, color, resize, input, restoration, and non-TTY behavior precisely.
-241. **Document image boundaries.** State decoder, resource, protocol, geometry, fallback, animation, and native acceptance limits precisely.
+238. **Generate representative UI captures.** Produce deterministic render snapshots for wide, narrow, search, selection, annotation, help, error, and image-fallback states.
+239. **Document automated text boundaries.** State evidenced Unicode, grapheme, width, bidi, locale, and control behavior; identify screen-reader behavior as unverified.
+240. **Document automated terminal boundaries.** State PTY-evidenced session, color, resize, input-byte, restoration, and non-TTY behavior without native-terminal extrapolation.
+241. **Document automated image boundaries.** State decoder, resource, protocol framing, geometry-input, fallback, animation, and lifecycle limits without native pixel-display claims.
 242. **Reconcile public documentation.** Ensure README, guides, accessibility, privacy, support, captures, and release notes make identical claims.
 
 ### Execute the release and rollback checklist
-243. **Verify cumulative gates and cases.** Require every release P0/P1 case, environment, manual row, and manifest freshness check at the candidate revision.
+243. **Verify cumulative automated gates and cases.** Require every in-scope automated P0/P1 case, required automated environment, and manifest freshness check at the candidate revision.
 244. **Verify artifacts and provenance.** Match versions, checksums, contents, notices, attestations, source commit, tag, and clean-install evidence.
 245. **Stage and verify release metadata.** Prepare notes, known limitations, captures, support matrix, upgrade/rollback instructions, and package links.
-246. **Exercise rollback before publication.** Run the documented release rollback procedure against staged metadata and artifacts.
+246. **Exercise rollback automatically before publication.** Run the scripted release rollback harness against staged metadata and artifacts.
 247. **Tag and publish.** Create the protected tag only after all checks pass, publish immutable artifacts, and verify public hashes and links.
-248. **Perform post-release verification.** Install from public channels, open fixtures, verify help/version, monitor failures, and retain the final evidence record.
+248. **Perform automated post-release verification.** Install from public channels in fresh CI environments, verify checksums, help, version, fixture opening, scripted reading, and clean exit, and retain the final evidence record.

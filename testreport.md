@@ -25,7 +25,7 @@ Every commit must have one report entry that records:
   of the commit it describes or `Pending` before its subject is chosen.
 - The behavior and risks exercised by the checks.
 - The operating system and relevant tool versions.
-- Each command or manual procedure and its result.
+- Each required automated command and its result.
 - Fixtures used, including provenance when they are not generated locally.
 - Skipped or unavailable checks and the reason.
 - Whether `cargo clean` ran after the complete local Rust validation cycle.
@@ -76,6 +76,41 @@ still cover malformed archives, path traversal, compression bombs, excessive
 resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
+
+### Adopt automated-only release evidence
+
+**Commit subject:** `test: remove human release gates`
+
+**Revision:** This commit
+
+**Recorded:** August 31, 2026
+
+**Behavior and risks.** Required evidence is now executable by CI or isolated
+native runners. Generated phase gates no longer contain manual procedure IDs,
+the environment manifest contains only automated runners, and the catalog
+rejects any case whose evidence method includes `manual`. Existing keyboard,
+layout, image, accessibility, install, migration, session, and release rows are
+narrowed to PTY, render, integration, or tool assertions. Native pixel fidelity,
+host-font rendering, host input methods, terminal-specific palette readability,
+and screen-reader usability are explicitly outside the compatibility claim.
+
+`IMG-018` is now Implemented for the protocol framing, exclusivity, replacement,
+deletion, fallback, bounds, and cleanup behavior directly asserted by its unit
+and PTY locations. This does not promote any native terminal display claim.
+Human-only Kitty, Sixel, screen-reader, accessibility-observation, and usability-
+session tasks are removed from the ordered queue; automatable install, SSH/tmux,
+upgrade, rollback, accessibility, capture, and post-release work remains as
+scripted harness work. Historical reports remain unchanged as records of the
+policy and evidence at their revisions. `manual_procedures.md` is retained only
+as an optional defect-reproduction aid and is non-gating.
+
+**Changed paths and selection.** Test policy and generation:
+`testcases.md`, `tools/case_registry.py`, environment/override/generated
+manifests, and `tests/render.rs`. Release scope and queue: README, project plan,
+implementation and commit trackers, UI guidance, quality policy, optional
+exploratory procedures, and task queue. Selected IDs include `IMG-018` and all
+former manual-method cases; profile and cumulative gate membership remain exact
+and automated.
 
 ### Record Phase 2 gate evidence
 

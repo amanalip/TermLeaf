@@ -37,7 +37,7 @@ will include:
 - A recent-books screen without automatic directory scanning.
 - Dark, light, high-contrast, monochrome, and Paper themes.
 - Confirmed external links and in-application help.
-- Native Linux releases after platform tests pass.
+- Linux artifacts after automated build, install, and PTY tests pass.
 
 Images will use a supported terminal graphics protocol when one is positively
 detected, fall back to a cell-based preview, and finally show a useful caption.
@@ -51,8 +51,10 @@ security gates, static raster/SVG decoding, bounded generation-aware workers,
 terminal image capability selection, a Kitty/Sixel/iTerm2 transport foundation,
 bounded one-shot capability probing, PTY image lifecycle journeys, half-block
 and caption fallbacks, and a responsive table of contents. The complete hosted
-Linux profile matrix passes at revision `1ca9a17`; native Kitty and Sixel visual
-acceptance remains unexecuted and is not claimed. The plan
+Linux profile matrix passes at revision `1ca9a17`. Automated PTY evidence covers
+graphics protocol framing and lifecycle; native pixel rendering, host-font
+fidelity, input-method behavior, and screen-reader usability are not claimed.
+The plan
 now treats coverage-guided fuzzing as optional
 scheduled discovery rather than mandatory duration-based gate work, and the
 executable registry and gate manifests enforce that policy.

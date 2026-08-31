@@ -1249,6 +1249,7 @@ location = [
 last_evidence = ["testreport.md#implement-terminal-graphics-probing-and-pty-lifecycle-evidence"]
 
 [cases.IMG-018]
+status = "Implemented"
 location = [
     "src/terminal_image.rs::native_lifecycle_replaces_deletes_and_suppresses_unchanged_frames",
     "src/terminal_image.rs::legacy_lifecycle_requires_redraw_then_clears_on_shutdown",
@@ -1256,6 +1257,7 @@ location = [
     "tests/pty_native.rs::img_018_kitty_display_replace_and_shutdown_cleanup_over_pty",
     "tests/pty_native.rs::img_018_sixel_and_iterm2_emit_only_the_selected_protocol_over_pty",
 ]
+last_evidence = ["testreport.md#implement-terminal-graphics-probing-and-pty-lifecycle-evidence"]
 
 [cases.TERM-009]
 status = "Implemented"

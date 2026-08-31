@@ -1316,7 +1316,9 @@ row, result, passage, or field unless that item no longer exists.
 - High-contrast, monochrome, terminal-default, and `NO_COLOR` render paths cover
   every mockup state.
 - Plain startup errors remain useful outside the full-screen UI.
-- Screen-reader claims require the named native manual matrix in `testcases.md`.
+- Screen-reader usability is unverified and is not a compatibility claim; the
+  automated contract covers keyboard paths, textual cues, stable output, and
+  non-color distinctions.
 
 ## Implementation Guidance
 
@@ -1413,8 +1415,8 @@ internals directly.
 | Theme variants | `THEME`, `A11Y`, `RENDER` |
 
 Each screen receives direct assertions for required text, focus, bounds, source
-mapping, non-color cues, and logical anchor before a snapshot is approved. A
-snapshot update alone does not establish conformance.
+mapping, non-color cues, and logical anchor before a deterministic baseline can
+change. A baseline update alone does not establish conformance.
 
 ## Open UI Decisions
 
@@ -1454,8 +1456,8 @@ The UI work fits the existing six phases:
 | 1. Plain-text reading loop | Paged/continuous reader, responsive classes, status foundation, core key map, all built-in themes, Paper layout, help skeleton, errors, and too-small state |
 | 2. Structured books and images | TOC, semantic code/table rendering, image placement, loading, protocol/cell/caption states, and safe resource errors |
 | 3. Dependable reading | Recent books, search, bookmarks, highlights, notes, complete help, configuration/state feedback, and accessibility views |
-| 4. Product refinement | Metadata details, annotation recovery, external links, usability sessions, native accessibility, performance, and guidance refinement |
-| 5. Release | Final native matrix, package/install journeys, screenshots or terminal captures, known limitations, and release documentation |
+| 4. Product refinement | Metadata details, annotation recovery, external links, scripted interaction, automated accessibility, performance, and guidance refinement |
+| 5. Release | Automated native-runner/PTY matrix, package/install journeys, generated captures, known limitations, and release documentation |
 
 No seventh phase is needed. The quality and test standards add entry and exit
 evidence to every phase; the mockups clarify work already promised by the first-

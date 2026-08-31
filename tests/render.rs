@@ -739,9 +739,8 @@ fn render_003_unicode_cells_render_with_exact_widths_and_no_leaks() -> Result<()
 
 #[test]
 fn lay_013_unicode_placement_claims_match_support_limits() -> Result<()> {
-    // Render-layer evidence for grapheme placement. Font-dependent GUI
-    // verification stays owned by the release manual matrix; this pins the
-    // application-side cell claims that do not depend on fonts.
+    // This pins application-side cell claims; host-font glyph fidelity remains
+    // explicitly outside the automated compatibility contract.
     let source =
         "e\u{301} 漢字 \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} \u{1F1FA}\u{1F1F8}\n".repeat(6);
     let mut app = reader_app(&source)?;

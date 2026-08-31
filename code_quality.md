@@ -264,8 +264,8 @@ terminal cleanup, or undocumented unsafe code.
   safe to run in parallel unless explicitly placed in a low-parallelism suite.
 - Time, locale, terminal capabilities, dimensions, paths, and environment must
   be injected or fixed when they affect an assertion.
-- Snapshot tests require direct invariant assertions and deliberate review. A
-  snapshot update is not proof that behavior is correct.
+- Snapshot tests require direct invariant assertions and deterministic baseline
+  comparison. A snapshot update is not proof that behavior is correct.
 - Test fixtures must have provenance and licensing recorded. Small synthetic
   fixtures are preferred for focused behavior; ignored full books support
   realistic local journeys.
@@ -289,9 +289,10 @@ cargo deny check
 ```
 
 Run narrower tests while developing, then run the complete applicable cycle
-before considering the change finished. Platform, PTY, benchmark, and release
-checks run when the affected risk or delivery gate requires them. Optional fuzz
-runs execute only when explicitly selected for scheduled or pre-release work.
+before considering the change finished. Required platform, PTY, benchmark, and
+release checks must be executable by CI or an isolated native runner; human
+observations are optional and non-gating. Optional fuzz runs execute only when
+explicitly selected for scheduled or pre-release work.
 
 Record exact commands, outcomes, skipped checks, environment, and fixtures in
 `testreport.md` for every commit. After the complete local Rust validation cycle,
