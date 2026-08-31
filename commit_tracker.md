@@ -26,6 +26,29 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Record Phase 2 gate evidence
+
+**Intended subject:** `docs: record Phase 2 gate evidence`
+
+- Record all six passing Linux jobs at revision `1ca9a17` without combining
+  evidence from earlier revisions.
+- Preserve nine incomplete gate cases as Planned, including manual `IMG-018`.
+- Document native, format, resource, worker, optional-fuzz, and dependency limits
+  without promoting unsupported terminal tuples.
+
+### Stabilize generated EPUB fixtures
+
+**Intended subjects:**
+
+- `fix: stabilize hostile EPUB fixture`
+- `fix: stabilize generated EPUB corpus`
+
+- Remove Python/zlib-version variance from generated EPUB bytes by storing every
+  authored ZIP member.
+- Regenerate all affected archives and update their registered hashes, sizes,
+  and parameters.
+- Retain the same semantic, malformed, and hostile payloads and parser evidence.
+
 ### Align release scope with Linux-only support
 
 **Intended subject:** `docs: limit release scope to Linux`

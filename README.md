@@ -6,7 +6,7 @@
 
 Turn pages without leaving the terminal.
 
-**Last updated:** August 23, 2026
+**Last updated:** August 31, 2026
 
 ## Table of Contents
 
@@ -50,9 +50,9 @@ bounded Markdown and EPUB semantics, exact internal navigation, archive and XML
 security gates, static raster/SVG decoding, bounded generation-aware workers,
 terminal image capability selection, a Kitty/Sixel/iTerm2 transport foundation,
 bounded one-shot capability probing, PTY image lifecycle journeys, half-block
-and caption fallbacks, and a responsive table of contents. Hosted Linux
-journeys and native protocol acceptance evidence are tracked separately and are
-not claimed before they run. The plan
+and caption fallbacks, and a responsive table of contents. The complete hosted
+Linux profile matrix passes at revision `1ca9a17`; native Kitty and Sixel visual
+acceptance remains unexecuted and is not claimed. The plan
 now treats coverage-guided fuzzing as optional
 scheduled discovery rather than mandatory duration-based gate work, and the
 executable registry and gate manifests enforce that policy.

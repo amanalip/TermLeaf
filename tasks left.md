@@ -61,17 +61,17 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 26. **Reconcile native claims.** Mark only evidenced Linux protocol tuples accepted, document exclusions precisely, and update `IMG-018` status and links.
 
 ### Run the complete Phase 2 hosted matrix
-27. **Prepare one gate revision.** Ensure a clean pushed revision, fresh manifests, deterministic fixtures, and exact profile commands before triggering hosted jobs.
-28. **Run Linux profiles.** Retain registry, core, render, security, dependency, MSRV, and native PTY outcomes with run URLs and revision.
+27. ~~**Prepare one gate revision.** Ensure a clean pushed revision, fresh manifests, deterministic fixtures, and exact profile commands before triggering hosted jobs.~~
+28. ~~**Run Linux profiles.** Retain registry, core, render, security, dependency, MSRV, and native PTY outcomes with run URLs and revision.~~
 29. ~~**Run macOS profiles.** Removed from the Linux-only test and support scope.~~
 30. ~~**Run Windows profiles.** Removed from the Linux-only test and support scope.~~
-31. **Resolve hosted-only failures.** Convert defects to deterministic regressions, fix them, and rerun the complete affected matrix at one new pushed revision.
-32. **Record the final hosted matrix.** Map every required environment row and profile to the passing revision without combining evidence from incompatible revisions.
+31. ~~**Resolve hosted-only failures.** Convert defects to deterministic regressions, fix them, and rerun the complete affected matrix at one new pushed revision.~~
+32. ~~**Record the final hosted matrix.** Map every required environment row and profile to the passing revision without combining evidence from incompatible revisions.~~
 
 ### Close the Phase 2 gate
-33. **Audit case status.** Compare every Phase 2 case with executable, hosted, and manual evidence; preserve Planned or Blocked status where evidence is incomplete.
-34. **Regenerate and verify gate artifacts.** Refresh case, profile, fixture, and phase-gate manifests and run every local gate command.
-35. **Document limits and skips.** Record native-terminal boundaries, unsupported combinations, optional fuzz non-runs, and residual risks.
+33. ~~**Audit case status.** Compare every Phase 2 case with executable, hosted, and manual evidence; preserve Planned or Blocked status where evidence is incomplete.~~
+34. ~~**Regenerate and verify gate artifacts.** Refresh case, profile, fixture, and phase-gate manifests and run every local gate command.~~
+35. ~~**Document limits and skips.** Record native-terminal boundaries, unsupported combinations, optional fuzz non-runs, and residual risks.~~
 36. **Update release-facing documents.** Reconcile README, implementation and commit trackers, test report, and manual procedures against the audited status.
 37. **Commit and push Phase 2 closure.** Review the complete diff, create logical commits, push the gate revision, and verify the branch and hosted links are synchronized.
 

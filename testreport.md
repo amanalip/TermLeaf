@@ -77,6 +77,88 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Record Phase 2 gate evidence
+
+**Commit subject:** `docs: record Phase 2 gate evidence`
+
+**Revision:** This commit
+
+**Recorded:** August 31, 2026
+
+**Hosted matrix.** GitHub Actions run
+[`33356718440`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440)
+passed at the single revision `1ca9a17ca1525ad64a96c6e6dbf9a25fc55fab4f`:
+
+| Profile evidence | Hosted job |
+| --- | --- |
+| Registry, fixture reproduction, core, Clippy, format, and doctests | [Rust checks `99380194009`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380194009) |
+| Native PTY / `ENV-LINUX-PTY` | [Native PTY `99380193808`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380193808) |
+| Render | [Render `99380194055`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380194055) |
+| Security | [Security `99380194016`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380194016) |
+| Dependency policy | [Dependency policy `99380193977`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380193977) |
+| MSRV | [Rust 1.88 `99380193895`](https://github.com/amanalip/TermLeaf/actions/runs/33356718440/job/99380193895) |
+
+**Local gate.** Fresh generated case, profile, fixture, and cumulative gate
+artifacts passed their checks. The complete stable and Rust 1.88 suites passed
+with 227 library, 9 CLI, 19 document-I/O, 10 property, 19 native PTY, 23 render,
+and 12 security tests; doctests, all targets/features, Clippy, formatting,
+dependency policy, release build, fixture reproduction, registry validation, and
+diff checks also passed. `cargo clean` removed 11,777 files (5.7 GiB).
+
+**Limits, skips, and residual risk.** No native Kitty or Sixel visual tuple is
+accepted: PTY bytes prove framing and lifecycle ordering only, and `IMG-018`
+remains Planned. iTerm2, macOS, and Windows are outside the Linux release scope.
+Sixel requires measured nonzero pixel geometry and otherwise uses a caption.
+Capability probing is bounded to one 250 ms deadline, 4,096 total bytes, and
+1,024 bytes per frame. Images are bounded to 32 MiB input, 16,384 pixels per
+side, 64 million pixels, 256 MiB allocation, and 8 MiB SVG XML; native output is
+bounded to 16 MiB and 4,096 chunks. Two workers admit at most eight queued
+requests/completions and 64 MiB in-flight input. Animation remains first-frame
+only, fixed-layout EPUB and complete bidi rendering remain unsupported, and no
+optional coverage-guided fuzz campaign was run or required. The documented
+OpenEXR `paste` advisory exception and duplicate dependency versions remain
+residual supply-chain review items.
+
+The gate inventory remains 186 Implemented and nine Planned cases. The eight
+forward-owned Phase 1 interactions and manual `IMG-018` are not promoted by the
+hosted run. Tasks 27, 28, and 31-35 are complete; native Tasks 23, 24, and 26
+remain unexecuted, so the overall Phase 2 gate is not closed.
+
+### Stabilize generated EPUB corpus
+
+**Commit subject:** `fix: stabilize generated EPUB corpus`
+
+**Revision:** `1ca9a17`
+
+**Recorded:** August 31, 2026
+
+**Behavior and risks.** After the hostile archive was stabilized, hosted run
+`33356537976` identified `malformed.epub` as the next zlib-dependent fixture.
+The generator now stores every authored EPUB member, making all four archives
+independent of compressor versions while preserving order, timestamps, package
+semantics, malformed markup, and hostile payloads. Registered hashes, sizes, and
+generator parameters were refreshed.
+
+**Checks.** Local fixture and registry checks, 19 document-I/O tests, 12 security
+tests, and diff checks passed. Hosted run `33356718440` then reproduced all 29
+fixtures and passed every Linux job at this revision.
+
+### Stabilize hostile EPUB fixture
+
+**Commit subject:** `fix: stabilize hostile EPUB fixture`
+
+**Revision:** `0d6e737`
+
+**Recorded:** August 31, 2026
+
+**Behavior and risks.** The hostile archive switched to stored members after
+hosted runs `33344506186` and `33345390729` showed compressor-dependent bytes.
+Its unsafe member name, external entity, script, and remote image payloads were
+unchanged. Local fixture/registry checks plus document-I/O and security tests
+passed. Hosted run `33356537976` confirmed this fixture but exposed the same
+zlib dependence in the malformed archive, leading to `1ca9a17` rather than a
+waiver or mixed-revision matrix.
+
 ### Audit Phase 2 case status
 
 **Commit subject:** `test: reconcile phase gate case statuses`

@@ -1,6 +1,6 @@
 # Implementation Tracker
 
-**Last updated:** August 30, 2026
+**Last updated:** August 31, 2026
 
 ## Table of Contents
 
@@ -44,12 +44,10 @@ cancel stale work, contain failures, and shut down without blocking terminal
 restoration. Wide TOC navigation preserves passage context in a side panel.
 Native transport and one-shot capability probing are complete. Deterministic PTY
 journeys cover response handling, protocol exclusivity, replacement, scrolling,
-fallback, and cleanup. Hosted lifecycle runs and native-terminal acceptance
-remain. The local
-implementation suite and security target pass; the Phase 2 gate remains
-evidence-in-progress until the
-deterministic policy and manifests are reconciled, the remaining robustness and
-hosted evidence passes, and native `IMG-018` results are recorded. DD-026
+fallback, and cleanup. The complete Linux core, render, security, dependency,
+MSRV, and native PTY matrix passes at revision `1ca9a17`. The Phase 2 gate
+remains evidence-in-progress until native `IMG-018` results are recorded and the
+remaining forward-owned Planned rows are resolved. DD-026
 continues to own frozen members whose actual features land in later phases.
 
 ## Delivery Phases
@@ -70,7 +68,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, capability probing, PTY lifecycle journeys, and responsive TOC pass. Hosted rows, native protocol observations, and gate evidence remain. |
+| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, capability probing, PTY lifecycle journeys, responsive TOC, and the complete hosted Linux matrix pass. Native protocol observations and remaining Planned gate rows remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -152,7 +150,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 227 library, 9 CLI, 19 document-I/O, 23 render, 10 property, 12 security, and 19 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 227 library, 9 CLI, 19 document-I/O, 23 render, 10 property, 12 security, and 19 native PTY cases locally; all required hosted Linux rows pass at `1ca9a17`. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; `FUZZ-*` targets are optional weekly discovery metadata rather than required security work. |
@@ -160,8 +158,8 @@ already inside the six phases; it does not add another phase.
 | Structured fixture corpus | Complete | Twenty-nine authored TXT, Markdown, EPUB, per-decoder raster, SVG, and SVGZ files reproduce byte-for-byte and carry hashes, sizes, provenance, SPDX licenses, generator parameters, expected properties, and served case IDs. |
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
-| Continuous integration | In progress | Fixed Linux core, PTY, render, security, MSRV, and dependency-policy jobs are defined but need hosted evidence for this change. |
-| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`, plus the `image` 0.25 format graph with a documented `RUSTSEC-2024-0436` paste exception arriving through the locked OpenEXR decoder); hosted Linux evidence remains. |
+| Continuous integration | Complete | Fixed Linux core, PTY, render, security, MSRV, and dependency-policy jobs pass together at revision `1ca9a17` (run `33356718440`). |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally and on hosted Linux with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`, plus the `image` 0.25 format graph with a documented `RUSTSEC-2024-0436` paste exception arriving through the locked OpenEXR decoder); final release review remains. |
 | Packaging | Not started | Choose channels for the supported Linux targets. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |
