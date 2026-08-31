@@ -77,6 +77,30 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Align release scope with Linux-only support
+
+**Commit subject:** `docs: limit release scope to Linux`
+
+**Revision:** This commit
+
+**Recorded:** August 30, 2026
+
+**Behavior and risks.** Public, implementation, manual-procedure, and task-queue
+documents now make Linux the sole first-release packaging and compatibility
+target. Kitty and Sixel remain the claimed native-protocol candidates. iTerm2,
+macOS, Windows, and ConPTY acceptance, launcher, installation, and final-matrix
+tasks are struck through as outside scope while stable task numbers remain.
+Portable code paths and historical evidence are unchanged.
+
+**Checks.** Passed: `python3 tools/case_registry.py check`, `python3
+tools/fixture_corpus.py check` (29 files), and `git diff --check`. No Rust or
+generated policy source changed in this commit, so Cargo profiles and manifest
+regeneration were not selected.
+
+**Changed paths and selection.** Documentation paths: README, project plan,
+implementation/commit trackers, manual procedures, test report, and task queue.
+Selected evidence: Linux release scope and manual `IMG-018` protocol boundaries.
+
 ### Limit required test environments to Linux
 
 **Commit subject:** `ci: limit test matrix to Linux`

@@ -130,7 +130,8 @@ Prerequisites:
 4. Keep a raw terminal-output capture when the terminal provides a safe capture
    method; do not publish private paths from the capture.
 
-Procedure, repeated independently for Kitty, Sixel, and iTerm2:
+Procedure, repeated independently for each claimed Linux protocol (Kitty and
+Sixel for the current scope; iTerm2 is not a Linux release claim):
 
 1. Start TermLeaf with the fixture and verify exactly one capability-query packet
    occurs before the first frame.
@@ -172,4 +173,4 @@ excluded tuple, not a partial compatibility claim.
 | KEY-006 | Passing locally; hosted rows recorded with CI runs | Pending release matrix execution |
 | LAY-013 | Cell-level claims passing | Font-dependent half pending release matrix |
 | LAY-014 | Integration journey passing | Informational observation pending release matrix |
-| IMG-018 | Deterministic PTY byte/lifecycle support passing locally | Kitty, Sixel, and iTerm2 native observations not executed |
+| IMG-018 | Deterministic PTY byte/lifecycle support passing locally | Linux Kitty and Sixel native observations not executed; iTerm2 outside scope |

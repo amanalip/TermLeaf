@@ -95,8 +95,8 @@ already inside the six phases; it does not add another phase.
 | --- | --- | --- |
 | Repository setup | Complete | The ignore rules and working documents are in place. |
 | Project logo | Complete | The SVG mark is ready for documentation and future interfaces. |
-| First-release features | Complete | The reader behavior, formats, images, annotations, themes, and platform intent are locked. |
-| Remaining product details | In progress | Phase 1 key map is set (hybrid conventional/Vim, `gg` prefix policy); OS support versions and tested release terminals remain. |
+| First-release features | Complete | The reader behavior, formats, images, annotations, themes, and Linux-only platform intent are locked. |
+| Remaining product details | In progress | Phase 1 key map is set (hybrid conventional/Vim, `gg` prefix policy); Linux support versions and tested release terminals remain. |
 | Stack selection | Complete | Rust, Ratatui, Crossterm, and the supporting crate strategy are documented. |
 | Technical architecture | Complete | Module boundaries, data flow, security policy, and delivery gates are planned. |
 | Rust quality standards | Complete | Apply `code_quality.md` to implementation, review, testing, dependencies, and documented exceptions. |
@@ -160,9 +160,9 @@ already inside the six phases; it does not add another phase.
 | Structured fixture corpus | Complete | Twenty-nine authored TXT, Markdown, EPUB, per-decoder raster, SVG, and SVGZ files reproduce byte-for-byte and carry hashes, sizes, provenance, SPDX licenses, generator parameters, expected properties, and served case IDs. |
 | Hermetic test harness | Complete | Foundation CLI and PTY cases isolate user paths/environment, dimensions, terminal model, child cleanup, faults, and deadlines; later boundaries extend the same contract. |
 | Test reporting | Complete | Record exact checks, outcomes, skipped coverage, fixtures, and cleanup for every commit in `testreport.md`. |
-| Continuous integration | In progress | Fixed Linux, macOS, and Windows core jobs, Unix PTY jobs, MSRV, and dependency policy are defined but need hosted evidence for this change. |
-| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`, plus the `image` 0.25 format graph with a documented `RUSTSEC-2024-0436` paste exception arriving through the locked OpenEXR decoder); hosted and cross-platform evidence remains. |
-| Packaging | Not started | Choose channels that fit the supported platforms. |
+| Continuous integration | In progress | Fixed Linux core, PTY, render, security, MSRV, and dependency-policy jobs are defined but need hosted evidence for this change. |
+| Dependency policy | In progress | `deny.toml` covers advisories, licenses, sources, and bans and passes locally with the Phase 2 dependencies (adding `ISC` for scraper alongside `BSD-3-Clause` for bundled WHATWG data and `MPL-2.0` for `option-ext`, plus the `image` 0.25 format graph with a documented `RUSTSEC-2024-0436` paste exception arriving through the locked OpenEXR decoder); hosted Linux evidence remains. |
+| Packaging | Not started | Choose channels for the supported Linux targets. |
 | Release routine | Not started | Make versioning and artifact creation repeatable. |
 | Reader documentation | In progress | Keep instructions useful as the application takes shape. |
 

@@ -37,7 +37,7 @@ will include:
 - A recent-books screen without automatic directory scanning.
 - Dark, light, high-contrast, monochrome, and Paper themes.
 - Confirmed external links and in-application help.
-- Native Linux, macOS, and Windows releases after platform tests pass.
+- Native Linux releases after platform tests pass.
 
 Images will use a supported terminal graphics protocol when one is positively
 detected, fall back to a cell-based preview, and finally show a useful caption.
@@ -50,7 +50,7 @@ bounded Markdown and EPUB semantics, exact internal navigation, archive and XML
 security gates, static raster/SVG decoding, bounded generation-aware workers,
 terminal image capability selection, a Kitty/Sixel/iTerm2 transport foundation,
 bounded one-shot capability probing, PTY image lifecycle journeys, half-block
-and caption fallbacks, and a responsive table of contents. Hosted environment
+and caption fallbacks, and a responsive table of contents. Hosted Linux
 journeys and native protocol acceptance evidence are tracked separately and are
 not claimed before they run. The plan
 now treats coverage-guided fuzzing as optional

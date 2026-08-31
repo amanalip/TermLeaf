@@ -59,7 +59,7 @@ Included in the first release:
 - A recent-books screen without automatic library scanning.
 - Built-in dark, light, high-contrast, monochrome, and Paper themes.
 - Detailed reading status and discoverable help.
-- Native Linux, macOS, and Windows builds after their release tests pass.
+- Native Linux builds after their release tests pass.
 
 Explicitly outside the first release:
 
@@ -104,7 +104,7 @@ change only through an explicit scope decision recorded in `commit_tracker.md`.
 | Status | Title, chapter, logical location, dynamic page, percentage, clock, reading mode, and temporary messages |
 | Links | Show the destination and require confirmation before opening a system browser |
 | Help | Searchable or scannable command and key reference inside the application |
-| Platforms | Linux, macOS, and Windows after native tests and packaging pass |
+| Platforms | Linux after native tests and packaging pass |
 
 ### Opening and Returning to Books
 
@@ -403,9 +403,9 @@ must return to the exact logical passage that opened it.
 
 ### Platform Promise
 
-The first release intends to provide Linux, macOS, and Windows artifacts. Each
-platform earns the promise only after native builds, core tests, PTY journeys,
-terminal restoration checks, and clean installation tests pass. A protocol such
+The first release intends to provide Linux artifacts. Linux earns the promise
+only after native builds, core tests, PTY journeys, terminal restoration checks,
+and clean installation tests pass. A protocol such
 as Sixel may be unavailable on a supported platform without making text reading
 unsupported; the image fallback chain is part of the platform contract.
 
@@ -457,15 +457,13 @@ guessed encoding can silently alter a book.
 
 ### Platform Position
 
-Linux, macOS, and Windows are engineering targets because Ratatui and Crossterm
-support all three. A platform becomes officially supported only after native
-builds, terminal integration tests, installation tests, and release packaging
-pass there. Cross-compilation alone is not enough evidence for a terminal app.
+Linux is the first-release engineering and support target. macOS and Windows
+remain outside the current test, packaging, and compatibility scope even where
+dependencies provide portable code paths. Native terminal integration,
+installation, and release packaging evidence is required for Linux.
 
 Representative terminal coverage should include:
 
-- Windows Terminal on Windows.
-- The system Terminal application on macOS.
 - At least GNOME Terminal and Konsole on Linux.
 - Kitty or WezTerm as a modern protocol-aware terminal.
 - A session through SSH.
@@ -1050,8 +1048,8 @@ cargo test --doc --locked
 cargo deny check
 ```
 
-Native Linux, macOS, and Windows jobs will build and run core tests for every
-platform TermLeaf intends to support. `cargo-nextest` can be added when suite
+Native Linux jobs will build and run core tests for the platform TermLeaf
+intends to support. `cargo-nextest` can be added when suite
 runtime, process isolation, or CI reporting makes it worthwhile. Standard
 doctests remain necessary because Nextest does not run them.
 

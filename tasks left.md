@@ -57,14 +57,14 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 22. ~~**Write the protocol-neutral procedure.** Define prerequisites, fixture, dimensions, display, resize, scroll, replacement, failure, exit, capture, and cleanup observations.~~
 23. **Execute and record Kitty acceptance.** Run the procedure on one finalized claimed Kitty terminal and retain terminal/version evidence and results.
 24. **Execute and record Sixel acceptance.** Run the procedure on one finalized claimed Sixel terminal and retain geometry, terminal/version evidence, and results.
-25. **Execute and record iTerm2 acceptance.** Run the procedure on one finalized claimed iTerm2 terminal and retain terminal/version evidence and results.
-26. **Reconcile native claims.** Mark only evidenced protocol tuples accepted, document exclusions precisely, and update `IMG-018` status and links.
+25. ~~**Execute and record iTerm2 acceptance.** Removed from the Linux-only release scope; no iTerm2 compatibility claim.~~
+26. **Reconcile native claims.** Mark only evidenced Linux protocol tuples accepted, document exclusions precisely, and update `IMG-018` status and links.
 
 ### Run the complete Phase 2 hosted matrix
 27. **Prepare one gate revision.** Ensure a clean pushed revision, fresh manifests, deterministic fixtures, and exact profile commands before triggering hosted jobs.
 28. **Run Linux profiles.** Retain registry, core, render, security, dependency, MSRV, and native PTY outcomes with run URLs and revision.
-29. **Run macOS profiles.** Retain registry, core, render, security, dependency, MSRV, and native PTY outcomes with run URLs and revision.
-30. **Run Windows profiles.** Retain registry, core, render, security, dependency, MSRV, and ConPTY outcomes with run URLs and revision.
+29. ~~**Run macOS profiles.** Removed from the Linux-only test and support scope.~~
+30. ~~**Run Windows profiles.** Removed from the Linux-only test and support scope.~~
 31. **Resolve hosted-only failures.** Convert defects to deterministic regressions, fix them, and rerun the complete affected matrix at one new pushed revision.
 32. **Record the final hosted matrix.** Map every required environment row and profile to the passing revision without combining evidence from incompatible revisions.
 
@@ -229,7 +229,7 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 ### Pass the Phase 3 native and accessibility gate
 141. **Complete missing procedures.** Write exact keyboard-only, text-entry isolation, non-color, redraw, locale, and screen-reader steps and prerequisites.
 142. **Execute local native/accessibility journeys.** Record `KEY-005` and supported deterministic procedure halves with captures and environment identity.
-143. **Run the hosted Phase 3 matrix.** Execute required Linux, macOS, Windows, MSRV, dependency, render, security, and PTY profiles at one revision.
+143. **Run the hosted Phase 3 matrix.** Execute required Linux MSRV, dependency, render, security, and PTY profiles at one revision.
 144. **Record deferred human rows.** Execute available GUI/screen-reader rows and precisely mark unavailable environments without promotion.
 145. **Audit and close the Phase 3 gate.** Reconcile cases, manifests, reports, procedures, limits, and hosted links at the passing revision.
 
@@ -250,8 +250,8 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 
 ### Implement safe platform launchers
 155. **Implement Unix launcher selection.** Invoke one validated URL as one non-shell argument and type missing/spawn/timeout/status failures.
-156. **Implement macOS launcher selection.** Apply the same argument and failure contract using the supported native command.
-157. **Implement Windows launcher selection.** Apply the same contract without shell interpolation or argument splitting.
+156. ~~**Implement macOS launcher selection.** Removed from the Linux-only release scope.~~
+157. ~~**Implement Windows launcher selection.** Removed from the Linux-only release scope.~~
 158. **Add fake-launcher integration tests.** Capture argv and exercise success, missing binary, spawn error, timeout, and child failure deterministically.
 159. **Register platform evidence.** Map local tests and hosted rows without claiming platforms not executed.
 
@@ -315,7 +315,7 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 ## Phase 5
 
 ### Finalize support and packaging policy
-201. **Freeze platform tuples.** Select promised OS versions, architectures, libc/runtime assumptions, and evidence environments.
+201. **Freeze platform tuples.** Select promised Linux versions, architectures, libc/runtime assumptions, and evidence environments.
 202. **Freeze terminal tuples.** Select terminals, sessions, SSH/tmux combinations, color modes, Unicode limits, and image protocols.
 203. **Freeze package channels.** Select archive/installer/package-manager outputs, installation scope, update expectations, and signing requirements.
 204. **Assign evidence and deferrals.** Name owners for each tuple and document unsupported or deferred combinations precisely.
@@ -345,8 +345,8 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 ### Test clean installation and first run
 221. **Write clean-account procedures.** Define prerequisites, isolation, cache state, commands, expected paths, and cleanup for every package channel.
 222. **Test Linux installation.** Install on clean supported Linux accounts and verify help, version, fixture opening, reading, and clean exit.
-223. **Test macOS installation.** Run the same checks on clean supported macOS accounts and record platform-specific prompts or limits.
-224. **Test Windows installation.** Run the same checks on clean supported Windows accounts and record PATH, ConPTY, and cleanup behavior.
+223. ~~**Test macOS installation.** Removed from the Linux-only test and support scope.~~
+224. ~~**Test Windows installation.** Removed from the Linux-only test and support scope.~~
 225. **Reconcile installation guides.** Fix package or documentation defects and retain final commands, artifacts, and environment evidence.
 
 ### Test upgrade and rollback disposition
@@ -359,8 +359,8 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 ### Run the final native terminal matrix
 231. **Freeze the final matrix revision.** Push one clean candidate with artifacts, manifests, procedures, and all local cumulative gates passing.
 232. **Run Linux terminal tuples.** Execute build, core, doctests, PTY, install, reading, feature, resize/session, image, restoration, and exit checks.
-233. **Run macOS terminal tuples.** Execute the same applicable matrix on every promised macOS terminal/session tuple.
-234. **Run Windows terminal tuples.** Execute the same applicable matrix on every promised Windows/ConPTY tuple.
+233. ~~**Run macOS terminal tuples.** Removed from the Linux-only test and support scope.~~
+234. ~~**Run Windows terminal tuples.** Removed from the Linux-only test and support scope.~~
 235. **Run SSH and multiplexer tuples.** Execute the promised remote and tmux/session combinations, including fallback and restoration.
 236. **Resolve and rerun failures.** Add deterministic regressions, fix defects, rebuild artifacts, and rerun every invalidated row at one candidate revision.
 237. **Publish final matrix evidence.** Link every promised tuple to exact revision, artifact, environment, result, capture, and known limitation.

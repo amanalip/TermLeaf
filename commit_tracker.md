@@ -26,6 +26,16 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Align release scope with Linux-only support
+
+**Intended subject:** `docs: limit release scope to Linux`
+
+- Make Linux the sole first-release platform in public and implementation plans.
+- Keep Kitty and Sixel native acceptance while removing iTerm2, macOS, Windows,
+  and ConPTY execution from the active queue without renumbering tasks.
+- Preserve portable implementation code and historical platform evidence without
+  making unsupported compatibility claims.
+
 ### Limit required test environments to Linux
 
 **Intended subject:** `ci: limit test matrix to Linux`
