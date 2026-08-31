@@ -91,7 +91,9 @@ location = [
 last_evidence = ["testreport.md#complete-phase-0-implementation"]
 
 [cases.KEY-004]
+status = "Implemented"
 location = ["src/app/action.rs::key_004_ignores_key_release_events"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.ERR-002]
 status = "Implemented"
@@ -329,7 +331,9 @@ location = [
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.TXT-007]
+status = "Implemented"
 location = ["src/document/text.rs::txt_007_empty_and_whitespace_only_files_are_stable"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.TXT-008]
 status = "Implemented"
@@ -343,10 +347,14 @@ location = [
 last_evidence = ["testreport.md#complete-the-first-three-phase-2-tasks"]
 
 [cases.TXT-009]
+status = "Implemented"
 location = ["src/document/text.rs::txt_009_extremely_long_line_parses_with_progress_and_no_panic"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.MODEL-003]
+status = "Implemented"
 location = ["src/document/model.rs::model_003_positions_resolve_at_every_valid_block_boundary"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.MODEL-004]
 status = "Implemented"
@@ -357,13 +365,17 @@ location = [
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.LAY-001]
+status = "Implemented"
 location = [
     "src/layout/mod.rs::lay_001_no_row_exceeds_available_cells_across_widths",
     "src/layout/mod.rs::zero_width_layout_is_empty_for_the_too_small_state",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.LAY-002]
+status = "Implemented"
 location = ["src/layout/mod.rs::lay_002_grapheme_clusters_are_never_split_or_clipped"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.LAY-003]
 status = "Implemented"
@@ -382,21 +394,27 @@ location = [
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.LAY-005]
+status = "Implemented"
 location = ["src/layout/mod.rs::lay_005_span_ranges_are_ordered_in_bounds_and_reconstruct_content"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.LAY-006]
+status = "Implemented"
 location = [
     "src/layout/mod.rs::lay_006_resizing_keeps_the_anchor_passage_located",
     "src/ui/mod.rs::lay_006_resize_preserves_logical_location_and_progress",
     "src/reader.rs::positions_survive_width_changes_for_the_same_passage",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.LAY-008]
+status = "Implemented"
 location = [
     "src/layout/mod.rs::lay_008_degenerate_geometry_makes_progress_without_panicking",
     "src/layout/viewport.rs::viewport_clamps_at_the_end_without_panicking",
     "src/layout/viewport.rs::zero_width_documents_yield_no_rows",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.LAY-009]
 status = "Implemented"
@@ -486,18 +504,24 @@ location = [
 last_evidence = ["testreport.md#complete-semantic-content-and-markdown"]
 
 [cases.LAY-012]
+status = "Implemented"
 location = [
     "src/ui/mod.rs::lay_012_below_minimum_size_shows_the_safe_message_then_recovers",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-001]
+status = "Implemented"
 location = [
     "src/reader.rs::nav_001_next_then_previous_line_restores_the_anchor",
     "src/reader.rs::nav_001_line_steps_land_on_content_not_blank_rows",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-002]
+status = "Implemented"
 location = ["src/reader.rs::nav_002_repeated_next_page_advances_until_the_clamp"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-003]
 status = "Implemented"
@@ -510,13 +534,17 @@ location = ["src/reader.rs::nav_004_boundary_navigation_clamps_safely"]
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.NAV-006]
+status = "Implemented"
 location = [
     "src/ui/mod.rs::nav_006_mode_switch_updates_the_status_label_in_place",
     "src/reader.rs::mode_toggle_preserves_labels_and_round_trip",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-011]
+status = "Implemented"
 location = ["src/layout/viewport.rs::nav_011_default_open_pages_from_the_first_content_row"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.NAV-012]
 status = "Implemented"
@@ -529,14 +557,18 @@ location = ["src/reader.rs::nav_014_section_and_document_jumps_are_four_distinct
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.RENDER-001]
+status = "Implemented"
 location = ["src/ui/mod.rs::render_001_reader_shows_passage_status_and_mode_at_standard_size"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.STATUS-002]
+status = "Implemented"
 location = [
     "src/ui/status.rs::status_002_fields_collapse_in_documented_priority_order",
     "src/ui/status.rs::narrow_class_uses_compact_separators",
     "src/ui/status.rs::truncation_never_splits_characters",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.STATUS-003]
 status = "Implemented"
@@ -548,7 +580,9 @@ location = [
 last_evidence = ["testreport.md#start-the-plain-text-reading-loop"]
 
 [cases.STATUS-004]
+status = "Implemented"
 location = ["src/ui/status.rs::status_004_messages_replace_fields_for_deterministic_ticks"]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.STATUS-005]
 status = "Implemented"
@@ -579,6 +613,7 @@ location = [
 last_evidence = ["testreport.md#complete-the-plain-text-reading-loop"]
 
 [cases.THEME-005]
+status = "Implemented"
 location = [
     "src/ui/theme.rs::no_color_fallback_uses_terminal_defaults_with_attributes",
     "src/ui/theme.rs::theme_005_detection_prefers_colorterm_then_term",
@@ -587,6 +622,7 @@ location = [
     "src/ui/theme.rs::theme_005_every_palette_entry_maps_to_itself",
     "src/ui/theme.rs::theme_005_conversions_stay_within_one_cube_step_of_the_source",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.CFG-001]
 status = "Implemented"
@@ -914,6 +950,7 @@ location = [
 last_evidence = ["testreport.md#harden-structured-ingestion-boundaries"]
 
 [cases.CLI-007]
+status = "Implemented"
 location = [
     "src/document/error.rs::cli_007_txt_extension_is_accepted_case_insensitively",
     "src/document/error.rs::cli_007_unsupported_or_missing_extensions_are_one_typed_rejection",
@@ -924,6 +961,7 @@ location = [
     "tests/cli.rs::cli_007_epub_content_still_validates_after_the_extension_gate",
     "tests/document_io.rs::cli_007_markdown_content_still_validates_after_the_extension_gate",
 ]
+last_evidence = ["testreport.md#complete-the-phase-1-gate"]
 
 [cases.IMG-001]
 status = "Implemented"

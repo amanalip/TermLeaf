@@ -1,6 +1,6 @@
 # Test Report
 
-**Last updated:** August 29, 2026
+**Last updated:** August 31, 2026
 
 ## Table of Contents
 
@@ -76,6 +76,38 @@ still cover malformed archives, path traversal, compression bombs, excessive
 resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
+
+### Audit Phase 2 case status
+
+**Commit subject:** `test: reconcile phase gate case statuses`
+
+**Revision:** This commit
+
+**Recorded:** August 31, 2026
+
+**Behavior and risks.** The cumulative Phase 2 registry audit found 19 inherited
+Phase 1 rows with executable locations and recorded gate evidence but no explicit
+status. Those rows now match their evidence as Implemented. The generated
+`phase-gate-2` inventory contains 186 Implemented and nine Planned cases.
+
+The Planned rows remain exact rather than being promoted by association:
+`KEY-005`, `NAV-008`, `NAV-013`, `THEME-007`, `THEME-008`, `STATUS-007`,
+`PROP-005`, and `PROP-006` are forward-owned by later interactions, while
+`IMG-018` still requires native Kitty and Sixel observations. No case is marked
+Passing because this audit does not replace required profile or manual evidence.
+
+**Checks.** Passed: `python3 tools/case_registry.py generate`, `python3
+tools/case_registry.py check`, `python3 tools/fixture_corpus.py check` (29
+files), `cargo fmt --check`, Clippy with warnings denied, the complete stable and
+Rust 1.88 test suites, doctests, render, security, serial native PTY, all targets
+with all features, `cargo deny check`, `cargo build --release --locked`, and
+`git diff --check`. Dependency policy emitted only the existing duplicate-version
+observations. `cargo clean` removed 11,777 files (5.7 GiB).
+
+**Changed paths and selection.** Case-policy paths:
+`tests/case_registry.overrides.toml`, regenerated `tests/case_registry.toml`, and
+this report. The audit covers every cumulative `phase-gate-2` member and does not
+change profile or gate membership.
 
 ### Align release scope with Linux-only support
 
