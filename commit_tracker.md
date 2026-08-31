@@ -26,6 +26,17 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Make fixture archives runtime-independent
+
+**Intended subject:** `fix: make fixture archives reproducible`
+
+- Replace Python-version-dependent ZIP serialization with an explicit stored
+  ZIP32 encoder while preserving every committed EPUB byte and hash.
+- Replace zlib-dependent SVGZ compression with fixed gzip headers, stored
+  DEFLATE blocks, and explicit CRC and input-size trailers.
+- Validate gzip boundaries and EPUB member metadata before every corpus
+  generation or verification run.
+
 ### Remove human release gates
 
 **Intended subject:** `test: remove human release gates`

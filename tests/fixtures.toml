@@ -439,13 +439,13 @@ status = "Committed"
 storage = "committed"
 path = "tests/fixtures/images/safe.svgz"
 source = "TermLeaf-authored synthetic compressed vector fixture"
-authored_provenance = "The authored safe SVG compressed by Python gzip with empty filename and mtime zero"
+authored_provenance = "The authored safe SVG wrapped by the TermLeaf deterministic gzip serializer; no compression library used"
 license = "GPL-3.0-only"
-sha256 = "96d2b8078ce980514f1230b6cfedd81d62149339d30bd201cda7390cfbfdd985"
-size = 120
+sha256 = "c0befbffb6c4c62644fcadf0ab21f2c5e66d972dc9261c44acf64d71babf8567"
+size = 152
 generator = "tools/fixture_corpus.py"
 generator_revision = "fixture-corpus-v1"
-generator_parameters = "gzip safe.svg; mtime=0; filename empty"
+generator_parameters = "gzip safe.svg; fixed header; stored DEFLATE blocks; CRC32 and input-size trailer"
 expected_properties = ["valid deterministic gzip", "decompresses exactly to safe.svg", "rasterizes to 2x2"]
 served_case_ids = ["IMG-003", "IMG-005"]
 
@@ -457,11 +457,11 @@ path = "tests/fixtures/images/malformed.svgz"
 source = "TermLeaf-authored malformed compressed vector fixture"
 authored_provenance = "The authored safe SVG compressed deterministically and truncated by five trailer bytes"
 license = "GPL-3.0-only"
-sha256 = "f835acda649024a625cf757834ec286d7fcb57c1bf4dcc0cf5f3e1cec192bae1"
-size = 115
+sha256 = "aba2282424b80ac537c8f48f9f8d87ea6de08c0ee8dac040de1deb48fee44dbf"
+size = 147
 generator = "tools/fixture_corpus.py"
 generator_revision = "fixture-corpus-v1"
-generator_parameters = "gzip safe.svg; mtime=0; filename empty; remove final five bytes"
+generator_parameters = "fixed-header gzip with stored DEFLATE blocks; remove final five trailer bytes"
 expected_properties = ["truncated gzip trailer", "must produce a typed malformed SVGZ error", "must not rasterize partial XML"]
 served_case_ids = ["IMG-015"]
 

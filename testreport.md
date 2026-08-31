@@ -77,6 +77,41 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Make fixture archives runtime-independent
+
+**Commit subject:** `fix: make fixture archives reproducible`
+
+**Revision:** This commit
+
+**Recorded:** August 31, 2026
+
+**Behavior and risks.** EPUB generation now writes fixed ZIP32 records directly
+with stored members, pinned metadata, CRCs, and offsets; all four committed EPUB
+files retain their prior bytes and hashes. This also makes the standalone EPUB
+generator agree with the corpus generator. SVGZ generation emits fixed gzip
+headers and stored DEFLATE blocks without using a compression engine. Serializer
+checks cover empty, one-byte, 65,535-byte, and 65,536-byte gzip payloads plus
+every EPUB's order, mimetype, method, and timestamp. Registered SVGZ hashes and
+sizes match the new canonical encoding.
+
+**Checks.** Passed: Python bytecode compilation for both generators;
+`python3 tools/fixture_corpus.py generate`; `python3 tools/fixture_corpus.py
+check` (29 files); `python3 tools/case_registry.py check`; `cargo fmt --check`;
+`cargo clippy --all-targets --all-features --locked -- -D warnings`; `cargo test
+--locked` (227 library, 9 CLI, 19 document-I/O, 10 property, 19 native PTY, 23
+render, and 12 security tests); `cargo test --doc --locked`; serial native PTY;
+render; security; `cargo +1.88.0 check --locked`; `cargo +1.88.0 test --locked`;
+`cargo deny check`; and `git diff --check`. Dependency policy reported only its
+existing duplicate-version observations. The initial `cargo clean` removed
+10,222 files (5.3 GiB); after final focused document/security verification, a
+second clean removed 2,855 files (1.8 GiB).
+
+**Changed paths and selection.** Generator and fixture paths:
+`tools/fixture_corpus.py`, `tools/make_epub_fixtures.py`, `tests/fixtures.toml`,
+and the two SVGZ fixture files. Selected cases: `EPUB-001`, `EPUB-002`,
+`EPUB-005`, `EPUB-009`, `IMG-003`, `IMG-005`, `IMG-015`, `SEC-001`, and
+`SEC-002`; profiles: `pr-core`, `pr-render`, `native-pty`, and `security`.
+
 ### Adopt automated-only release evidence
 
 **Commit subject:** `test: remove human release gates`

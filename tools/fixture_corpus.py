@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import binascii
 import gzip
 import io
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -17,19 +19,6 @@ import make_epub_fixtures as epub
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 REVISION = "fixture-corpus-v1"
-STAMP = (2026, 8, 21, 12, 0, 0)
-
-
-def zip_bytes(members: list[tuple[str, bytes]], *, mimetype_first: bool = False) -> bytes:
-    output = io.BytesIO()
-    with zipfile.ZipFile(output, "w") as archive:
-        for index, (name, payload) in enumerate(members):
-            info = zipfile.ZipInfo(name, date_time=STAMP)
-            info.compress_type = zipfile.ZIP_STORED
-            if mimetype_first and index == 0:
-                info.external_attr = 0o444 << 16
-            archive.writestr(info, payload)
-    return output.getvalue()
 
 
 def encoded(text: str) -> bytes:
@@ -37,10 +26,25 @@ def encoded(text: str) -> bytes:
 
 
 def gzip_bytes(payload: bytes) -> bytes:
-    output = io.BytesIO()
-    with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as stream:
-        stream.write(payload)
-    return output.getvalue()
+    output = bytearray(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff")
+    chunks = [
+        payload[index : index + 0xFFFF]
+        for index in range(0, len(payload), 0xFFFF)
+    ]
+    if not chunks:
+        chunks = [b""]
+    for index, chunk in enumerate(chunks):
+        output.append(1 if index == len(chunks) - 1 else 0)
+        output.extend(struct.pack("<HH", len(chunk), len(chunk) ^ 0xFFFF))
+        output.extend(chunk)
+    output.extend(
+        struct.pack(
+            "<II",
+            binascii.crc32(payload) & 0xFFFFFFFF,
+            len(payload) & 0xFFFFFFFF,
+        )
+    )
+    return bytes(output)
 
 
 def generated_files() -> dict[str, bytes]:
@@ -58,7 +62,7 @@ def generated_files() -> dict[str, bytes]:
         ("mimetype", encoded(epub.MIMETYPE)),
         ("META-INF/container.xml", encoded(epub.CONTAINER)),
     ]
-    malformed_epub = zip_bytes(
+    malformed_epub = epub.zip_bytes(
         common
         + [
             ("OEBPS/content.opf", encoded(epub.epub3_opf())),
@@ -66,13 +70,12 @@ def generated_files() -> dict[str, bytes]:
             ("OEBPS/ch1.xhtml", encoded('<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Recoverable<h1><p>Readable text &amp; trailing text</body></html>')),
             ("OEBPS/ch2.xhtml", encoded('<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Missing close')),
         ],
-        mimetype_first=True,
     )
     hostile_opf = epub.epub3_opf().replace(
         '<item id="c1" href="ch1.xhtml" media-type="application/xhtml+xml"/>',
         '<item id="c1" href="../escape.xhtml" media-type="application/xhtml+xml"/>',
     )
-    hostile_epub = zip_bytes(
+    hostile_epub = epub.zip_bytes(
         common
         + [
             ("OEBPS/content.opf", encoded(hostile_opf)),
@@ -80,9 +83,8 @@ def generated_files() -> dict[str, bytes]:
             ("../escape.xhtml", encoded('<!DOCTYPE x [<!ENTITY ext SYSTEM "file:///etc/passwd">]><html xmlns="http://www.w3.org/1999/xhtml"><body><script>never()</script><img src="https://example.invalid/x"/>&ext;</body></html>')),
             ("OEBPS/ch2.xhtml", encoded(epub.CHAPTER_TWO)),
         ],
-        mimetype_first=True,
     )
-    valid_epub2 = zip_bytes(
+    valid_epub2 = epub.zip_bytes(
         common
         + [
             ("OEBPS/content.opf", encoded(epub.epub2_opf())),
@@ -90,9 +92,8 @@ def generated_files() -> dict[str, bytes]:
             ("OEBPS/ch1.xhtml", encoded(epub.CHAPTER_ONE)),
             ("OEBPS/ch2.xhtml", encoded(epub.CHAPTER_TWO)),
         ],
-        mimetype_first=True,
     )
-    valid_epub3 = zip_bytes(
+    valid_epub3 = epub.zip_bytes(
         common
         + [
             ("OEBPS/content.opf", encoded(epub.epub3_opf())),
@@ -100,7 +101,6 @@ def generated_files() -> dict[str, bytes]:
             ("OEBPS/ch1.xhtml", encoded(epub.CHAPTER_ONE)),
             ("OEBPS/ch2.xhtml", encoded(epub.CHAPTER_TWO)),
         ],
-        mimetype_first=True,
     )
     return {
         "txt/utf8.txt": encoded("ASCII and cafe.\nAccents: caf\u00e9 and cafe\u0301.\nCJK: \u4e66\u8449. Emoji: \U0001f343.\n\nFinal paragraph.\n"),
@@ -119,6 +119,34 @@ def generated_files() -> dict[str, bytes]:
         "images/safe.svgz": gzip_bytes(safe_svg),
         "images/malformed.svgz": gzip_bytes(safe_svg)[:-5],
     }
+
+
+def validate_serializers() -> None:
+    for size in (0, 1, 0xFFFF, 0x10000):
+        payload = bytes(index & 0xFF for index in range(size))
+        archive = gzip_bytes(payload)
+        if archive[:10] != b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff":
+            raise ValueError("deterministic gzip header changed")
+        if gzip.decompress(archive) != payload:
+            raise ValueError(f"deterministic gzip failed to round-trip {size} bytes")
+
+    files = generated_files()
+    for relative in (
+        "epub/minimal-epub2.epub",
+        "epub/minimal-epub3.epub",
+        "epub/malformed.epub",
+        "epub/hostile.epub",
+    ):
+        with zipfile.ZipFile(io.BytesIO(files[relative])) as archive:
+            members = archive.infolist()
+            if not members or members[0].filename != "mimetype":
+                raise ValueError(f"{relative}: mimetype is not the first member")
+            if archive.read("mimetype") != encoded(epub.MIMETYPE):
+                raise ValueError(f"{relative}: invalid mimetype payload")
+            if any(member.compress_type != zipfile.ZIP_STORED for member in members):
+                raise ValueError(f"{relative}: compressed member is not deterministic")
+            if any(member.date_time != epub.STAMP for member in members):
+                raise ValueError(f"{relative}: member timestamp changed")
 
 
 def build(destination: Path) -> None:
@@ -168,6 +196,7 @@ def main() -> int:
         print("usage: tools/fixture_corpus.py {generate|check}", file=sys.stderr)
         return 2
     try:
+        validate_serializers()
         generate() if sys.argv[1] == "generate" else check()
     except (OSError, subprocess.CalledProcessError, ValueError) as error:
         print(f"fixture corpus error: {error}", file=sys.stderr)

@@ -2,15 +2,17 @@
 """Generate TermLeaf's deterministic minimal EPUB 2 and EPUB 3 fixtures.
 
 Both books carry identical reading content so semantic differences between
-the formats stay attributable to packaging alone. Every archive member uses
-a fixed timestamp so output bytes are reproducible across machines.
+the formats stay attributable to packaging alone. Every archive member uses a
+fixed timestamp and no compression so output bytes are reproducible across
+Python and compression-library versions.
 """
 
 from __future__ import annotations
 
+import binascii
 import hashlib
+import struct
 import sys
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -160,15 +162,82 @@ def epub3_nav() -> str:
 """
 
 
+def zip_bytes(members: list[tuple[str, bytes]]) -> bytes:
+    year, month, day, hour, minute, second = STAMP
+    dos_time = (hour << 11) | (minute << 5) | (second // 2)
+    dos_date = ((year - 1980) << 9) | (month << 5) | day
+    output = bytearray()
+    central = bytearray()
+
+    for index, (name, payload) in enumerate(members):
+        name_bytes = name.encode("ascii")
+        crc = binascii.crc32(payload) & 0xFFFFFFFF
+        offset = len(output)
+        output.extend(
+            struct.pack(
+                "<IHHHHHIIIHH",
+                0x04034B50,
+                20,
+                0,
+                0,
+                dos_time,
+                dos_date,
+                crc,
+                len(payload),
+                len(payload),
+                len(name_bytes),
+                0,
+            )
+        )
+        output.extend(name_bytes)
+        output.extend(payload)
+        central.extend(
+            struct.pack(
+                "<IHHHHHHIIIHHHHHII",
+                0x02014B50,
+                (3 << 8) | 20,
+                20,
+                0,
+                0,
+                dos_time,
+                dos_date,
+                crc,
+                len(payload),
+                len(payload),
+                len(name_bytes),
+                0,
+                0,
+                0,
+                0,
+                (0o444 if index == 0 else 0o600) << 16,
+                offset,
+            )
+        )
+        central.extend(name_bytes)
+
+    central_offset = len(output)
+    output.extend(central)
+    output.extend(
+        struct.pack(
+            "<IHHHHIIH",
+            0x06054B50,
+            0,
+            0,
+            len(members),
+            len(members),
+            len(central),
+            central_offset,
+            0,
+        )
+    )
+    return bytes(output)
+
+
 def write_epub(path: Path, members: list[tuple[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(path, "w") as archive:
-        for index, (name, payload) in enumerate(members):
-            info = zipfile.ZipInfo(name, date_time=STAMP)
-            info.compress_type = zipfile.ZIP_STORED if index == 0 else zipfile.ZIP_DEFLATED
-            if index == 0:
-                info.external_attr = 0o444 << 16
-            archive.writestr(info, payload.encode("utf-8"))
+    path.write_bytes(
+        zip_bytes([(name, payload.encode("utf-8")) for name, payload in members])
+    )
 
 
 def main() -> int:
