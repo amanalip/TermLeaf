@@ -1196,13 +1196,27 @@ location = [
 last_evidence = ["testreport.md#complete-phase-2-development"]
 
 [cases.IMG-017]
-location = ["src/terminal_image.rs::reports_parse_without_promoting_malformed_values"]
+status = "Implemented"
+location = [
+    "src/terminal_image.rs::reports_parse_without_promoting_malformed_values",
+    "src/terminal_probe.rs::img_017_protocol_response_table_requires_complete_correlated_evidence",
+    "src/terminal_probe.rs::img_017_multiple_responses_keep_locked_protocol_precedence_available",
+    "src/terminal_probe.rs::img_017_frame_and_total_limits_are_inclusive",
+    "src/terminal_probe.rs::query_packet_is_written_once_in_protocol_order",
+    "src/app/state.rs::img_017_capability_selection_is_frozen_after_the_first_probe",
+    "tests/pty_native.rs::img_017_probe_preserves_unrelated_input_and_selects_once",
+    "tests/pty_native.rs::img_017_absent_and_malformed_responses_fall_back_without_native_bytes",
+    "tests/pty_native.rs::img_017_sixel_without_pixel_geometry_recovers_with_a_caption",
+]
+last_evidence = ["testreport.md#implement-terminal-graphics-probing-and-pty-lifecycle-evidence"]
 
 [cases.IMG-018]
 location = [
     "src/terminal_image.rs::native_lifecycle_replaces_deletes_and_suppresses_unchanged_frames",
     "src/terminal_image.rs::legacy_lifecycle_requires_redraw_then_clears_on_shutdown",
     "src/terminal_image.rs::native_lifecycle_failures_keep_every_attempted_id_cleanup_safe",
+    "tests/pty_native.rs::img_018_kitty_display_replace_and_shutdown_cleanup_over_pty",
+    "tests/pty_native.rs::img_018_sixel_and_iterm2_emit_only_the_selected_protocol_over_pty",
 ]
 
 [cases.TERM-009]
@@ -1210,8 +1224,9 @@ status = "Implemented"
 location = [
     "src/app/state.rs::con_005_term_009_app_shutdown_joins_production_image_workers",
     "src/terminal.rs::term_009_cancels_then_restores_terminal_before_joining_workers",
+    "tests/pty_native.rs::img_018_kitty_display_replace_and_shutdown_cleanup_over_pty",
 ]
-last_evidence = ["testreport.md#complete-phase-2-development"]
+last_evidence = ["testreport.md#implement-terminal-graphics-probing-and-pty-lifecycle-evidence"]
 
 [cases.IMG-013]
 status = "Implemented"

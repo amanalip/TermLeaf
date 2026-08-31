@@ -40,21 +40,21 @@ No implementation tasks remain. The plain-text reading-loop gate is complete.
 11. ~~**Implement native graphics transports.** Add bounded Kitty, Sixel, and iTerm2 output with chunking, identifiers, replacement, deletion, resize, navigation, and shutdown cleanup instead of caption-only fallback.~~
 
 ### Implement terminal graphics capability probing
-12. **Freeze query policy.** Specify query bytes, response limits, timeout values, parser states, precedence, and fallback behavior for Kitty, Sixel, and iTerm2 without changing case status.
-13. **Build the bounded probe transport.** Send queries and collect partial responses under byte and time limits while preserving unrelated input for the event loop.
-14. **Parse positive capability evidence.** Accept only protocol-specific complete responses and reject malformed, partial, delayed, absent, and spoofed values with typed outcomes.
-15. **Integrate one-shot backend selection.** Apply locked override and protocol precedence once, emit no competing protocol, and retain cell/caption fallback.
-16. **Complete deterministic `IMG-017` evidence.** Add response tables and timeout tests, register locations, and record exact local checks without claiming hosted PTY behavior.
+12. ~~**Freeze query policy.** Specify query bytes, response limits, timeout values, parser states, precedence, and fallback behavior for Kitty, Sixel, and iTerm2 without changing case status.~~
+13. ~~**Build the bounded probe transport.** Send queries and collect partial responses under byte and time limits while preserving unrelated input for the event loop.~~
+14. ~~**Parse positive capability evidence.** Accept only protocol-specific complete responses and reject malformed, partial, delayed, absent, and spoofed values with typed outcomes.~~
+15. ~~**Integrate one-shot backend selection.** Apply locked override and protocol precedence once, emit no competing protocol, and retain cell/caption fallback.~~
+16. ~~**Complete deterministic `IMG-017` evidence.** Add response tables and timeout tests, register locations, and record exact local checks without claiming hosted PTY behavior.~~
 
 ### Prove image lifecycle behavior over PTY
-17. **Extend the PTY harness for image protocols.** Capture probe and graphics bytes with deterministic deadlines, dimensions, child cleanup, and protocol-aware assertions.
-18. **Prove display, replacement, and scrolling.** Exercise native placement, unchanged frames, replacement IDs, viewport entry/exit, and stale-image deletion.
-19. **Prove fallback and cancellation.** Exercise absent/malformed capability responses, missing geometry, decode or encode failure, navigation cancellation, and current-generation recovery.
-20. **Prove shutdown and restoration.** Terminate during queued and active image work and assert bounded joins, cleanup attempts, terminal restoration, and no surviving child or worker.
-21. **Register PTY lifecycle evidence.** Map the journeys to `TERM-009`, `IMG-017`, and supporting `IMG-018` locations while leaving manual acceptance Planned.
+17. ~~**Extend the PTY harness for image protocols.** Capture probe and graphics bytes with deterministic deadlines, dimensions, child cleanup, and protocol-aware assertions.~~
+18. ~~**Prove display, replacement, and scrolling.** Exercise native placement, unchanged frames, replacement IDs, viewport entry/exit, and stale-image deletion.~~
+19. ~~**Prove fallback and cancellation.** Exercise absent/malformed capability responses, missing geometry, decode or encode failure, navigation cancellation, and current-generation recovery.~~
+20. ~~**Prove shutdown and restoration.** Terminate during queued and active image work and assert bounded joins, cleanup attempts, terminal restoration, and no surviving child or worker.~~
+21. ~~**Register PTY lifecycle evidence.** Map the journeys to `TERM-009`, `IMG-017`, and supporting `IMG-018` locations while leaving manual acceptance Planned.~~
 
 ### Write and execute the `IMG-018` native procedure
-22. **Write the protocol-neutral procedure.** Define prerequisites, fixture, dimensions, display, resize, scroll, replacement, failure, exit, capture, and cleanup observations.
+22. ~~**Write the protocol-neutral procedure.** Define prerequisites, fixture, dimensions, display, resize, scroll, replacement, failure, exit, capture, and cleanup observations.~~
 23. **Execute and record Kitty acceptance.** Run the procedure on one finalized claimed Kitty terminal and retain terminal/version evidence and results.
 24. **Execute and record Sixel acceptance.** Run the procedure on one finalized claimed Sixel terminal and retain geometry, terminal/version evidence, and results.
 25. **Execute and record iTerm2 acceptance.** Run the procedure on one finalized claimed iTerm2 terminal and retain terminal/version evidence and results.

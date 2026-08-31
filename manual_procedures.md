@@ -1,6 +1,6 @@
 # Manual Test Procedures
 
-**Last updated:** August 21, 2026
+**Last updated:** August 30, 2026
 
 These procedures cover the catalog cases whose evidence requires a human at a
 real terminal. Automated PTY-layer equivalents run in CI on every required
@@ -111,6 +111,57 @@ Manual observation (informational until bidi support is decided):
 3. Record that visual reordering is not performed; search and annotations
    over reordered text are unsupported.
 
+## IMG-018: native image protocol lifecycle
+
+Automated supporting evidence:
+`tests/pty_native.rs::img_018_kitty_display_replace_and_shutdown_cleanup_over_pty`
+and
+`tests/pty_native.rs::img_018_sixel_and_iterm2_emit_only_the_selected_protocol_over_pty`.
+PTY acceptance proves bytes and lifecycle ordering, not that a terminal displayed
+the pixels correctly.
+
+Prerequisites:
+
+1. Select one finalized direct terminal/version for the protocol under test.
+2. Record OS, terminal version, session type, cell geometry, pixel geometry, and
+   whether a multiplexer is present.
+3. Use a Markdown or EPUB fixture with text before and after two distinct images,
+   one corrupt image, and enough text to scroll images outside the viewport.
+4. Keep a raw terminal-output capture when the terminal provides a safe capture
+   method; do not publish private paths from the capture.
+
+Procedure, repeated independently for Kitty, Sixel, and iTerm2:
+
+1. Start TermLeaf with the fixture and verify exactly one capability-query packet
+   occurs before the first frame.
+2. Verify the first image appears at its caption, has the expected colors and
+   aspect ratio, and does not overwrite surrounding text.
+3. Leave the frame unchanged for two seconds; verify the image does not flicker
+   or retransmit visibly.
+4. Resize wider, narrower, and back. Verify replacement stays aligned with its
+   caption and stale pixels are removed.
+5. Scroll the image fully outside the viewport, then back inside. Verify stale
+   pixels disappear and the current image returns once at the correct location.
+6. Navigate to another section and back. Verify the current generation replaces
+   any old placement rather than displaying a late stale result.
+7. Reach the second image and verify it replaces or coexists according to the
+   visible layout without reusing the wrong logical image.
+8. Reach the corrupt image. Verify a readable caption and short failure reason
+   appear, surrounding text remains usable, and no partial native image remains.
+9. For Sixel, repeat once with unavailable pixel geometry and verify a caption
+   fallback rather than cell counts being treated as pixels.
+10. Quit while an image is visible, then repeat while an image is loading. Verify
+    bounded exit, stale-image cleanup, cursor visibility, input echo, alternate
+    screen restoration, and an undamaged shell prompt.
+11. Record observed display, resize, scroll, replacement, failure, and cleanup
+    results separately. A pass for one protocol does not promote another.
+
+Oracle: the terminal accepts only the selected protocol's framing; images remain
+aligned through resize and navigation; stale placements are removed; failures
+fall back to text; and exit restores the terminal. Any missing observation,
+unsupported geometry, multiplexer rewrite, or cleanup defect is a failed or
+excluded tuple, not a partial compatibility claim.
+
 ## Execution status
 
 | Case | Automated PTY/render layer | Manual procedure |
@@ -121,3 +172,4 @@ Manual observation (informational until bidi support is decided):
 | KEY-006 | Passing locally; hosted rows recorded with CI runs | Pending release matrix execution |
 | LAY-013 | Cell-level claims passing | Font-dependent half pending release matrix |
 | LAY-014 | Integration journey passing | Informational observation pending release matrix |
+| IMG-018 | Deterministic PTY byte/lifecycle support passing locally | Kitty, Sixel, and iTerm2 native observations not executed |

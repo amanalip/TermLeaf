@@ -883,6 +883,8 @@ pub struct App {
     no_color: bool,
     color_mode: ColorMode,
     image_backend_override: Option<ImageBackend>,
+    selected_image_backend: ImageBackend,
+    image_capabilities_applied: bool,
     cell_pixels: Option<CellPixelSize>,
     theme_cursor: usize,
     toc_cursor: usize,
@@ -946,16 +948,25 @@ impl App {
             None => (View::RecentBooks, None),
         };
 
+        let no_color = std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty());
+        let color_mode = ColorMode::detect(
+            env_value("COLORTERM").as_deref(),
+            env_value("TERM").as_deref(),
+        );
+        let selected_image_backend = select_backend(
+            options.image_backend,
+            color_capabilities(no_color, color_mode),
+        )
+        .unwrap_or(ImageBackend::Caption);
         Ok(Self {
             view,
             running: true,
             theme: options.theme,
-            no_color: std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty()),
-            color_mode: ColorMode::detect(
-                env_value("COLORTERM").as_deref(),
-                env_value("TERM").as_deref(),
-            ),
+            no_color,
+            color_mode,
             image_backend_override: options.image_backend,
+            selected_image_backend,
+            image_capabilities_applied: false,
             cell_pixels: None,
             theme_cursor: options.theme as usize,
             toc_cursor: 0,
@@ -1061,6 +1072,11 @@ impl App {
     pub fn set_color_mode(&mut self, mode: ColorMode) {
         if self.color_mode != mode {
             self.color_mode = mode;
+            self.selected_image_backend = select_backend(
+                self.image_backend_override,
+                color_capabilities(self.no_color, self.color_mode),
+            )
+            .unwrap_or(ImageBackend::Caption);
             if let Some(reader) = self.reader.as_mut() {
                 reader.roll_image_generation();
             }
@@ -1071,6 +1087,9 @@ impl App {
     pub fn set_image_backend(&mut self, backend: Option<ImageBackend>) {
         if self.image_backend_override != backend {
             self.image_backend_override = backend;
+            self.selected_image_backend =
+                select_backend(backend, color_capabilities(self.no_color, self.color_mode))
+                    .unwrap_or(ImageBackend::Caption);
             if let Some(reader) = self.reader.as_mut() {
                 reader.roll_image_generation();
             }
@@ -1121,23 +1140,31 @@ impl App {
         self.content_height = height;
     }
 
-    /// Safest image path supported by the launch color capability.
+    /// Applies terminal evidence once before the first frame is rendered.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed incompatibility when an explicit override contradicts
+    /// negative terminal evidence.
+    pub fn apply_image_capabilities(
+        &mut self,
+        mut capabilities: ImageCapabilities,
+    ) -> Result<(), crate::terminal_image::IncompatibleImageOverride> {
+        if self.image_capabilities_applied {
+            return Ok(());
+        }
+        let colors = color_capabilities(self.no_color, self.color_mode);
+        capabilities.true_color = colors.true_color;
+        capabilities.ansi256 = colors.ansi256;
+        self.selected_image_backend = select_backend(self.image_backend_override, capabilities)?;
+        self.image_capabilities_applied = true;
+        Ok(())
+    }
+
+    /// Image path frozen before the first frame.
     #[must_use]
-    pub fn image_backend(&self) -> ImageBackend {
-        let capabilities = ImageCapabilities {
-            true_color: if !self.no_color && self.color_mode == ColorMode::TrueColor {
-                crate::terminal_image::CapabilityEvidence::Positive
-            } else {
-                crate::terminal_image::CapabilityEvidence::Absent
-            },
-            ansi256: if !self.no_color && self.color_mode == ColorMode::Ansi256 {
-                crate::terminal_image::CapabilityEvidence::Positive
-            } else {
-                crate::terminal_image::CapabilityEvidence::Absent
-            },
-            ..ImageCapabilities::default()
-        };
-        select_backend(self.image_backend_override, capabilities).unwrap_or(ImageBackend::Caption)
+    pub const fn image_backend(&self) -> ImageBackend {
+        self.selected_image_backend
     }
 
     /// Drains image completions once per event-loop iteration.
@@ -1418,6 +1445,22 @@ fn env_value(key: &str) -> Option<String> {
     std::env::var_os(key).map(|value| value.to_string_lossy().into_owned())
 }
 
+fn color_capabilities(no_color: bool, color_mode: ColorMode) -> ImageCapabilities {
+    ImageCapabilities {
+        true_color: if !no_color && color_mode == ColorMode::TrueColor {
+            crate::terminal_image::CapabilityEvidence::Positive
+        } else {
+            crate::terminal_image::CapabilityEvidence::Absent
+        },
+        ansi256: if !no_color && color_mode == ColorMode::Ansi256 {
+            crate::terminal_image::CapabilityEvidence::Positive
+        } else {
+            crate::terminal_image::CapabilityEvidence::Absent
+        },
+        ..ImageCapabilities::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1430,6 +1473,8 @@ mod tests {
             no_color: false,
             color_mode: ColorMode::TrueColor,
             image_backend_override: None,
+            selected_image_backend: ImageBackend::TrueColorCells,
+            image_capabilities_applied: false,
             cell_pixels: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,
@@ -1460,6 +1505,23 @@ mod tests {
         app.update(Action::Quit);
 
         assert!(!app.is_running());
+        Ok(())
+    }
+
+    #[test]
+    fn img_017_capability_selection_is_frozen_after_the_first_probe() -> Result<()> {
+        let mut app = App::open(StartupOptions::default())?;
+        app.apply_image_capabilities(ImageCapabilities {
+            kitty: crate::terminal_image::CapabilityEvidence::Positive,
+            ..ImageCapabilities::default()
+        })?;
+        assert_eq!(app.image_backend(), ImageBackend::Kitty);
+
+        app.apply_image_capabilities(ImageCapabilities {
+            sixel: crate::terminal_image::CapabilityEvidence::Positive,
+            ..ImageCapabilities::default()
+        })?;
+        assert_eq!(app.image_backend(), ImageBackend::Kitty);
         Ok(())
     }
 
@@ -1798,6 +1860,8 @@ mod toc_tests {
             no_color: false,
             color_mode: ColorMode::TrueColor,
             image_backend_override: None,
+            selected_image_backend: ImageBackend::TrueColorCells,
+            image_capabilities_applied: false,
             cell_pixels: None,
             theme_cursor: ThemeName::Paper as usize,
             toc_cursor: 0,

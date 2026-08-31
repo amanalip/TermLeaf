@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 use std::{
     io::{self, stdout},
     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
@@ -20,7 +20,7 @@ use crate::{
     app::{Action, App, KeyMapper},
     interrupt,
     terminal_image::{CellPixelSize, NativeFramePlan, NativeGraphicsSession},
-    ui,
+    terminal_probe, ui,
 };
 
 trait TerminalControl {
@@ -170,7 +170,9 @@ fn record_error(first_error: &mut Option<io::Error>, result: io::Result<()>) {
 /// Returns an error when terminal setup, rendering, event input, or restoration
 /// fails. Any modes changed before a failure are still offered for restoration.
 pub fn run(mut app: App) -> Result<()> {
-    run_with_loop(&mut app, run_loop)
+    run_with_loop(&mut app, |terminal, app, graphics, queued_events| {
+        run_loop(terminal, app, graphics, queued_events)
+    })
 }
 
 trait WorkerTeardown {
@@ -213,6 +215,7 @@ where
         &mut Terminal<CrosstermBackend<io::Stdout>>,
         &mut App,
         &mut NativeGraphicsSession,
+        &mut VecDeque<Event>,
     ) -> Result<()>,
 {
     let mut session =
@@ -237,8 +240,12 @@ where
         };
 
     let mut graphics = NativeGraphicsSession::default();
+    let probe = terminal_probe::probe_crossterm(&mut stdout()).unwrap_or_default();
+    app.apply_image_capabilities(probe.report.capabilities())
+        .context("image backend override contradicts terminal evidence")?;
+    let mut queued_events = probe.queued_events;
     let run_result = catch_unwind(AssertUnwindSafe(|| {
-        loop_operation(&mut terminal, app, &mut graphics)
+        loop_operation(&mut terminal, app, &mut graphics, &mut queued_events)
     }));
     let cleanup_result = ordered_teardown(
         app,
@@ -264,6 +271,7 @@ fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut App,
     graphics: &mut NativeGraphicsSession,
+    queued_events: &mut VecDeque<Event>,
 ) -> Result<()> {
     // One mapper owns multikey prefix state for the whole session; a fresh
     // mapper per event would make sequences such as `gg` impossible.
@@ -287,8 +295,15 @@ fn run_loop(
             terminal.draw(|frame| ui::render_with_native(frame, app, &mut native))?;
         }
         graphics.synchronize(&mut stdout(), native)?;
-        if event::poll(Duration::from_millis(100))?
-            && let Some(action) = action_from_event(&mut mapper, &event::read()?)
+        let next_event = if let Some(queued) = queued_events.pop_front() {
+            Some(queued)
+        } else if event::poll(Duration::from_millis(100))? {
+            Some(event::read()?)
+        } else {
+            None
+        };
+        if let Some(next_event) = next_event
+            && let Some(action) = action_from_event(&mut mapper, &next_event)
         {
             app.update(action);
         }
@@ -826,7 +841,7 @@ mod tests {
         let mut app = App::open(crate::app::StartupOptions::default())?;
         let status = crate::process::run_and_report(
             || {
-                run_with_loop(&mut app, |terminal, app, _graphics| {
+                run_with_loop(&mut app, |terminal, app, _graphics, _queued_events| {
                     terminal.draw(|frame| ui::render(frame, app))?;
                     assert!(mode != "panic", "controlled active panic");
                     bail!("controlled active error")

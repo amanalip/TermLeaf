@@ -119,8 +119,8 @@ impl PtyCase {
             .openpty(PtySize {
                 rows: 24,
                 cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
+                pixel_width: 640,
+                pixel_height: 384,
             })
             .context("open native PTY")?;
         let mut command = isolated_command(root.path(), &arguments);
@@ -201,18 +201,80 @@ impl PtyCase {
         writer.flush().context("flush PTY input")
     }
 
+    fn wait_for_wire(&mut self, expected: &[u8]) -> Result<usize> {
+        while Instant::now() < self.deadline {
+            self.receive_chunk(Duration::from_millis(20))?;
+            if let Some(start) = self
+                .output
+                .windows(expected.len())
+                .position(|window| window == expected)
+            {
+                return Ok(start);
+            }
+            if let Some(status) = self.child.try_wait().context("poll PTY child")? {
+                bail!(
+                    "child exited before wire sequence {expected:?}: {status:?}; output={:?}",
+                    String::from_utf8_lossy(&self.output)
+                );
+            }
+        }
+        self.kill_and_reap()?;
+        bail!(
+            "timed out waiting for wire sequence {expected:?}; output={:?}",
+            String::from_utf8_lossy(&self.output)
+        )
+    }
+
+    fn wait_for_wire_count(&mut self, expected: &[u8], count: usize) -> Result<()> {
+        while Instant::now() < self.deadline {
+            self.receive_chunk(Duration::from_millis(20))?;
+            if self
+                .output
+                .windows(expected.len())
+                .filter(|window| *window == expected)
+                .count()
+                >= count
+            {
+                return Ok(());
+            }
+        }
+        self.kill_and_reap()?;
+        bail!("timed out waiting for {count} wire occurrences of {expected:?}")
+    }
+
+    fn kitty_query_id(&self, start: usize) -> Result<u32> {
+        let digits = &self.output[start + b"\x1b_Gi=".len()..];
+        let end = digits
+            .iter()
+            .position(|byte| *byte == b',')
+            .context("Kitty query id terminator")?;
+        std::str::from_utf8(&digits[..end])?
+            .parse()
+            .context("parse Kitty query id")
+    }
+
     /// Resizes the PTY and restarts the terminal model at the same geometry.
     ///
     /// The model starts empty; later draws refill it, which keeps every
     /// subsequent assertion about newly rendered content honest.
     fn resize(&mut self, cols: u16, rows: u16) -> Result<()> {
+        self.resize_with_pixels(cols, rows, cols.saturating_mul(8), rows.saturating_mul(16))
+    }
+
+    fn resize_with_pixels(
+        &mut self,
+        cols: u16,
+        rows: u16,
+        pixel_width: u16,
+        pixel_height: u16,
+    ) -> Result<()> {
         let master = self.master.as_ref().context("PTY master is present")?;
         master
             .resize(PtySize {
                 rows,
                 cols,
-                pixel_width: 0,
-                pixel_height: 0,
+                pixel_width,
+                pixel_height,
             })
             .context("resize PTY")?;
         self.parser = vt100::Parser::new(rows.max(1), cols.max(1), 0);
@@ -431,6 +493,171 @@ fn assert_restored(screen: &vt100::Screen, output: &[u8]) {
     assert!(!screen.hide_cursor());
     assert!(!screen.bracketed_paste());
     assert!(output.windows(8).any(|bytes| bytes == b"\x1b[?1049l"));
+}
+
+fn illustrated_markdown(root: &Path) -> Vec<String> {
+    let image = root.join("plate.png");
+    std::fs::copy("tests/fixtures/images/minimal.png", &image).expect("copy image fixture");
+    let book = root.join("illustrated.md");
+    let mut source = "before image\n\n![native plate](plate.png)\n\nafter image\n".to_owned();
+    for index in 0..80 {
+        let _ = writeln!(
+            source,
+            "\nscrolling paragraph {index:02} carries readable words"
+        );
+    }
+    std::fs::write(&book, source).expect("write illustrated Markdown fixture");
+    vec![book.display().to_string()]
+}
+
+#[test]
+fn img_017_probe_preserves_unrelated_input_and_selects_once() -> Result<()> {
+    let mut case = PtyCase::spawn_with(illustrated_markdown)?;
+    let query = case.wait_for_wire(b"\x1b_Gi=")?;
+    let id = case.kitty_query_id(query)?;
+    case.send(format!("?\x1b_Gi={id};OK\x1b\\").as_bytes())?;
+
+    case.wait_for_text("Help")?;
+    case.send(b"\x1b")?;
+    case.wait_for_wire(b"\x1b_Ga=T")?;
+    case.send(b"q")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    assert_eq!(
+        output
+            .windows(b"\x1b_Gi=".len())
+            .filter(|window| *window == b"\x1b_Gi=")
+            .count(),
+        1,
+        "the capability query is one-shot"
+    );
+    assert!(!output.windows(7).any(|window| window == b"\x1bP0;0;"));
+    assert!(
+        !output
+            .windows(b"\x1b]1337;MultipartFile=".len())
+            .any(|window| window == b"\x1b]1337;MultipartFile=")
+    );
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
+#[test]
+fn img_017_absent_and_malformed_responses_fall_back_without_native_bytes() -> Result<()> {
+    for malformed in [false, true] {
+        let mut case = PtyCase::spawn_with(illustrated_markdown)?;
+        let query = case.wait_for_wire(b"\x1b_Gi=")?;
+        let id = case.kitty_query_id(query)?;
+        if malformed {
+            case.send(format!("\x1b_Gi={};OK\x1b\\", id.saturating_add(1)).as_bytes())?;
+        }
+        case.wait_for_text("before image")?;
+        case.send(b"q")?;
+        let (status, screen, output) = case.finish()?;
+        assert!(status.success());
+        assert!(
+            !output
+                .windows(b"\x1b_Ga=T".len())
+                .any(|window| window == b"\x1b_Ga=T")
+        );
+        assert_restored(&screen, &output);
+    }
+    Ok(())
+}
+
+#[test]
+fn img_018_kitty_display_replace_and_shutdown_cleanup_over_pty() -> Result<()> {
+    let mut case = PtyCase::spawn_with(illustrated_markdown)?;
+    let query = case.wait_for_wire(b"\x1b_Gi=")?;
+    let id = case.kitty_query_id(query)?;
+    case.send(format!("\x1b_Gi={id};OK\x1b\\").as_bytes())?;
+    case.wait_for_wire_count(b"\x1b_Ga=T", 1)?;
+
+    case.resize(72, 20)?;
+    case.wait_for_wire_count(b"\x1b_Ga=T", 2)?;
+    case.wait_for_wire(b"\x1b_Ga=d,d=I,i=")?;
+    case.send(b"G")?;
+    case.wait_for_wire_count(b"\x1b_Ga=d,d=I,i=", 2)?;
+    case.send(b"gg")?;
+    case.wait_for_wire_count(b"\x1b_Ga=T", 3)?;
+    case.send(b"q")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    let last_delete = output
+        .windows(b"\x1b_Ga=d,d=I,i=".len())
+        .rposition(|window| window == b"\x1b_Ga=d,d=I,i=")
+        .context("Kitty cleanup delete")?;
+    let leave = output
+        .windows(b"\x1b[?1049l".len())
+        .position(|window| window == b"\x1b[?1049l")
+        .context("leave alternate screen")?;
+    assert!(last_delete < leave, "native cleanup precedes restoration");
+    assert_restored(&screen, &output);
+    Ok(())
+}
+
+#[test]
+fn img_018_sixel_and_iterm2_emit_only_the_selected_protocol_over_pty() -> Result<()> {
+    for (response, signature) in [
+        (
+            b"\x1bP1+r544e=787465726d2d736978656c\x1b\\".as_slice(),
+            b"\x1bP0;0;0q".as_slice(),
+        ),
+        (
+            b"\x1bP0+r544e\x1b\\\x1bP>|iTerm2 3.5.10\x1b\\".as_slice(),
+            b"\x1b]1337;MultipartFile=".as_slice(),
+        ),
+    ] {
+        let mut case = PtyCase::spawn_with(illustrated_markdown)?;
+        case.wait_for_wire(b"\x1b_Gi=")?;
+        case.send(response)?;
+        case.wait_for_wire(signature)?;
+        case.send(b"q")?;
+        let (status, screen, output) = case.finish()?;
+
+        assert!(status.success());
+        assert!(
+            !output
+                .windows(b"\x1b_Ga=T".len())
+                .any(|window| window == b"\x1b_Ga=T")
+        );
+        if signature.starts_with(b"\x1bP") {
+            assert!(
+                !output
+                    .windows(b"\x1b]1337;MultipartFile=".len())
+                    .any(|window| window == b"\x1b]1337;MultipartFile=")
+            );
+        } else {
+            assert!(
+                !output
+                    .windows(b"\x1bP0;0;0q".len())
+                    .any(|window| window == b"\x1bP0;0;0q")
+            );
+        }
+        assert_restored(&screen, &output);
+    }
+    Ok(())
+}
+
+#[test]
+fn img_017_sixel_without_pixel_geometry_recovers_with_a_caption() -> Result<()> {
+    let mut case = PtyCase::spawn_with(illustrated_markdown)?;
+    case.resize_with_pixels(80, 24, 0, 0)?;
+    case.wait_for_wire(b"\x1b_Gi=")?;
+    case.send(b"\x1bP1+r544e=787465726d2d736978656c\x1b\\")?;
+    case.wait_for_text("Sixel output requires measu")?;
+    case.send(b"q")?;
+    let (status, screen, output) = case.finish()?;
+
+    assert!(status.success());
+    assert!(
+        !output
+            .windows(b"\x1bP0;0;0q".len())
+            .any(|window| window == b"\x1bP0;0;0q")
+    );
+    assert_restored(&screen, &output);
+    Ok(())
 }
 
 #[test]

@@ -77,6 +77,55 @@ resource use, invalid encoding, hostile SVG content, and other security limits.
 
 ## Pending Commit
 
+### Implement terminal graphics probing and PTY lifecycle evidence
+
+**Commit subject:** Pending
+
+**Revision:** Pending
+
+**Recorded:** August 30, 2026
+
+**Behavior and risks.** Startup now sends one bounded Kitty, Sixel-identifying
+XTGETTCAP, and iTerm2 query packet under one 250 ms deadline. Strict APC/DCS
+parsers require complete framing, correlate Kitty IDs, cap total and per-frame
+bytes, and classify negative, malformed, partial, oversized, and absent reports
+without enabling native output. Crossterm remains the sole input owner;
+unrelated events observed during probing are queued in order for the reader.
+The selected backend freezes before the first frame.
+
+Protocol-aware PTY journeys answer queries through the child terminal, retain
+raw bytes, set cell/pixel geometry, and prove one-shot selection, unrelated input
+preservation, malformed/absent fallback, Kitty replacement and deletion across
+resize and viewport exit/re-entry, Sixel/iTerm2 exclusivity, missing-Sixel-
+geometry fallback, cleanup before terminal restoration, and bounded child and
+reader-thread cleanup. The protocol-neutral `IMG-018` native procedure is now
+written.
+
+**Status boundaries.** `IMG-017` is Implemented pending required hosted PTY rows.
+PTY bytes are supporting evidence only for manual `IMG-018`, which remains
+Planned. No Kitty, Sixel, or iTerm2 native terminal was available for a visual
+acceptance run, so no protocol tuple is claimed. No revision was committed or
+pushed and no hosted workflow was triggered; Tasks 23-31 therefore retain their
+manual, revision, or hosted prerequisites.
+
+**Checks.** Passed: `python3 tools/case_registry.py generate`, `python3
+tools/case_registry.py check`, `python3 tools/fixture_corpus.py check` (29
+files), `cargo fmt --check`, `cargo clippy --all-targets --all-features --locked
+-- -D warnings`, `cargo test --locked` (227 library, 9 CLI, 19 document-I/O, 10
+property, 19 native PTY, 23 render, and 12 security tests), `cargo test --doc
+--locked`, `cargo test --locked --test pty_native -- --test-threads=1`,
+`cargo +1.88.0 check --locked`, `cargo +1.88.0 test --locked` with the same
+counts, `cargo deny check`, and `git diff --check`. Dependency policy reported
+only the existing duplicate-version observations. `cargo clean` then removed
+15,057 generated files (7.5 GiB).
+
+**Changed paths and selection.** Runtime paths: `src/terminal_probe.rs`,
+`src/terminal.rs`, `src/app/state.rs`, and `src/lib.rs`. Harness and evidence:
+`tests/pty_native.rs`, registry manifests, `project_plan.md`,
+`manual_procedures.md`, `implementation_tracker.md`, `tasks left.md`, and the CI
+workflow. Selected cases: `IMG-017`, supporting `IMG-018`, and `TERM-009`.
+Profiles: `pr-core`, `native-pty`, `pr-render`, and `security`.
+
 ### Harden native graphics execution
 
 **Commit subject:** `fix: harden native graphics execution`

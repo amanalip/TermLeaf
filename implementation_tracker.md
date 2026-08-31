@@ -42,8 +42,10 @@ invalidation, explicit viewport-edge fallback, and failure-safe shutdown cleanup
 Two generation-aware workers enforce fixed queue and in-flight-byte budgets,
 cancel stale work, contain failures, and shut down without blocking terminal
 restoration. Wide TOC navigation preserves passage context in a side panel.
-Native transport implementation is complete. Active capability probing, hosted
-native lifecycle journeys, and native-terminal acceptance remain. The local
+Native transport and one-shot capability probing are complete. Deterministic PTY
+journeys cover response handling, protocol exclusivity, replacement, scrolling,
+fallback, and cleanup. Hosted lifecycle runs and native-terminal acceptance
+remain. The local
 implementation suite and security target pass; the Phase 2 gate remains
 evidence-in-progress until the
 deterministic policy and manifests are reconciled, the remaining robustness and
@@ -52,8 +54,8 @@ continues to own frozen members whose actual features land in later phases.
 
 ## Delivery Phases
 
-**Implementation progress:** 2 of 6 phase gates complete. Phase 2 probing,
-native acceptance, and external gate evidence are in progress.
+**Implementation progress:** 2 of 6 phase gates complete. Phase 2 native
+acceptance and external gate evidence are in progress.
 
 The detailed work and exit gates remain in the
 [project plan](project_plan.md#delivery-roadmap). This table is the operational
@@ -68,7 +70,7 @@ documents marked Complete do not imply their Rust harness or feature is built.
 | --- | --- | --- |
 | 0. Rust foundation | Complete | Implementation and local exact gate pass; hosted environment evidence remains recorded separately. |
 | 1. Plain-text reading loop | Complete | Frozen gate passed locally and on ENV-LINUX-PTY, ENV-MAC-PTY, and ENV-WIN-PTY rows (run `32535725291`); cross-phase members owned forward by DD-026 with procedures recorded in `manual_procedures.md`. |
-| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, and responsive TOC pass. Capability probing, hosted PTY rows, native protocol procedures, and gate evidence remain. |
+| 2. Structured books and images | In progress | Structured semantics/navigation, archive/control-document security, deterministic robustness, raster/SVG decoding, bounded workers, native and cell transports, capability probing, PTY lifecycle journeys, and responsive TOC pass. Hosted rows, native protocol observations, and gate evidence remain. |
 | 3. Dependable reading | Not started | State, recents, search, selection, annotations, complete help, focus/text safety, and required native/accessibility evidence pass. |
 | 4. Product refinement | Not started | Recovery, links, Paper matrix, privacy, usability, accessibility, performance, and guidance meet their gates. |
 | 5. Release | Not started | Cumulative native, packaging/install, upgrade disposition, supply-chain, capture, and known-limitation evidence passes. |
@@ -117,7 +119,7 @@ already inside the six phases; it does not add another phase.
 | Plain-text format | Complete | BOM detection, strict UTF-8, marked UTF-16, UTF-32 rejection, newline normalization, paragraph preservation, exact byte limits, hostile fixtures, fixed-seed raw-byte properties, and bounded mutations produce a valid model or typed bounded error. |
 | EPUB format | Complete | Bounded archive and control-document gates, package/spine/metadata semantics, canonical reading order, tolerant semantic XHTML, exact internal links/TOC positions, encryption/fixed-layout errors, lazy resources, no-extraction evidence, and immutable inspected bytes pass locally. |
 | Markdown format | Complete | Source-aware parsing maps full block/inline semantics, code languages and copy ranges, inert link targets, original source ranges, and images into the shared bounded model. |
-| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, positive-evidence backend selection, half-block cells, Paper-safe pixels, and caption errors pass locally. Native protocol procedure and deterministic robustness evidence remain. |
+| Inline images | In progress | Raster plus static SVG/SVGZ decode, hostile-resource rejection, generation-aware worker bounds, bounded one-shot capability probing, native and half-block output, Paper-safe pixels, caption errors, and PTY lifecycle journeys pass locally. Native-terminal execution remains. |
 
 ## The Bookshelf
 
@@ -150,7 +152,7 @@ already inside the six phases; it does not add another phase.
 
 | Feature | Status | What remains |
 | --- | --- | --- |
-| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 222 library, 9 CLI, 19 document-I/O, 23 render, 10 property, 12 security, and 14 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
+| Automated tests | In progress | Foundation, reading-loop, property, render, PTY, archive-security, and image-decode suites run — 227 library, 9 CLI, 19 document-I/O, 23 render, 10 property, 12 security, and 19 native PTY cases locally; hosted rows for the gate revision remain to be recorded. |
 | Test framework specification | Complete | Use stable IDs, exact profiles, fixtures, environments, phase gates, and blocked-decision rules from `testcases.md`. |
 | Machine-readable case registry | Complete | All 336 IDs, owners, profiles, resources, locations, status overrides, and evidence links validate bidirectionally. |
 | Executable profile manifests | Complete | Exact core, render, PTY, security, scheduled, weekly, and release commands and memberships are versioned; `FUZZ-*` targets are optional weekly discovery metadata rather than required security work. |

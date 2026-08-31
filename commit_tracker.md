@@ -26,6 +26,22 @@ otherwise have to reconstruct.
 
 ## Pending Commit
 
+### Implement terminal graphics probing and PTY lifecycle evidence
+
+**Intended subject:** `feat: probe terminal graphics capabilities`
+
+- Send one bounded Kitty, Sixel-identifying XTGETTCAP, and iTerm2 query packet
+  before the first frame while preserving unrelated Crossterm events.
+- Freeze strict complete-response parsing, one-shot backend precedence, and
+  cell/caption fallback for malformed, partial, absent, or negative evidence.
+- Add protocol-aware PTY journeys for selection, fallback, replacement,
+  scrolling, exclusivity, missing geometry, cleanup, and restoration.
+- Write the protocol-neutral `IMG-018` procedure and keep native visual
+  acceptance and hosted rows unclaimed until those environments run.
+
+Validation is recorded in
+`testreport.md#implement-terminal-graphics-probing-and-pty-lifecycle-evidence`.
+
 ### Record native transport completion
 
 **Intended subject:** `docs: record native transport completion`

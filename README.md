@@ -49,9 +49,10 @@ Phase 0 and Phase 1 are complete. Phase 2's local implementation now includes
 bounded Markdown and EPUB semantics, exact internal navigation, archive and XML
 security gates, static raster/SVG decoding, bounded generation-aware workers,
 terminal image capability selection, a Kitty/Sixel/iTerm2 transport foundation,
-half-block and caption fallbacks, and a responsive table of contents. Active
-capability probing, hosted environment journeys, and native protocol acceptance
-evidence are tracked separately and are not claimed before they run. The plan
+bounded one-shot capability probing, PTY image lifecycle journeys, half-block
+and caption fallbacks, and a responsive table of contents. Hosted environment
+journeys and native protocol acceptance evidence are tracked separately and are
+not claimed before they run. The plan
 now treats coverage-guided fuzzing as optional
 scheduled discovery rather than mandatory duration-based gate work, and the
 executable registry and gate manifests enforce that policy.

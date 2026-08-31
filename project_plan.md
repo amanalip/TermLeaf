@@ -178,6 +178,24 @@ The ordered display path is:
 5. Use a true-color Unicode half-block rendering inside ordinary cells.
 6. Show alt text, a caption, dimensions, and a short failure reason.
 
+Capability discovery is one-shot and completes before the first frame. TermLeaf
+writes one packet containing a Kitty `a=q,t=d,f=24` direct-transmission query
+correlated by process-local image ID, an XTGETTCAP `TN` request for an explicitly
+Sixel-named terminal description, and iTerm2's `CSI > q` extended-attributes
+request. One 250 ms deadline covers the packet. At most 4,096 response bytes and
+1,024 bytes per APC or DCS frame are retained.
+
+The parser moves between ground, APC, DCS, and string-terminator states. Only a
+complete Kitty `i=<same-id>;OK`, complete XTGETTCAP response whose decoded
+terminal name contains a separate `sixel` component, or complete
+`DCS >|iTerm2 <numeric-version> ST` is positive evidence. Explicit protocol
+errors are negative. Wrong IDs, malformed values, oversized frames, incomplete
+terminators, late responses, and absence never enable native output. Unrelated
+Crossterm events collected during the deadline stay ordered for the event loop;
+response frames are consumed. Selection then freezes in Kitty, Sixel, iTerm2,
+true-color cells, 256-color cells, caption order. There are no retries or
+mid-session backend changes.
+
 `ratatui-image` will integrate images with Ratatui's redraw model. `image` will
 decode bounded raster input. `usvg` and `resvg` will rasterize static SVG and
 SVGZ without scripts, animation, network access, or host filesystem access.

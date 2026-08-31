@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -21,6 +22,7 @@ jobs:
       - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
       - run: rustup default stable
       - run: python3 tools/case_registry.py check
+      - run: python3 tools/fixture_corpus.py check
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
       - run: cargo test --locked
@@ -39,17 +41,51 @@ jobs:
       - run: rustup default stable
       - run: cargo test --locked --test pty_native -- --test-threads=1
 
+  render:
+    name: Render (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: cargo test --locked --test render
+
+  security:
+    name: Security (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: cargo test --locked --test security
+
   dependencies:
-    name: Dependency policy
-    runs-on: ubuntu-latest
+    name: Dependency policy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: cargo install cargo-deny --version 0.20.2 --locked
       - run: cargo deny check
 
   minimum-rust:
-    name: Rust 1.88
-    runs-on: ubuntu-latest
+    name: Rust 1.88 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: rustup toolchain install 1.88.0 --profile minimal
