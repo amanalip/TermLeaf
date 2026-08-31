@@ -20,12 +20,21 @@ REVISION = "fixture-corpus-v1"
 STAMP = (2026, 8, 21, 12, 0, 0)
 
 
-def zip_bytes(members: list[tuple[str, bytes]], *, mimetype_first: bool = False) -> bytes:
+def zip_bytes(
+    members: list[tuple[str, bytes]],
+    *,
+    mimetype_first: bool = False,
+    store_all: bool = False,
+) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         for index, (name, payload) in enumerate(members):
             info = zipfile.ZipInfo(name, date_time=STAMP)
-            info.compress_type = zipfile.ZIP_STORED if mimetype_first and index == 0 else zipfile.ZIP_DEFLATED
+            info.compress_type = (
+                zipfile.ZIP_STORED
+                if store_all or (mimetype_first and index == 0)
+                else zipfile.ZIP_DEFLATED
+            )
             if mimetype_first and index == 0:
                 info.external_attr = 0o444 << 16
             archive.writestr(info, payload)
@@ -81,6 +90,7 @@ def generated_files() -> dict[str, bytes]:
             ("OEBPS/ch2.xhtml", encoded(epub.CHAPTER_TWO)),
         ],
         mimetype_first=True,
+        store_all=True,
     )
     valid_epub2 = zip_bytes(
         common

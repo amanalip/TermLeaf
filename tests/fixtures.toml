@@ -169,11 +169,11 @@ path = "tests/fixtures/epub/hostile.epub"
 source = "TermLeaf-authored hostile synthetic fixture"
 authored_provenance = "Authored in tools/fixture_corpus.py by the TermLeaf project; payload URLs are local or reserved non-resolving examples"
 license = "GPL-3.0-only"
-sha256 = "99da20a9b61ee83b59247c201bb84db5896013416d8ea062830a379b130171fe"
-size = 1852
+sha256 = "e3a94de215a524a5677a3d9272818ab37469a78fcd6f3ca7220b3f0bc7b85250"
+size = 2710
 generator = "tools/fixture_corpus.py"
 generator_revision = "fixture-corpus-v1"
-generator_parameters = "parent-escaping ZIP member and OPF href; DTD external entity; script; remote image"
+generator_parameters = "stored ZIP members; parent-escaping member and OPF href; DTD external entity; script; remote image"
 expected_properties = ["unsafe archive name is rejected", "external entity and remote image are never resolved", "script remains inert"]
 served_case_ids = ["EPUB-009", "SEC-001", "SEC-002"]
 
